@@ -13642,7 +13642,8 @@ t("Esporta: col mouse la scelta della scala si vede anche in Semplice (16/10); s
   const blocco = desk.slice(desk.indexOf("@media (min-width:881px){"), desk.indexOf("{display:none !important}"));
   ok(blocco.length > 0 && !/#pdfScaleRow/.test(blocco), "col mouse #pdfScaleRow non è più nascosta");
   ok(!/#pdfScaleCustomRow/.test(blocco), "la riga della scala personalizzata segue solo il suo hidden");
-  ok(/body:not\(\.f-esporta\) #pdfScaleRow,/.test(stylesCss.slice(0, stylesCss.indexOf("/* ── SEMPLICE, COL MOUSE"))), "sul telefono resta dietro «Altre opzioni»");
+  ok(!/body:not\(\.f-esporta\) #pdfScaleRow,/.test(stylesCss.slice(0, stylesCss.indexOf("/* ── SEMPLICE, COL MOUSE"))), "dal 23/11 (Esporta V1) la scala sta in vista accanto al formato anche sul telefono");
+  ok(!/body:not\(\.f-esporta\) #pdfScaleCustomRow/.test(stylesCss), "e la riga della personalizzata segue solo il suo hidden");
   ok(/<div id="pdfScaleRow">[\s\S]{0,120}<select id="pdfScale">/.test(appjs + readFileSync(join(root, "app/index.html"), "utf8")), "il selettore è accanto a formato e orientamento");
 });
 /* 16/10 — Simone: «mi sembra che lo sgabello per timpani non ci sia». Nel disegno c'era (parts.stool!==false), nel cartiglio
@@ -23384,6 +23385,111 @@ t("Esporta: riga di riepilogo «A3 · 1:50 · 6 pagine · v3 · 23/11/2026» (fo
   ok(!/pdfRigaRiepilogo\(/.test(appjs.slice(appjs.indexOf("function buildPdfDoc"), appjs.indexOf("function buildPdfDoc") + 60000)), "buildPdfDoc non usa la riga");
   reset();
 });
+/* ===== ESPORTA V1 «ANTEPRIMA SEMPRE VISIBILE» (23/11/2026, lotto A della semplificazione) =====
+   Solo un riordino dei controlli esistenti: stessi id, stessi gestori, stessi PDF. Il collaudo (30 progetti, 90 hash) è la prova che nessun PDF cambia. */
+const _shellV1 = () => readFileSync(join(root, "app/index.html"), "utf8");
+const _modaleV1 = () => { const h = _shellV1(); const i = h.indexOf('id="pdfModal"'); return h.slice(i, h.indexOf('id="svcOrdModal"', i)); };
+const _fra = (h, da, a) => { const i = h.indexOf(da); return i < 0 ? "" : h.slice(i, a ? h.indexOf(a, i + da.length) : undefined); };
+t("Esporta V1: tre scelte in primo piano (Cosa, Formato e scala, Nome e versione) PRIMA di «Altre opzioni»; questo è un <details> CHIUSO di serie", () => {
+  const m = _modaleV1();
+  const iAltId = m.indexOf('id="pdfAltre"');
+  ok(iAltId > -1 && /<details[^>]*id="pdfAltre"[^>]*>/.test(m), "c'è #pdfAltre ed è un <details>");
+  ok(!/<details[^>]*id="pdfAltre"[^>]*\bopen\b/.test(m), "chiuso di serie: niente attributo open");
+  ["pdfScelte", "pdfPaper", "pdfScale", "pdfTitolo", "pdfVersione"].forEach((id) => ok(m.indexOf('id="' + id + '"') > -1 && m.indexOf('id="' + id + '"') < iAltId, id + " sta in primo piano, prima di «Altre opzioni»"));
+  const dentro = _fra(m, '<details', '</details>');
+  ["pdfStatoDoc", "pdfDocLingua", "pdfDocUnita", "pdfOrient", "pdfMisStile", "pdfFamCol", "pdfPedMis", "pdfOrganico", "pdfAllegati", "pdfPesiRow", "pdfAreaRow", "pdfHdrRow", "pdfTechBox", "pdfProBtn"]
+    .forEach((id) => ok(dentro.indexOf('id="' + id + '"') > -1, id + " sta dentro «Altre opzioni»"));
+  ["pdfScelte", "pdfPaper", "pdfScale", "pdfTitolo", "pdfVersione"].forEach((id) => ok(dentro.indexOf('id="' + id + '"') < 0, id + " NON sta dentro «Altre opzioni»"));
+  ok(/<summary[^>]*>[\s\S]*?Altre opzioni/.test(dentro), "il riassunto dice «Altre opzioni»");
+  ok(/id="pdfAltreN"/.test(dentro), "con il contatore delle opzioni cambiate");
+});
+t("Esporta V1: un solo bottone primario («Scarica PDF»); le altre uscite stanno in UN gruppo secondario, con i loro id e gestori di sempre", () => {
+  const m = _modaleV1(), foot = _fra(m, 'class="pdf-exp-foot"', 'id="pdfInvitoSalva"');
+  eq((foot.match(/class="btn primary"/g) || []).length, 1, "un solo primario nel piede");
+  ok(/class="btn primary" id="pdfGo">Scarica PDF</.test(foot), "il primario dice «Scarica PDF»");
+  ok(/id="pdfAltriBtn"[^>]*aria-haspopup/.test(foot) && /id="pdfAltriBtn"[^>]*aria-expanded="false"/.test(foot) && /aria-controls="pdfAltriMenu"/.test(foot), "bottone «Altri file» con aria-haspopup, aria-expanded, aria-controls");
+  const menu = _fra(foot, 'id="pdfAltriMenu"');
+  ok(/id="pdfAltriMenu"[^>]*hidden/.test(foot), "il gruppo è chiuso di serie");
+  ["pdfEsterni", "pdfTeatro", "pdfAltZip", "pdfAltPng", "pdfAltCsv"].forEach((id) => {
+    ok(menu.indexOf('id="' + id + '"') > -1, id + " sta nel gruppo secondario");
+    ok(appjs.indexOf('getElementById("' + id + '")') > -1, id + ": il gestore di sempre cerca ancora lo stesso id");
+  });
+  ok(/Palco per esterni[\s\S]{0,260}PDF/.test(menu), "«Palco per esterni» dice che scarica un PDF");
+  ok(!/id="pdfEsterniBox"/.test(_fra(m, 'class="pdf-exp-side"', 'id="pdfAltre"')), "«Palco per esterni» non sta più in mezzo alle scelte");
+});
+t("Esporta V1: il menu «Altri file» si apre/chiude, Esc lo chiude PRIMA della finestra, un clic su una voce lo chiude; chiuso a ogni apertura", () => {
+  const i = appjs.indexOf("function pdfAltriInit");
+  ok(i > -1, "esiste pdfAltriInit");
+  const h = appjs.slice(i, i + 2500);
+  ok(/aria-expanded/.test(h) && /\.hidden\s*=/.test(h), "aggiorna aria-expanded e hidden");
+  ok(/Escape/.test(h) && /stopPropagation/.test(h), "Esc chiude il menu senza chiudere la finestra");
+  ok(/addEventListener\("click"/.test(h), "clic su una voce / fuori chiude");
+  ok(/window\.__pdfAltriChiudi\s*=/.test(h), "si può chiudere dall'apertura della finestra");
+  const ap = appjs.slice(appjs.indexOf("function _pdfExportModalCore"), appjs.indexOf("function _pdfExportModalCore") + 3500);
+  ok(/__pdfAltriChiudi/.test(ap), "ogni apertura dell'Esporta parte col menu chiuso");
+});
+t("Esporta V1: «Altre opzioni» conta le opzioni cambiate (pdfAltreCambiate) senza contare i valori di serie", () => {
+  const base = { stato: "", lingua: "", unita: "m", orient: "auto", stile: "std", famCol: false, pedMis: "full", organico: false, pesi: false, header: "", area: false, scaletta: false, qr: false, allegati: 0 };
+  eq(A.pdfAltreCambiate(base), 0, "tutto di serie = 0");
+  eq(A.pdfAltreCambiate({ ...base, stato: "definitivo" }), 1, "stato");
+  eq(A.pdfAltreCambiate({ ...base, lingua: "en", unita: "ft" }), 2, "lingua e unità");
+  eq(A.pdfAltreCambiate({ ...base, orient: "portrait", stile: "mx", famCol: true, pedMis: "none" }), 4, "disegno");
+  eq(A.pdfAltreCambiate({ ...base, header: "  ", allegati: 0 }), 0, "un riferimento di soli spazi non conta");
+  eq(A.pdfAltreCambiate({ ...base, header: "Fonico: X", area: true, organico: true, pesi: true, scaletta: true, qr: true, allegati: 2 }), 7, "area, riferimento, organico, pesi, scaletta, QR, allegati");
+});
+t("Esporta V1: la riga di riepilogo dice anche lingua e unità SOLO quando non sono quelle di serie; il resto delle stringhe non cambia", () => {
+  reset(); A.state.versione = 3; const d = new Date(2026, 10, 23);
+  eq(A.pdfRigaRiepilogo("a3", 50, 6, d), "A3 · 1:50 · 6 pagine · v3 · 23/11/2026", "di serie: identica a prima");
+  A.state.docLang = "en";
+  ok(/ · English$/.test(A.pdfRigaRiepilogo("a3", 50, 6, d)), "English in coda");
+  delete A.state.docLang; A.state.docUnits = "ft";
+  ok(/ · ft-in$/.test(A.pdfRigaRiepilogo("a3", 50, 6, d)), "ft-in in coda");
+  A.state.docUnits = "both";
+  ok(/ · m \(ft-in\)$/.test(A.pdfRigaRiepilogo("a3", 50, 6, d)), "m (ft-in) in coda");
+  reset();
+});
+t("Esporta V1: l'anteprima mostra anche il piè del foglio («1 di N · vN · data · stato») come il PDF, e solo lì", () => {
+  reset(); A.state.versione = 3; A.state.statoDoc = "definitivo";
+  const svg = A.pdfPreviewSvg("a4", 100, "landscape", "", { nPag: 3 });
+  ok(/>1 di 3</.test(svg), "«1 di 3» nel piè dell'anteprima");
+  ok(/>v3 · \d{2}\/\d{2}\/\d{4}[^<]*Definitivo</.test(svg), "versione, data e stato nel piè: " + (svg.match(/>v3[^<]*</) || [""])[0]);
+  delete A.state.versione; delete A.state.statoDoc;
+  const nuda = A.pdfPreviewSvg("a4", 100, "landscape", "", { nPag: 1 });
+  ok(/>1 di 1</.test(nuda) && !/>v\d/.test(nuda), "senza versione: solo «1 di 1»");
+  const doc = appjs.slice(appjs.indexOf("function pdfCredit"), appjs.indexOf("function pdfCredit") + 1800);
+  ok(/pieDocumentoEtichetta\(\)/.test(doc), "il PDF continua a usare pieDocumentoEtichetta (non toccato)");
+  reset();
+});
+t("Esporta V1: scrivere il nome del progetto ridisegna l'anteprima (il cartiglio lo mostra), solo se l'Esporta è aperta", () => {
+  const i = appjs.indexOf("function setEventInputs()");
+  const h = appjs.slice(i, i + 4500);
+  ok(/window\.__esportaRiaggiorna\)\s*window\.__esportaRiaggiorna\(\)/.test(h), "setEventInputs richiama l'anteprima (la chiama davvero)");
+  ok(/pdfModal/.test(h.slice(h.indexOf("__esportaRiaggiorna") - 250, h.indexOf("__esportaRiaggiorna") + 80)), "solo con la finestra aperta");
+  ok(/window\.__esportaRiaggiorna\s*=\s*(refresh|function)/.test(appjs), "esposta dal blocco Esporta");
+});
+t("Esporta V1: stile delle misure, colore per famiglia e misura delle pedane ridisegnano l'anteprima (prima chiamavano un refresh che fuori dall'Esporta non esiste)", () => {
+  ["pdfPedMis", "pdfFamCol", "pdfMisStile"].forEach((id) => {
+    const i = appjs.indexOf('getElementById("' + id + '"); if(!'); ok(i > -1, id + ": blocco trovato");
+    const b = appjs.slice(i, appjs.indexOf("})();", i));   /* solo il SUO blocco, non i vicini */
+    ok(/save\(\); render\(\);/.test(b) && /window\.__esportaRiaggiorna\)\s*window\.__esportaRiaggiorna\(\)/.test(b), id + ": dopo save/render richiama l'anteprima");
+    ok(/pdfModal/.test(b.slice(b.indexOf("__esportaRiaggiorna") - 120, b.indexOf("__esportaRiaggiorna") + 40)), id + ": solo con l'Esporta aperta");
+  });
+});
+t("Esporta V1: disposizione CSS — computer: scelte a sinistra e anteprima grande a destra; iPhone: anteprima in alto compatta, scelte sotto", () => {
+  ok(/\.pdf-exp-grid\{[^}]*grid-template-columns:\s*340px minmax\(0,1fr\)/.test(stylesCss), "computer: colonna scelte 340 px + anteprima 1fr");
+  ok(/@media\(max-width:720px\)[\s\S]{0,2400}\.pdf-exp-main\{[^}]*order:\s*-1/.test(stylesCss), "telefono: l'anteprima passa sopra");
+  ok(/#pdfAltre\b/.test(stylesCss), "stile di «Altre opzioni»");
+  ok(/#pdfAltriMenu\b/.test(stylesCss), "stile del menu «Altri file»");
+  ok(/#pdfAltre>summary:focus-visible|#pdfAltre summary:focus-visible/.test(stylesCss), "fuoco visibile sul riassunto");
+});
+t("Esporta V1: etichette brevi — le code «— spiegazione» delle scelte principali sono sparite, restano i tag «dove si vede»; base sotto le 150 parole", () => {
+  const m = _modaleV1(), side = _fra(m, 'class="pdf-exp-side"', 'class="pdf-exp-main"');
+  ok(!/intestazione del documento e nome del file/.test(side), "niente «— intestazione del documento e nome del file»");
+  ok(!/Versione = il numero \(v1, v2…\) scritto sul PDF/.test(side.slice(0, side.indexOf('id="pdfAltre"'))), "niente frase di 2 righe sulla Versione in base");
+  const base = side.slice(0, side.indexOf('id="pdfAltre"')).replace(/<!--[\s\S]*?-->/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  ok(base.length < 150, "le parole in base (prima di «Altre opzioni») sono meno di 150: " + base.length);
+  ok(/class="px-dove"/.test(side), "c'è almeno un tag «dove si vede»");
+});
 t("due scelte: il riepilogo dice quante pagine e quali (nomi brevi)", () => {
   eq(A.pdfRiepilogoPagine(["Palco"]), "1 pagina: palco");
   eq(A.pdfRiepilogoPagine(["Palco", "Ingressi", "Monitor", "Channel list"]), "4 pagine: palco · ingressi · monitor · channel list");
@@ -25887,7 +25993,7 @@ t("sul telefono la finestra Esporta chiede tre cose, non trenta", () => {
   /* Trenta controlli, e su un telefono serve premere «Scarica». Restano l'anteprima, il nome, il
      formato e l'orientamento; il resto sta dietro la STESSA preferenza del pannello elemento —
      chi accende «tecnico» lo accende una volta, non due. */
-  ["pdfTechBox", "pdfAreaRow", "pdfScaleRow", "pdfHdrRow", "pdfTechRow"].forEach((id) => {
+  ["pdfTechBox", "pdfAreaRow", "pdfHdrRow", "pdfTechRow"].forEach((id) => {   /* la scala è uscita dalla lista col lotto A «V1» (23/11): sta in vista accanto al formato */
     ok(new RegExp("body:not\\(\\.f-esporta\\) #" + id).test(stylesCss), id + " sta dietro il bottone");
   });
   const html = readFileSync(join(root, "app/index.html"), "utf8");
@@ -34824,8 +34930,8 @@ t("Palco per esterni: il PDF è solo disegno + barra + fascia (struttura del cod
   ["drawStageVector", "pdfScaleBar(", "pdfScaleBarPosa", "pdfCredit(doc)", "palcoEsterniPiano", "palcoEsterniTesti"].forEach((x) => ok(b.indexOf(x) >= 0, "usa " + x));
   ok(/areaFoglio:\{x:L\.drawX, y:L\.drawY\+sh/.test(b), "la planimetria di sfondo scende con il disegno");
   const html = readFileSync(join(root, "app/index.html"), "utf8");
-  ok(/id="pdfEsterni"[^>]*><span><b>Palco per esterni<\/b> \(solo disegno, con versione\)<\/span>/.test(html), "la voce «Palco per esterni (solo disegno, con versione)»");
-  ok(html.indexOf('id="pdfEsterni"') > html.indexOf('id="pdfScSolo"') && html.indexOf('id="pdfEsterni"') < html.indexOf('id="pdfGo"'), "sta accanto alle scelte del PDF completo");
+  ok(/id="pdfEsterni"[^>]*><span><b>Palco per esterni<\/b> · PDF<\/span>/.test(html) && /Solo il disegno con titolo, luogo e versione[^<]*Scarica subito/.test(html), "la voce «Palco per esterni · PDF» (V1: nel menu «Altri file», dice che scarica subito)");
+  ok(html.indexOf('id="pdfEsterni"') > html.indexOf('id="pdfScSolo"') && html.indexOf('id="pdfEsterni"') < html.indexOf('id="pdfGo"'), "sta fra le scelte del PDF completo e il bottone «Scarica PDF»");
   ok(/pdfGateErrori\(function\(\)\{\s*be\.disabled=true;[\s\S]*?exportPalcoEsterni\(/.test(appjs), "passa dal gate sugli errori critici come gli altri export");
   ok(/palcoEsterniNomeFile\(\); pdfSave\(doc, nome\)/.test(appjs), "esce col suo nome");
   const ex = appjs.slice(appjs.indexOf("function exportPalcoEsterni"), appjs.indexOf("function exportPdf(paperKey"));

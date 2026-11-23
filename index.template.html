@@ -2446,21 +2446,62 @@
           <div class="pdf-sc-riep" id="pdfScRiepilogo" role="status" aria-live="polite"></div>
           <div class="pdf-sc-nota" id="pdfScNota" hidden></div>
         </div>
-        <!-- PALCO PER ESTERNI (16/11/2026, M-078): la seconda uscita di ogni versione, accanto al PDF completo. Solo il disegno,
-             con la fascia «titolo · luogo · Stage plot vN · data»: è ciò che si manda a teatro, service, Diego. -->
-        <div class="pdf-esterni" id="pdfEsterniBox">
-          <button type="button" class="btn" id="pdfEsterni"><span><b>Palco per esterni</b> (solo disegno, con versione)</span></button>
-          <small>PDF vettoriale per teatro, service e Diego: il palco in scala con titolo, luogo, versione e data in alto. Niente cartiglio, conteggi né liste.</small>
+        <div class="px-sez" id="pxFormato">
+          <div class="px-riga">
+            <div class="px-col">
+<div>
+            <label for="pdfPaper">Formato</label>
+            <select id="pdfPaper" hidden>
+              <option value="a4">A4 (29,7×21 cm)</option>
+              <option value="a3">A3 (42×29,7 cm)</option>
+              <option value="a2">A2 (59,4×42 cm)</option>
+            </select>
+            <div class="chips" data-chips="pdfPaper">
+              <button type="button" data-v="a4" class="on">A4</button>
+              <button type="button" data-v="a3">A3</button>
+              <button type="button" data-v="a2">A2</button>
+            </div>
+          </div>
+            </div>
+            <div class="px-col px-grow" id="pdfScaleRowCol">
+<div id="pdfScaleRow">
+            <label for="pdfScale">Scala</label>
+            <select id="pdfScale">
+              <option value="auto">Automatica</option>
+              <option value="50">1:50</option>
+              <option value="100">1:100</option>
+              <option value="200">1:200</option>
+              <option value="250">1:250</option>
+              <option value="500">1:500</option>
+              <option value="custom">Personalizzata…</option>
+            </select>
+          </div>
+            </div>
+          </div>
+        <div id="pdfScaleCustomRow" hidden style="display:flex;align-items:center;gap:6px;margin-top:6px">
+          <span style="font-size:13px;color:var(--text-2)">1:</span>
+          <input aria-label="Scala personalizzata" type="number" id="pdfScaleCustom" min="10" max="500" step="1" value="75" style="width:82px" inputmode="numeric">
+          <span style="font-size:12px;color:var(--text-3)">(10–500)</span>
         </div>
-        <!-- FOGLIO PER IL TEATRO (16/11/2026, L4.1): terza uscita, SOLO con «Esporta avanzato» acceso (avanzate chiuse di serie, 13/11) -->
-        <div class="pdf-esterni" id="pdfTeatroBox">
-          <button type="button" class="btn" id="pdfTeatro"><span><b>Foglio per il teatro</b> (sedie, pedane, scalette, prese)</span></button>
-          <small>PDF A4 con ciò che serve sul palco, ricavato dal progetto, con la stessa versione e data dello stage plot.</small>
         </div>
-        <div id="pdfTechBox" style="display:none">
-          <div class="pdf-side-h" id="pdfPillsTitle">Pagine del PDF, una per una</div>
-          <div id="pdfPills" class="pillrow"></div>
-          <div id="pdfTechNote"></div>
+        <div class="px-sez" id="pxNomeVer">
+          <div class="px-riga">
+            <div class="px-col px-grow">
+              <!-- NOME DEL PROGETTO (11/08): senza nome il file usciva `stage-plot.pdf` e un service che riceve tre rider in una sera si ritrova tre file con lo stesso nome.
+                   Stesso `state.titolo` dell'header (nessuno stato nuovo). 23/11: la spiegazione lunga è diventata il tag «dove si vede». -->
+              <label for="pdfTitolo">Nome <span class="px-dove">nel cartiglio e nel file</span></label>
+              <input type="text" id="pdfTitolo" placeholder="Dai un nome al palco" maxlength="120">
+            </div>
+            <div class="px-col px-vers">
+              <!-- VERSIONE (12/11/2026): numero del documento, nel piè di ogni pagina e nel nome del file. Vuota = come prima; se il titolo finisce con «vN» si legge da lì. -->
+              <label for="pdfVersione">Versione <span class="px-dove">nel piè</span></label>
+              <input type="text" id="pdfVersione" inputmode="numeric" maxlength="3" placeholder="es. 1" autocomplete="off">
+            </div>
+          </div>
+          <div class="hdr-saved" id="pdfVersioneHint"></div>
+          <div class="hdr-saved" id="pdfFileName"></div>
+          <div class="hdr-saved" id="pdfUltimo" hidden></div>
+        <div class="hdr-saved" id="pdfTagliaHint" hidden><span id="pdfTagliaTesto"></span> <button type="button" class="btn" id="pdfTagliaBtn">Aggiungi al nome</button></div>
         </div>
         <div id="prodNudge"></div>
         <div id="prodInline" hidden></div>
@@ -2478,6 +2519,17 @@
           <input type="text" id="pdfDiffMotivo" maxlength="120" autocomplete="off" placeholder="es. +20 cm di quota, aggiunto plexiglass">
           <button type="button" class="btn" id="pdfDiffCopia">Copia testo</button>
         </div>
+        <!-- ALTRE OPZIONI (23/11/2026, lotto A «V1»): tutto ciò che prima stava sparso nella colonna, raggruppato e CHIUSO di serie. Stessi controlli, stessi id, stessi gestori:
+             cambia solo dove stanno. Il contatore dice quante opzioni sono diverse dal valore di serie. -->
+        <details id="pdfAltre" class="px-altre">
+          <summary><span>Altre opzioni</span><span class="px-n" id="pdfAltreN" hidden></span></summary>
+          <div class="px-altre-in">
+            <div class="px-g">Documento</div>
+        <!-- STATO DEL DOCUMENTO (15/11/2026, S22 parte 1; dicitura scelta da Simone): «Provvisorio» / «Definitivo», facoltativo.
+             Nessuno = documento e nome del file identici a prima. In PRODUZIONE vanno solo i definitivi (regola di Diego, 23/01/2025). -->
+        <label for="pdfStatoDoc">Stato del documento <span class="px-dove">nel piè e nel file</span></label>
+        <select id="pdfStatoDoc"><option value="">Nessuno</option><option value="provvisorio">Provvisorio</option><option value="definitivo">Definitivo</option></select>
+        <div class="hdr-saved" id="pdfVersioneFrase">Versione = il numero (v1, v2…) scritto sul PDF. Per un'altra disposizione della stessa serata usa «+ Variante»; per un altro progetto, «Duplica» in I miei progetti.</div>
         <!-- FORMATO DELLA CHANNEL LIST (12/11/2026): Semplice (di sempre) o Service (pagine da 32/48, A4 orizzontale). Impostazione dell'export, non del progetto. -->
         <div id="pdfListaFmt" hidden>
           <label for="pdfListaFormato">Formato della channel list</label>
@@ -2495,61 +2547,10 @@
           <label for="pdfOutFormato">Formato dell'output list</label>
           <select id="pdfOutFormato"><option value="semplice" selected>Semplice</option><option value="service">Service</option></select>
         </div>
-        <!-- NOME DEL PROGETTO (11/08): nessun passaggio del cammino lo chiedeva mai — il campo esiste
-             nell'header col placeholder «Senza titolo» e non viene richiamato da nessuna parte, così
-             il file usciva `stage-plot.pdf` e un service che riceve tre rider in una sera si ritrova
-             tre file con lo stesso nome. Qui è il momento giusto per chiederlo: è lo stesso
-             `state.titolo` dell'header (nessuno stato nuovo), e sotto si legge come si chiamerà il file. -->
-        <label for="pdfTitolo">Nome del progetto <span class="hdr-why">— intestazione del documento e nome del file</span></label>
-        <input type="text" id="pdfTitolo" placeholder="Dai un nome al palco" maxlength="120">
-        <!-- VERSIONE (12/11/2026): numero del documento, nel piè di ogni pagina e nel nome del file. Vuota = come prima;
-             se il titolo finisce con «vN» si legge da lì. Testo con tastiera numerica: riusa lo stile degli altri campi. -->
-        <label for="pdfVersione">Versione <span class="hdr-why">— nel piè di ogni pagina e nel nome del file</span></label>
-        <input type="text" id="pdfVersione" inputmode="numeric" maxlength="3" placeholder="es. 1" autocomplete="off" style="width:110px">
-        <div class="hdr-saved" id="pdfVersioneHint"></div>
-        <div class="hdr-saved" id="pdfVersioneFrase">Versione = il numero (v1, v2…) scritto sul PDF. Per un'altra disposizione della stessa serata usa «+ Variante»; per un altro progetto, «Duplica» in I miei progetti.</div>
-        <!-- STATO DEL DOCUMENTO (15/11/2026, S22 parte 1; dicitura scelta da Simone): «Provvisorio» / «Definitivo», facoltativo.
-             Nessuno = documento e nome del file identici a prima. In PRODUZIONE vanno solo i definitivi (regola di Diego, 23/01/2025). -->
-        <label for="pdfStatoDoc">Stato del documento <span class="hdr-why">— facoltativo: nel piè, nel cartiglio e nel nome del file</span></label>
-        <select id="pdfStatoDoc" style="width:150px"><option value="">Nessuno</option><option value="provvisorio">Provvisorio</option><option value="definitivo">Definitivo</option></select>
-        <div class="hdr-saved" id="pdfFileName"></div>
-        <div class="hdr-saved" id="pdfUltimo" hidden></div>
-        <!-- SCALETTA e QR (10/10/2026, idee dal confronto con TecRider Pro). Fuori da «Altre opzioni»:
-             la scaletta è contenuto scritto dall'utente, e il QR esiste solo per chi ha già un link
-             attivo. Le righe compaiono solo quando servono (style.display: `.pdf-exp-side>label`
-             batterebbe l'attributo hidden). -->
-        <label class="chk" id="pdfScalettaRow" style="display:none"><input type="checkbox" id="pdfScaletta"> Scaletta <small class="lbl-note" id="pdfScalettaNota"></small></label>
-        <div class="pdf-qr-row" id="pdfQrRow" style="display:none">
-          <label class="chk"><input type="checkbox" id="pdfQr"> Aggiungi un QR alla versione online aggiornata</label>
-          <div class="pdf-qr-nota" id="pdfQrNota">Chi ha il PDF potrà inquadrarlo e aprire il progetto online, aggiornato all'ultima modifica, finché il link di condivisione resta attivo.</div>
-          <div class="pdf-qr-avviso" id="pdfQrAvviso" role="status" hidden></div>
-        </div>
-        <!-- AREA DI STAMPA (31/07): era il passaggio precedente, una finestra a sé che si attraversava
-             per arrivare qui. Ora è una riga di questa: si legge cosa verrà stampato e si cambia se
-             serve, senza uscire. -->
-        <div class="pdf-optrow" id="pdfAreaRow">
-          <div style="flex:1">
-            <label>Area stampata</label>
-            <div class="pdf-area-line"><b id="pdfAreaTxt">tutto il palco</b>
-              <button type="button" class="btn" id="pdfAreaBtn">Cambia…</button></div>
-          </div>
-        </div>
-        <div class="pdf-optrow">
-          <div>
-            <label for="pdfPaper">Formato</label>
-            <select id="pdfPaper" hidden>
-              <option value="a4">A4 (29,7×21 cm)</option>
-              <option value="a3">A3 (42×29,7 cm)</option>
-              <option value="a2">A2 (59,4×42 cm)</option>
-            </select>
-            <div class="chips" data-chips="pdfPaper">
-              <button type="button" data-v="a4" class="on">A4</button>
-              <button type="button" data-v="a3">A3</button>
-              <button type="button" data-v="a2">A2</button>
-            </div>
-          </div>
-          <div>
-            <label>Orientamento</label>
+            <div class="px-g">Disegno</div>
+        <div class="px-col" id="pdfOrientCol">
+<div>
+            <label>Orientamento <span class="px-dove">sul foglio</span></label>
             <!-- «Auto» è il default: sceglie il verso del foglio che stampa il palco più grande, e lo
                  dichiara nella riga di stato qui sotto. I due chip restano, e vincono sempre. -->
             <select id="pdfOrient" hidden>
@@ -2563,32 +2564,16 @@
               <button type="button" data-v="portrait">Vert.</button>
             </div>
           </div>
-          <div id="pdfScaleRow">
-            <label for="pdfScale">Scala</label>
-            <select id="pdfScale">
-              <option value="auto">Automatica</option>
-              <option value="50">1:50</option>
-              <option value="100">1:100</option>
-              <option value="200">1:200</option>
-              <option value="250">1:250</option>
-              <option value="500">1:500</option>
-              <option value="custom">Personalizzata…</option>
-            </select>
+        </div>
+        <!-- AREA DI STAMPA (31/07): era il passaggio precedente, una finestra a sé che si attraversava
+             per arrivare qui. Ora è una riga di questa: si legge cosa verrà stampato e si cambia se
+             serve, senza uscire. -->
+        <div class="pdf-optrow" id="pdfAreaRow">
+          <div style="flex:1">
+            <label>Area stampata</label>
+            <div class="pdf-area-line"><b id="pdfAreaTxt">tutto il palco</b>
+              <button type="button" class="btn" id="pdfAreaBtn">Cambia…</button></div>
           </div>
-        </div>
-        <div id="pdfScaleCustomRow" hidden style="display:flex;align-items:center;gap:6px;margin-top:6px">
-          <span style="font-size:13px;color:var(--text-2)">1:</span>
-          <input aria-label="Scala personalizzata" type="number" id="pdfScaleCustom" min="10" max="500" step="1" value="75" style="width:82px" inputmode="numeric">
-          <span style="font-size:12px;color:var(--text-3)">(10–500)</span>
-        </div>
-        <div id="pdfHdrRow">
-        <label>Riferimento nel cartiglio <span class="hdr-why">— stampato in basso su ogni pagina</span></label>
-        <div class="hdr-wrap">
-          <input aria-label="Contatto stampato in testata" type="text" id="pdfHeader" placeholder="Es. Fonico: Nome · +39 …" maxlength="120">
-          <button type="button" class="rub-btn" id="pdfHdrRub">Rubrica ▾</button>
-          <div class="rub-menu" id="pdfHdrMenu" hidden></div>
-        </div>
-        <div class="hdr-saved" id="pdfHdrSaved"></div>
         </div>
         <div id="pdfMisStileRow"><label for="pdfMisStile">Stile delle misure <small class="lbl-note">— pedane, quote e palco, in tutte le pagine</small></label>
           <select id="pdfMisStile"><option value="std" selected>12 × 2 m · h40 (come sempre)</option><option value="mx">12mX2mX40cm</option><option value="xh">12x2 H40</option><option value="mt">mt 12 x 2 x h 0,40</option></select></div>
@@ -2602,18 +2587,43 @@
           <select id="pdfDocUnita"><option value="m" selected>metri (m)</option><option value="ft">piedi e pollici (ft-in)</option><option value="both">entrambe: m (ft-in)</option></select></div>
         <div class="hdr-saved" id="pdfDocUnitaHint" hidden>Per una squadra americana di solito servono piedi e pollici. <button type="button" class="btn" id="pdfDocUnitaFt">Usa ft-in</button></div>
         <label class="chk" id="pdfOrganicoRow"><input type="checkbox" id="pdfOrganico"> Organico nel cartiglio <small class="lbl-note">— «Organico: 41 + 9» (strumentisti + voci), come il foglio Organico</small></label>
-        <div class="hdr-saved" id="pdfTagliaHint" hidden><span id="pdfTagliaTesto"></span> <button type="button" class="btn" id="pdfTagliaBtn">Aggiungi al nome</button></div>
+        <div id="pdfHdrRow">
+        <label>Riferimento nel cartiglio <span class="hdr-why">— stampato in basso su ogni pagina</span></label>
+        <div class="hdr-wrap">
+          <input aria-label="Contatto stampato in testata" type="text" id="pdfHeader" placeholder="Es. Fonico: Nome · +39 …" maxlength="120">
+          <button type="button" class="rub-btn" id="pdfHdrRub">Rubrica ▾</button>
+          <div class="rub-menu" id="pdfHdrMenu" hidden></div>
+        </div>
+        <div class="hdr-saved" id="pdfHdrSaved"></div>
+        </div>
+        <label class="chk" id="pdfPesiRow"><input type="checkbox" id="pdfPesi"> Pesi (kg) <small class="lbl-note">— peso stimato dell'allestimento, in testata e nel rider</small></label>
+            <div class="px-g">Pagine e allegati</div>
+        <!-- SCALETTA e QR (10/10/2026, idee dal confronto con TecRider Pro). Dal 23/11 stanno in «Altre opzioni» (V1): la scaletta è contenuto scritto dall'utente, e il QR esiste solo per chi ha già un link
+             attivo. Le righe compaiono solo quando servono (style.display: `.pdf-exp-side>label`
+             batterebbe l'attributo hidden). -->
+        <label class="chk" id="pdfScalettaRow" style="display:none"><input type="checkbox" id="pdfScaletta"> Scaletta <small class="lbl-note" id="pdfScalettaNota"></small></label>
+        <div class="pdf-qr-row" id="pdfQrRow" style="display:none">
+          <label class="chk"><input type="checkbox" id="pdfQr"> Aggiungi un QR alla versione online aggiornata</label>
+          <div class="pdf-qr-nota" id="pdfQrNota">Chi ha il PDF potrà inquadrarlo e aprire il progetto online, aggiornato all'ultima modifica, finché il link di condivisione resta attivo.</div>
+          <div class="pdf-qr-avviso" id="pdfQrAvviso" role="status" hidden></div>
+        </div>
+        <div id="pdfTechBox" style="display:none">
+          <div class="pdf-side-h" id="pdfPillsTitle">Pagine del PDF, una per una</div>
+          <div id="pdfPills" class="pillrow"></div>
+          <div id="pdfTechNote"></div>
+        </div>
         <!-- ALLEGATI RICHIESTI (13/11/2026, S14): elenco libero con stato; se resta qualcosa «da chiedere», «Prima di esportare» lo dice. Solo se l'utente lo usa. -->
         <div id="pdfAllegati" class="pdf-all">
           <div class="pdf-all-t">Allegati richiesti <small class="lbl-note">— facoltativo: se qualcuno resta «da chiedere» te lo ricordo prima di esportare</small></div>
           <ul id="pdfAllegatiLista" class="pdf-all-l"></ul>
           <div class="pdf-all-add"><input type="text" id="pdfAllegatiNome" maxlength="60" placeholder="es. Planimetria del teatro" autocomplete="off" aria-label="Nome dell'allegato"><button type="button" class="btn" id="pdfAllegatiAgg">Aggiungi</button></div>
         </div>
-        <label class="chk" id="pdfPesiRow"><input type="checkbox" id="pdfPesi"> Pesi (kg) <small class="lbl-note">— peso stimato dell'allestimento, in testata e nel rider</small></label>
         <!-- Telefono: le opzioni da scrivania stanno dietro questo, con la STESSA preferenza del
              pannello elemento — chi accende «tecnico» lo accende una volta, non due. -->
         <button type="button" class="btn exp-pro" id="pdfProBtn">Altre opzioni</button>
         <label class="chk" id="pdfTechRow" style="display:none"><input type="checkbox" id="pdfIncludeTech" checked></label>
+          </div>
+        </details>
       </div>
       <div class="pdf-exp-main">
         <div id="pdfPreview" class="pdf-sheet"></div>
@@ -2630,16 +2640,39 @@
       <!-- Dopo un export riuscito (01/10/2026): una riga, non un popup. Mai su un documento altrui. -->
       <p class="hint" id="pdfConsulenza" hidden></p>
       <div class="pdf-exp-actions">
-        <!-- ALTRI FORMATI (31/07): stavano nella finestra precedente, e chi arrivava qui non li
-             trovava più. Sono qui, secondari come devono essere. -->
-        <button class="btn" id="pdfAltPng" title="Immagine del palco, per email e messaggi">PNG</button>
-        <button class="btn" id="pdfAltCsv" title="Channel list in CSV: il service la importa senza ridigitarla">CSV</button>
-        <button class="btn" id="pdfAltZip" title="Un file .zip con un PDF per documento (stage plot, channel list, rider…), con la stessa versione e data nel nome">Pacchetto (.zip)</button>
+        <!-- ALTRI FILE (23/11/2026, V1): le uscite secondarie in UN gruppo, con le stesse funzioni di prima. Ogni voce dice cosa scarica. -->
+        <div class="pdf-altri">
+          <button type="button" class="btn" id="pdfAltriBtn" aria-haspopup="true" aria-expanded="false" aria-controls="pdfAltriMenu">Altri file <span aria-hidden="true">▾</span></button>
+          <div class="pdf-altri-menu" id="pdfAltriMenu" role="group" aria-label="Altri file da scaricare" hidden>
+            <!-- PALCO PER ESTERNI (16/11/2026, M-078): solo il disegno con la fascia «titolo · luogo · Stage plot vN · data»; è ciò che si manda a teatro, service, Diego. Scarica SUBITO un PDF. -->
+            <div class="pdf-altri-voce" id="pdfEsterniBox">
+              <button type="button" class="btn" id="pdfEsterni"><span><b>Palco per esterni</b> · PDF</span></button>
+              <small>Solo il disegno con titolo, luogo e versione, per teatro e service. Scarica subito.</small>
+            </div>
+            <!-- FOGLIO PER IL TEATRO (16/11/2026, L4.1): SOLO con «Esporta avanzato» acceso (avanzate chiuse di serie, 13/11) -->
+            <div class="pdf-altri-voce" id="pdfTeatroBox">
+              <button type="button" class="btn" id="pdfTeatro"><span><b>Foglio per il teatro</b> · PDF A4</span></button>
+              <small>Sedie, pedane, scalette e prese, con la stessa versione. Scarica subito.</small>
+            </div>
+            <div class="pdf-altri-voce">
+              <button type="button" class="btn" id="pdfAltZip" title="Un file .zip con un PDF per documento (stage plot, channel list, rider…), con la stessa versione e data nel nome">Pacchetto (.zip)</button>
+              <small>Un PDF per documento, stessa versione e data nel nome. Prima scegli i documenti.</small>
+            </div>
+            <div class="pdf-altri-voce">
+              <button type="button" class="btn" id="pdfAltPng" title="Immagine del palco, per email e messaggi">Immagine PNG</button>
+              <small>Il palco come immagine, per email e messaggi.</small>
+            </div>
+            <div class="pdf-altri-voce">
+              <button type="button" class="btn" id="pdfAltCsv" title="Channel list in CSV: il service la importa senza ridigitarla">Channel list CSV</button>
+              <small>La channel list da importare senza ridigitarla.</small>
+            </div>
+          </div>
+        </div>
         <span style="flex:1"></span>
-        <!-- Rosso perché è l'uscita: in una finestra dove l'azione è «Esporta PDF», l'altro bottone
+        <!-- Rosso perché è l'uscita: in una finestra dove l'azione è «Scarica PDF», l'altro bottone
              chiude senza fare niente, e va distinto a colpo d'occhio. (Simone, 02/09) -->
         <button class="btn danger" id="pdfCancel">Annulla</button>
-        <button class="btn primary" id="pdfGo">Esporta PDF</button>
+        <button class="btn primary" id="pdfGo">Scarica PDF</button>
       </div>
     </div>
     <!-- Invito a salvare dopo il PDF (09/11/2026): sotto il piede, fuori dalla sua fila (che resta com'era).
@@ -10541,7 +10574,31 @@ function pdfRigaRiepilogo(paperKey, N, nPagine, d, corta){
   var v=versioneNumero();
   if(v){ p.push("v"+v); p.push(corta ? dataGgMmAaaa(d||new Date(),"/").slice(0,5) : dataGgMmAaaa(d||new Date(),"/")); }
   var st=statoDocEtichetta(); if(st) p.push(st);
+  /* Lingua e unità del documento (V1, 23/11): si dicono SOLO quando non sono quelle di serie, così la riga di sempre non cambia */
+  if(typeof docLingua==="function" && docLingua()==="en") p.push("English");
+  if(typeof docUnita==="function"){ var _u=docUnita(); if(_u==="ft") p.push("ft-in"); else if(_u==="both") p.push("m (ft-in)"); }
   return p.join(" \u00b7 ");
+}
+/* QUANTE OPZIONI DI «ALTRE OPZIONI» SONO DIVERSE DA QUELLE DI SERIE (23/11/2026, Esporta V1): il numero accanto a «Altre opzioni»,
+   perché chi non le apre sa comunque che qualcosa è cambiato. Funzione pura: `o` porta i valori letti dai controlli. Un riferimento di soli
+   spazi non conta; l'area stampata conta solo se scelta a mano. */
+function pdfAltreCambiate(o){
+  o=o||{}; var n=0;
+  if(o.stato) n++;
+  if(o.lingua==="en") n++;
+  if(o.unita && o.unita!=="m") n++;
+  if(o.orient && o.orient!=="auto") n++;
+  if(o.stile && o.stile!=="std") n++;
+  if(o.famCol) n++;
+  if(o.pedMis && o.pedMis!=="full") n++;
+  if(o.organico) n++;
+  if(o.pesi) n++;
+  if(o.header && String(o.header).trim()) n++;
+  if(o.area) n++;
+  if(o.scaletta) n++;
+  if(o.qr) n++;
+  if(o.allegati>0) n++;
+  return n;
 }
 /* Inviti mirati per il nudge: elemento regia presente + sistema NON ancora dichiarato → domanda concreta.
    Mai assumere la risposta: la domanda porta l'utente a dichiararla nel Controllo tecnico. */
@@ -24769,7 +24826,7 @@ function proRegistra(b, funz, testoAcceso, testoSpento){
   b.addEventListener("click", function(){ var c={}; c[funz]=!funzOn(funz); funzImposta(c); });
   proSyncTesti();
 }
-proRegistra(document.getElementById("pdfProBtn"), "esporta", "Meno opzioni", "Altre opzioni");
+proRegistra(document.getElementById("pdfProBtn"), "esporta", "Nascondi le opzioni da tecnico", "Opzioni da tecnico");
 proRegistra(document.getElementById("stageAdvMob"), "opzioni", "Nascondi le opzioni tecniche", "Opzioni tecniche");
 document.getElementById("pMirror").addEventListener("click", mirrorSel);
 document.getElementById("grpMirror").addEventListener("click", mirrorSel);
@@ -25547,6 +25604,8 @@ function setEventInputs(){
   if(typeof renderEvChip==="function") renderEvChip();
   if(typeof titoloVisAggiorna==="function") titoloVisAggiorna();   /* titolo lungo: troncamento al centro (17/11) */
   if(window.__renderPrimaDelExport) window.__renderPrimaDelExport();   /* la striscia «Prima di esportare» segue titolo e luogo (12/11) */
+  /* V1 (23/11): il nome si vede nel cartiglio dell'anteprima mentre si scrive; solo con l'Esporta aperta, e senza salvare niente */
+  try{ var _pm=document.getElementById("pdfModal"); if(_pm && !_pm.hidden && window.__esportaRiaggiorna) window.__esportaRiaggiorna(); }catch(_e){}
 }
 TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.titolo=this.value; setEventInputs(); saveSoon(); }); });
 ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.luogo=this.value; setEventInputs(); saveSoon(); }); });
@@ -42400,6 +42459,13 @@ function venueFoglioSvg(area, ix, iy, vb, mmPerCm){
   var m; try{ m=venueMarkup(); } finally { window.__scenePrint=keep; }
   return '<svg x="'+area.x+'" y="'+area.y+'" width="'+area.w+'" height="'+area.h+'" viewBox="'+w.x+' '+w.y+' '+w.w+' '+w.h+'" preserveAspectRatio="none">'+m+'</svg>';
 }
+/* Il piè dell'anteprima (V1, 23/11): «1 di N» al centro e, accanto, «v3 · 23/11/2026 · Definitivo» come pdfCredit. SOLO anteprima: il PDF non passa di qui. */
+function pdfPreviewPie(L, n){
+  var y=(L.ph-16.2), ver=pieDocumentoEtichetta(), pg="1 di "+n;
+  var w=pg.length*1.55;   /* larghezza approssimata del «1 di N» a 3 mm di corpo, per affiancare la versione senza sovrapporla */
+  return '<text x="'+(L.pw/2)+'" y="'+y+'" font-size="3" fill="#6b7280" text-anchor="middle">'+pg+'</text>'+
+    (ver ? '<text x="'+(L.pw/2+w/2+2)+'" y="'+y+'" font-size="3" fill="#6b7280">'+esc(ver)+'</text>' : '');
+}
 /* anteprima del foglio (SVG, mm) — rispecchia il layout del PDF: planimetria + quote + cartiglio */
 /* l'anteprima dell'Esporta dice le stesse cose del PDF anche in inglese e in piedi (17/11/2026): stessi testi, stesso traduttore */
 function pdfPreviewSvg(paperKey, N, orient, header, opts){ var svg=_pdfPreviewSvgIt(paperKey, N, orient, header, opts); return docAttivo() ? docSvgTesti(svg) : svg; }
@@ -42455,6 +42521,7 @@ function _pdfPreviewSvgIt(paperKey, N, orient, header, opts){
     /* il formato del foglio, come nel PDF: l'anteprima deve dire le stesse cose del file che uscirà */
     '<text x="'+(L.pw-L.M)+'" y="'+(cy+15)+'" font-size="3.6" font-weight="700" fill="#111827" text-anchor="end">'+esc(paperLabel(L.paper, L.orient))+'</text>'+
     '<text x="'+(L.pw-15.5)+'" y="'+(L.ph-16.2)+'" font-size="2.3" fill="#9ca3af" text-anchor="end">Creato con stageplot.it</text>'+
+    pdfPreviewPie(L, opts.nPag||1)+   /* «1 di N · vN · data · stato», come pdfCredit nel PDF (V1, 23/11): versione e stato si vedono nel foglio */
     (opts.pageLabel ? '<text x="'+L.M+'" y="8.5" font-size="6.4" font-weight="800" letter-spacing="0.4" fill="#111827">'+esc(opts.pageLabel)+'</text>' : '')+
     '</svg>';
 }
@@ -44064,6 +44131,7 @@ function docEsteroSincronizza(){
   f.addEventListener("change", function(){
     if(f.value==="h" || f.value==="none") state.pedMisure=f.value; else delete state.pedMisure;
     save(); render(); try{ if(typeof refresh==="function") refresh(); }catch(_e){}
+    try{ var _pm=document.getElementById("pdfModal"); if(_pm && !_pm.hidden && window.__esportaRiaggiorna) window.__esportaRiaggiorna(); }catch(_e){}   /* V1 (23/11): l'anteprima dell'Esporta segue la scelta */
   });
 })();
 (function(){
@@ -44072,6 +44140,7 @@ function docEsteroSincronizza(){
     primaDiAgire();
     if(c.checked) state.coloreFamiglie=true; else delete state.coloreFamiglie;
     save(); render(); try{ if(typeof refresh==="function") refresh(); }catch(_e){}
+    try{ var _pm=document.getElementById("pdfModal"); if(_pm && !_pm.hidden && window.__esportaRiaggiorna) window.__esportaRiaggiorna(); }catch(_e){}   /* V1 (23/11): l'anteprima dell'Esporta segue la scelta */
   });
 })();
 (function(){
@@ -44079,6 +44148,7 @@ function docEsteroSincronizza(){
   f.addEventListener("change", function(){
     if(f.value==="mx" || f.value==="xh" || f.value==="mt") state.misureStile=f.value; else delete state.misureStile;
     save(); render(); try{ if(typeof refresh==="function") refresh(); }catch(_e){}
+    try{ var _pm=document.getElementById("pdfModal"); if(_pm && !_pm.hidden && window.__esportaRiaggiorna) window.__esportaRiaggiorna(); }catch(_e){}   /* V1 (23/11): l'anteprima dell'Esporta segue la scelta */
   });
 })();
 (function(){
@@ -44853,8 +44923,8 @@ function pdfChannelPage(doc, L, paperKey){
        try/catch che avvolge renderPreview se lo mangiava in silenzio — l'anteprima restava vuota
        senza dire niente. Si riscrive tutto il contenuto, stile compreso. */
     var STILE = (r===d) ? "" : '<style>:host{display:flex;align-items:center;justify-content:center;width:100%}'
-      + 'svg{max-height:46vh;width:auto;max-width:100%;border-radius:3px}'
-      + '@media(max-width:880px){svg{max-height:34vh}}</style>';
+      + 'svg{max-height:var(--px-prev-h,46vh);width:auto;max-width:100%;border-radius:3px}'   /* V1 (23/11): l'altezza la decide la finestra (--px-prev-h); senza, come prima */
+      + '@media(max-width:880px){svg{max-height:var(--px-prev-h,34vh)}}</style>';
     return { set innerHTML(v){ r.innerHTML = STILE + v; } };
   }
   /* Le due scelte in cima alla finestra: evidenziata quella che descrive la selezione, riepilogo delle pagine
@@ -44896,10 +44966,40 @@ function pdfChannelPage(doc, L, paperKey){
     if(el.textContent!==txt) el.textContent=txt;
     el.hidden=!txt;
   }
+  /* «Altre opzioni» (V1, 23/11): il contatore delle opzioni diverse da quelle di serie, letto dai controlli veri. Solo schermo. */
+  function pdfRenderAltre(){
+    var n=document.getElementById("pdfAltreN"); if(!n) return;
+    var v=function(id){ var e=document.getElementById(id); return e ? e.value : ""; };
+    var c=function(id){ var e=document.getElementById(id); return !!(e && e.checked); };
+    var ar=document.getElementById("pdfAreaRow");
+    var cnt=0; try{
+      cnt=pdfAltreCambiate({ stato:v("pdfStatoDoc"), lingua:docLingua(), unita:docUnita(), orient:v("pdfOrient"), stile:v("pdfMisStile"), famCol:c("pdfFamCol"), pedMis:v("pdfPedMis"),
+        organico:c("pdfOrganico"), pesi:c("pdfPesi"), header:v("pdfHeader"), area:!!(ar && ar.classList.contains("in-uso")),
+        scaletta:c("pdfScaletta"), qr:c("pdfQr"), allegati:document.querySelectorAll("#pdfAllegatiLista li").length });
+    }catch(_e){}
+    n.textContent=cnt ? (cnt===1 ? "1 cambiata" : cnt+" cambiate") : ""; n.hidden=!cnt;
+  }
+  /* «Altri file» (V1, 23/11): il menu delle uscite secondarie. Si apre dal bottone, si chiude con un clic fuori o su una voce, con Esc
+     (PRIMA della finestra: la finestra resta aperta) e a ogni apertura dell'Esporta. Le voci hanno i gestori di sempre. */
+  function pdfAltriInit(){
+    var btn=document.getElementById("pdfAltriBtn"), menu=document.getElementById("pdfAltriMenu"); if(!btn || !menu) return;
+    function chiudi(){ if(menu.hidden) return false; menu.hidden=true; btn.setAttribute("aria-expanded","false"); return true; }
+    function apri(){ menu.hidden=false; btn.setAttribute("aria-expanded","true"); var f=menu.querySelector("button:not([disabled])"); if(f){ try{ f.focus({preventScroll:true}); }catch(_e){} } }
+    window.__pdfAltriChiudi=chiudi;
+    btn.addEventListener("click", function(ev){ ev.stopPropagation(); if(menu.hidden) apri(); else chiudi(); });
+    menu.addEventListener("click", function(ev){ if(ev.target.closest && ev.target.closest("button")) setTimeout(chiudi, 0); });   /* dopo il gestore della voce */
+    document.addEventListener("click", function(ev){ if(!menu.hidden && !(btn.contains(ev.target) || menu.contains(ev.target))) chiudi(); });
+    var pm=document.getElementById("pdfModal");
+    if(pm) pm.addEventListener("keydown", function(ev){
+      if(ev.key==="Escape" && !menu.hidden){ ev.stopPropagation(); ev.preventDefault(); chiudi(); try{ btn.focus({preventScroll:true}); }catch(_e){} }
+    }, true);
+  }
+  pdfAltriInit();
   function renderPreview(){
     var host=document.getElementById("pdfPreview"); if(!host) return;
     pdfRenderScelte();   /* riepilogo e scelta seguono ogni cambio (pillole, scaletta, avviso «Aggiungi») */
     pdfRenderRiga();
+    pdfRenderAltre();
     /* stessa altezza di cartiglio di refresh() e dell'export: senza, l'anteprima poteva disegnare a
        una scala e la riga di stato dichiararne un'altra */
     var _or=pdfOrientValue(paper.value, pdfScaleValue(), header.value);   /* «auto» risolto: l'anteprima mostra il foglio che uscirà */
@@ -44912,7 +45012,7 @@ function pdfChannelPage(doc, L, paperKey){
         var lh=(typeof viewerHtmlFor==="function") ? viewerHtmlFor(p.key) : null;
         host.innerHTML = lh || '<div class="pdf-sheet-ph"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16M4 10h16M4 15h10M4 20h10"/></svg><div class="pdf-sheet-ph-t">'+esc(p.title)+'</div><div class="pdf-sheet-ph-s">Pagina di testo — nel PDF esportato</div></div>';
       }
-      else ombraAnteprima(host).innerHTML = pdfPreviewSvg(paper.value, N, _or, header.value, {focus:p.focus, pageLabel:(p.focus&&p.focus!=="clean")?p.title.toUpperCase():""});
+      else ombraAnteprima(host).innerHTML = pdfPreviewSvg(paper.value, N, _or, header.value, {focus:p.focus, nPag:pages.length, pageLabel:(p.focus&&p.focus!=="clean")?p.title.toUpperCase():""});
     }catch(e){}
     var lbl=document.getElementById("pdfPageLabel"); if(lbl) lbl.textContent="Pag "+(prevIdx+1)+"/"+pages.length+" · "+p.title;
     var pv=document.getElementById("pdfPrev"), nx=document.getElementById("pdfNext");
@@ -44931,7 +45031,7 @@ function pdfChannelPage(doc, L, paperKey){
       var _A=printArea(), mmW=Math.round(_A.w*10/N), mmH=Math.round(_A.h*10/N);
       var box=pdfStageBox(N, paper.value, _or, _cartH);
       info.className="mstatus"+(box.cropped?" warn":"");
-      info.innerHTML="Scala risultante <b>1:"+N+"</b> · disegno "+mmW+"×"+mmH+" mm su "+paper.value.toUpperCase()+" "+oTxt+
+      info.innerHTML="<span class=\"px-scala\">Scala risultante <b>1:"+N+"</b> · disegno "+mmW+"×"+mmH+" mm su "+paper.value.toUpperCase()+" "+oTxt+"</span>"+   /* V1: su telefono la riga in alto già dice foglio e scala */
         (box.cropped? " — più grande del foglio: <b>verrà stampata la parte centrale che ci sta</b>, sempre in scala." : "");
       var _prop=null;
       if(box.cropped && scl.value!=="auto"){
@@ -44959,6 +45059,7 @@ function pdfChannelPage(doc, L, paperKey){
     renderFuoriPalco();   /* foglio, scala e verso decidono chi resta fuori dal foglio (14/10) */
     renderPreview();
   }
+  window.__esportaRiaggiorna=refresh;   /* V1 (23/11): chi scrive il nome fuori dal blocco (setEventInputs) ridisegna l'anteprima */
   /* Pagine del RIDER TECNICO disponibili per QUESTO progetto (ciclo 11, proposta Simone):
      le LISTE seguono i DATI (esistono appena metti sorgenti/monitor/carichi, senza dover attivare il layer);
      le MAPPE dei cavi seguono i LAYER attivi (sono il lavoro di cablaggio). Ognuna è selezionabile. */
@@ -45228,7 +45329,7 @@ function pdfChannelPage(doc, L, paperKey){
     /* Sopra «Altre opzioni», non fra le pillole: nell'Esporta base le pillole sono nascoste, e chi
        esporta dalla base è proprio chi non sa di dover aggiungere la lista. */
     if(!el){ el=document.createElement("div"); el.id="pdfInMissing"; el.className="pdf-inmissing";
-      var pro=document.getElementById("pdfProBtn");
+      var pro=document.getElementById("pdfAltre") || document.getElementById("pdfProBtn");   /* V1: fuori dal <details> chiuso, in vista */
       if(pro && pro.parentNode) pro.parentNode.insertBefore(el, pro); else host.parentNode.insertBefore(el, host.nextSibling); }
     el.innerHTML=""; el.hidden=false;
     var sp=document.createElement("span"); sp.textContent="Channel list ("+n+" canal"+(n===1?"e":"i")+") non inclusa.";
@@ -45486,6 +45587,7 @@ function pdfChannelPage(doc, L, paperKey){
   });
   function _pdfExportModalCore(){ modal.hidden=false; prevIdx=0;
     var _ann=document.getElementById("pdfCancel"); if(_ann) _ann.textContent="Annulla";   /* dopo un export era diventato «Chiudi» */
+    if(window.__pdfAltriChiudi) window.__pdfAltriChiudi();   /* V1: «Altri file» parte sempre chiuso */
     invitoSalvaNascondi();   /* l'invito vale per l'export appena fatto: riaprendo la finestra non resta lì */
     rigaProgettoNascondi();  /* idem la riga «dove resta il progetto» (P2) */
     pdfScalettaInit(); pdfQrInit();   /* scaletta spuntata se c'è; QR sempre spento all'apertura (10/10) */

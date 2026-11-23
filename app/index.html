@@ -1031,8 +1031,6 @@
      «automatica» — e l'intestazione col contatto, che si scrive meglio da fermi. */
   body:not(.f-esporta) #pdfTechBox,
   body:not(.f-esporta) #pdfAreaRow,
-  body:not(.f-esporta) #pdfScaleRow,
-  body:not(.f-esporta) #pdfScaleCustomRow,
   body:not(.f-esporta) #pdfHdrRow,
   body:not(.f-esporta) #pdfPesiRow,
   body:not(.f-esporta) #pdfTechRow{display:none !important}
@@ -4299,6 +4297,133 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
   border:1px solid var(--border);border-radius:999px;background:var(--surface);font:600 12px var(--font-ui);color:var(--text-2);box-shadow:0 1px 4px rgba(0,0,0,.06);pointer-events:none}
 #docChip svg{width:14px;height:14px;flex:0 0 auto;color:var(--accent)}
 #mRotChip:not([hidden]) ~ #docChip:not([hidden]){top:56px}   /* sul telefono la pastiglia «Vista girata» sta già in alto a sinistra */
+
+/* ── ESPORTA V1 «ANTEPRIMA SEMPRE VISIBILE» (23/11/2026, lotto A della semplificazione) ──────────────────────
+   Solo disposizione: stessi controlli, stessi id. Computer: le scelte a sinistra (340 px), il foglio grande a destra.
+   Telefono: il foglio in alto, compatto, le scelte sotto. «Altre opzioni» è un <details> chiuso; le uscite secondarie
+   stanno nel menu «Altri file» del piede. Regole scritte DOPO quelle del 14/07 e della colonna a 240 px, che sostituiscono. */
+.mcard.pdf-export{width:960px;max-width:96vw}
+.pdf-export .pdf-exp-grid{grid-template-columns:340px minmax(0,1fr);gap:22px;align-items:stretch}
+.pdf-export .pdf-exp-main{position:sticky;top:0;align-self:start}
+.pdf-export .pdf-sheet{min-height:340px;padding:14px;--px-prev-h:54vh}   /* --px-prev-h: letta dall'anteprima nello shadow DOM */
+.pdf-export .pdf-list-sheet{max-height:56vh}
+.pdf-export .pdf-exp-side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.pdf-export .pdf-exp-side label{display:block;font-size:12px;font-weight:600;color:var(--text-2);margin:0 0 4px}
+.pdf-export .pdf-exp-side label.chk{display:flex;align-items:flex-start;gap:6px;font-weight:500;margin:4px 0}
+.pdf-export .pdf-exp-side input[type=text]{width:100%;min-height:36px}
+.px-sez{display:flex;flex-direction:column;gap:6px;min-width:0}
+.px-riga{display:flex;gap:10px;align-items:flex-end}
+.px-col{min-width:0}
+.px-grow{flex:1 1 0}
+.px-vers{flex:0 0 76px}
+.px-vers input{width:100% !important}
+.px-dove{display:inline-block;margin-left:4px;font-size:11px;font-weight:600;line-height:1.5;color:var(--accent-strong);background:var(--accent-tint);border-radius:var(--r-pill);padding:0 7px;vertical-align:1px;white-space:nowrap}
+.px-sez .pdf-optrow{margin-top:0}
+.px-sez select{width:100%;min-height:36px;font-size:13px}
+.px-sez .chips{flex-wrap:nowrap}
+.px-sez .chips button{min-height:36px;padding:5px 12px;font-size:13px}
+#pdfScaleRow label{margin-bottom:4px}
+/* ALTRE OPZIONI */
+#pdfAltre{border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-raised)}
+#pdfAltre>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:9px 12px;min-height:40px;font-size:13px;font-weight:700;color:var(--text);border-radius:var(--r-md)}
+#pdfAltre>summary::-webkit-details-marker{display:none}
+#pdfAltre>summary::after{content:"▸";margin-left:auto;color:var(--text-3);font-size:12px}
+#pdfAltre[open]>summary::after{content:"▾"}
+#pdfAltre>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#pdfAltre .px-n{background:var(--accent-strong);color:#fff;border-radius:var(--r-pill);font-size:11px;font-weight:700;padding:1px 8px}
+#pdfAltre .px-altre-in{padding:2px 12px 12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+#pdfAltre .px-g{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);margin-top:6px}
+#pdfAltre .px-g:first-child{margin-top:0}
+#pdfAltre .pdf-optrow{margin-top:0}
+#pdfAltre .px-col{margin:0}
+#pdfAltre .exp-pro{margin-top:4px}
+/* MENU «ALTRI FILE» */
+.pdf-altri{position:relative;flex:0 0 auto}
+#pdfAltriBtn{min-height:38px}
+.pdf-altri-menu{position:absolute;left:0;bottom:calc(100% + 6px);z-index:6;width:300px;max-width:88vw;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);box-shadow:var(--elev-3);padding:6px;display:flex;flex-direction:column;gap:2px}
+.pdf-altri-menu[hidden]{display:none}
+.pdf-altri-voce{display:flex;flex-direction:column;gap:1px;padding:2px}
+.pdf-altri-voce>.btn{width:100%;text-align:left;border:0;background:transparent;font-weight:600;min-height:36px}
+.pdf-altri-voce>.btn:hover:not(:disabled){background:var(--surface-raised)}
+.pdf-altri-voce>.btn:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.pdf-altri-voce small{font-size:12px;color:var(--text-2);line-height:1.35;padding:0 10px 4px}
+#pdfTeatroBox{margin:0}
+body:not(.f-esporta) #pdfAltriMenu #pdfTeatroBox{display:none !important}
+#pdfAltriMenu #pdfEsterniBox,#pdfAltriMenu #pdfTeatroBox{margin-top:0}
+/* il piede: una riga di stato e i bottoni */
+.pdf-export .pdf-exp-foot{align-items:center}
+.pdf-export .pdf-exp-foot .mstatus{font-size:13px;line-height:1.35}
+.pdf-export .pdf-exp-foot .mstatus.warn{color:#78350f;background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:var(--r-md);padding:6px 10px}
+#pdfGo{min-height:40px;padding:0 18px;font-weight:700}
+body.dark #pdfAltre{background:#1b2328;border-color:#2c363d}
+body.dark .px-dove{background:#16302d;color:#6fd3c6}
+body.dark .pdf-altri-menu{background:#20292e;border-color:#2c363d}
+body.dark .pdf-export .pdf-exp-foot .mstatus.warn{background:#2a2412;border-color:#5b4a14;color:#f3d98b}
+/* TELEFONO: foglio in alto e compatto, scelte sotto */
+@media(max-width:720px){
+  .pdf-export .pdf-exp-grid{grid-template-columns:1fr;gap:8px}
+  .pdf-export .pdf-exp-main{order:-1;position:static;gap:4px}
+  .pdf-export .pdf-sheet{min-height:0;height:150px;padding:4px;--px-prev-h:142px}
+  .pdf-export .pdf-list-sheet{max-height:100%}
+  .pdf-export .pdf-sheet-ph{padding:6px;gap:3px}
+  .pdf-export .pdf-nav{gap:8px}
+  .pdf-export .pdf-pagelbl{min-width:0;font-size:12px}
+  .pdf-export .pdf-navbtn{width:36px;height:30px}
+  .pdf-export .pdf-exp-hint{display:none}
+  .pdf-export .pdf-exp-head{margin-bottom:8px}
+  .pdf-export .pdf-exp-side{gap:8px}
+  .pdf-altri-menu{left:0;right:auto;width:min(300px,86vw)}
+  .pdf-export .pdf-exp-actions{flex-wrap:nowrap}
+  .pdf-export .pdf-exp-actions>span{flex:1 1 0;min-width:0}
+}
+
+/* compattezza V1: tutto ciò che serve per il PDF di sempre sta sopra la piega (1440×800 e 390×844) */
+.pdf-export .pdf-scelte{margin:0}
+.pdf-export .pdf-sc{min-height:0;padding:7px 8px}
+.pdf-export .pdf-sc b{font-size:13px}
+.pdf-export .pdf-sc small{font-size:11px}
+.pdf-export .pdf-exp-side #pdfPrimaDi .nudge,.pdf-export .pdf-exp-side #pdfPrimaDi>div{margin:0}
+.pdf-export #pdfVersioneHint{display:none}   /* il consiglio «aggiungi la versione» passa al tag sotto l'etichetta: il tag dice già dove esce */
+.pdf-export .pdf-exp-side .hdr-saved{margin-top:0}
+@media(max-width:720px){
+  .pdf-export .pdf-exp-side{gap:6px}
+  .pdf-export .pdf-sc small{display:none}
+  .pdf-export #pdfPrimaDi{font-size:12px}
+  .pdf-export .pdf-sc-riep{margin-top:4px;font-size:12px}
+  .pdf-export .px-sez{gap:3px}
+  .pdf-export .pdf-exp-foot .mstatus{font-size:12px;padding:4px 8px}
+}
+
+/* V1: la scala resta in vista accanto al formato anche sul telefono (era dietro «Altre opzioni» solo col dito) */
+@media(max-width:720px){
+  .pdf-export .pdf-scelte .pdf-side-h{display:none}   /* il gruppo ha già aria-label «Contenuto del PDF» */
+  .pdf-export #pdfPrimaDi{margin:0}
+  .pdf-export .pdf-prima,.pdf-export #pdfPrimaDi .nudge{padding:5px 8px;font-size:12px;line-height:1.3}
+  .pdf-export .pdf-prima .pdf-prima-riga{padding:2px 0;min-height:0;font-size:12px}
+  .pdf-export .pdf-sheet{height:134px;--px-prev-h:126px}
+  .pdf-export .pdf-exp-foot .mstatus .px-scala{display:none}
+  .pdf-export .pdf-exp-foot .mstatus .btn{min-height:0;padding:2px 9px;font-size:12px;vertical-align:baseline}
+  .pdf-export .pdf-exp-foot .mstatus:empty{display:none}
+}
+@media(max-width:720px){
+  .pdf-export .pdf-sc-riep{display:none}   /* le pagine si leggono sotto il foglio («Pag 1/3 · Palco») e nella riga in alto */
+  .pdf-export .px-vers .px-dove{display:none}
+  .pdf-export .pdf-prima ul{margin:2px 0 0;padding-left:16px}
+  .pdf-export .pdf-prima li{margin:1px 0;line-height:1.25}
+  .pdf-export .pdf-exp-side label{margin-bottom:2px}
+  .pdf-export .px-sez .chips button{min-height:34px}
+  .pdf-export .pdf-exp-head{margin-bottom:6px}
+}
+@media(max-width:720px){ .pdf-export .pdf-sheet{height:128px;--px-prev-h:120px} .pdf-export .pdf-exp-grid{gap:5px} }
+@media(max-width:720px){
+  .pdf-export .pdf-sc{min-height:36px}
+  .pdf-export .px-sez .chips button{min-height:36px}
+  .pdf-export .pdf-exp-foot .mstatus .btn{min-height:30px;padding:3px 10px}
+}
+@media(max-width:720px){ .pdf-export .pdf-navbtn{min-height:34px;height:34px;width:40px} .pdf-export .pdf-sheet{height:124px;--px-prev-h:116px} }
+/* niente elementi schiacciati: se non c'è posto, è il corpo della finestra a scorrere (mai «Altre opzioni» tagliata a metà) */
+.pdf-export .pdf-exp-side>*{flex-shrink:0}
+@media(max-width:720px){ .pdf-export .pdf-sc b{font-size:12px;white-space:nowrap} }
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -6669,21 +6794,62 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
           <div class="pdf-sc-riep" id="pdfScRiepilogo" role="status" aria-live="polite"></div>
           <div class="pdf-sc-nota" id="pdfScNota" hidden></div>
         </div>
-        <!-- PALCO PER ESTERNI (16/11/2026, M-078): la seconda uscita di ogni versione, accanto al PDF completo. Solo il disegno,
-             con la fascia «titolo · luogo · Stage plot vN · data»: è ciò che si manda a teatro, service, Diego. -->
-        <div class="pdf-esterni" id="pdfEsterniBox">
-          <button type="button" class="btn" id="pdfEsterni"><span><b>Palco per esterni</b> (solo disegno, con versione)</span></button>
-          <small>PDF vettoriale per teatro, service e Diego: il palco in scala con titolo, luogo, versione e data in alto. Niente cartiglio, conteggi né liste.</small>
+        <div class="px-sez" id="pxFormato">
+          <div class="px-riga">
+            <div class="px-col">
+<div>
+            <label for="pdfPaper">Formato</label>
+            <select id="pdfPaper" hidden>
+              <option value="a4">A4 (29,7×21 cm)</option>
+              <option value="a3">A3 (42×29,7 cm)</option>
+              <option value="a2">A2 (59,4×42 cm)</option>
+            </select>
+            <div class="chips" data-chips="pdfPaper">
+              <button type="button" data-v="a4" class="on">A4</button>
+              <button type="button" data-v="a3">A3</button>
+              <button type="button" data-v="a2">A2</button>
+            </div>
+          </div>
+            </div>
+            <div class="px-col px-grow" id="pdfScaleRowCol">
+<div id="pdfScaleRow">
+            <label for="pdfScale">Scala</label>
+            <select id="pdfScale">
+              <option value="auto">Automatica</option>
+              <option value="50">1:50</option>
+              <option value="100">1:100</option>
+              <option value="200">1:200</option>
+              <option value="250">1:250</option>
+              <option value="500">1:500</option>
+              <option value="custom">Personalizzata…</option>
+            </select>
+          </div>
+            </div>
+          </div>
+        <div id="pdfScaleCustomRow" hidden style="display:flex;align-items:center;gap:6px;margin-top:6px">
+          <span style="font-size:13px;color:var(--text-2)">1:</span>
+          <input aria-label="Scala personalizzata" type="number" id="pdfScaleCustom" min="10" max="500" step="1" value="75" style="width:82px" inputmode="numeric">
+          <span style="font-size:12px;color:var(--text-3)">(10–500)</span>
         </div>
-        <!-- FOGLIO PER IL TEATRO (16/11/2026, L4.1): terza uscita, SOLO con «Esporta avanzato» acceso (avanzate chiuse di serie, 13/11) -->
-        <div class="pdf-esterni" id="pdfTeatroBox">
-          <button type="button" class="btn" id="pdfTeatro"><span><b>Foglio per il teatro</b> (sedie, pedane, scalette, prese)</span></button>
-          <small>PDF A4 con ciò che serve sul palco, ricavato dal progetto, con la stessa versione e data dello stage plot.</small>
         </div>
-        <div id="pdfTechBox" style="display:none">
-          <div class="pdf-side-h" id="pdfPillsTitle">Pagine del PDF, una per una</div>
-          <div id="pdfPills" class="pillrow"></div>
-          <div id="pdfTechNote"></div>
+        <div class="px-sez" id="pxNomeVer">
+          <div class="px-riga">
+            <div class="px-col px-grow">
+              <!-- NOME DEL PROGETTO (11/08): senza nome il file usciva `stage-plot.pdf` e un service che riceve tre rider in una sera si ritrova tre file con lo stesso nome.
+                   Stesso `state.titolo` dell'header (nessuno stato nuovo). 23/11: la spiegazione lunga è diventata il tag «dove si vede». -->
+              <label for="pdfTitolo">Nome <span class="px-dove">nel cartiglio e nel file</span></label>
+              <input type="text" id="pdfTitolo" placeholder="Dai un nome al palco" maxlength="120">
+            </div>
+            <div class="px-col px-vers">
+              <!-- VERSIONE (12/11/2026): numero del documento, nel piè di ogni pagina e nel nome del file. Vuota = come prima; se il titolo finisce con «vN» si legge da lì. -->
+              <label for="pdfVersione">Versione <span class="px-dove">nel piè</span></label>
+              <input type="text" id="pdfVersione" inputmode="numeric" maxlength="3" placeholder="es. 1" autocomplete="off">
+            </div>
+          </div>
+          <div class="hdr-saved" id="pdfVersioneHint"></div>
+          <div class="hdr-saved" id="pdfFileName"></div>
+          <div class="hdr-saved" id="pdfUltimo" hidden></div>
+        <div class="hdr-saved" id="pdfTagliaHint" hidden><span id="pdfTagliaTesto"></span> <button type="button" class="btn" id="pdfTagliaBtn">Aggiungi al nome</button></div>
         </div>
         <div id="prodNudge"></div>
         <div id="prodInline" hidden></div>
@@ -6701,6 +6867,17 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
           <input type="text" id="pdfDiffMotivo" maxlength="120" autocomplete="off" placeholder="es. +20 cm di quota, aggiunto plexiglass">
           <button type="button" class="btn" id="pdfDiffCopia">Copia testo</button>
         </div>
+        <!-- ALTRE OPZIONI (23/11/2026, lotto A «V1»): tutto ciò che prima stava sparso nella colonna, raggruppato e CHIUSO di serie. Stessi controlli, stessi id, stessi gestori:
+             cambia solo dove stanno. Il contatore dice quante opzioni sono diverse dal valore di serie. -->
+        <details id="pdfAltre" class="px-altre">
+          <summary><span>Altre opzioni</span><span class="px-n" id="pdfAltreN" hidden></span></summary>
+          <div class="px-altre-in">
+            <div class="px-g">Documento</div>
+        <!-- STATO DEL DOCUMENTO (15/11/2026, S22 parte 1; dicitura scelta da Simone): «Provvisorio» / «Definitivo», facoltativo.
+             Nessuno = documento e nome del file identici a prima. In PRODUZIONE vanno solo i definitivi (regola di Diego, 23/01/2025). -->
+        <label for="pdfStatoDoc">Stato del documento <span class="px-dove">nel piè e nel file</span></label>
+        <select id="pdfStatoDoc"><option value="">Nessuno</option><option value="provvisorio">Provvisorio</option><option value="definitivo">Definitivo</option></select>
+        <div class="hdr-saved" id="pdfVersioneFrase">Versione = il numero (v1, v2…) scritto sul PDF. Per un'altra disposizione della stessa serata usa «+ Variante»; per un altro progetto, «Duplica» in I miei progetti.</div>
         <!-- FORMATO DELLA CHANNEL LIST (12/11/2026): Semplice (di sempre) o Service (pagine da 32/48, A4 orizzontale). Impostazione dell'export, non del progetto. -->
         <div id="pdfListaFmt" hidden>
           <label for="pdfListaFormato">Formato della channel list</label>
@@ -6718,61 +6895,10 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
           <label for="pdfOutFormato">Formato dell'output list</label>
           <select id="pdfOutFormato"><option value="semplice" selected>Semplice</option><option value="service">Service</option></select>
         </div>
-        <!-- NOME DEL PROGETTO (11/08): nessun passaggio del cammino lo chiedeva mai — il campo esiste
-             nell'header col placeholder «Senza titolo» e non viene richiamato da nessuna parte, così
-             il file usciva `stage-plot.pdf` e un service che riceve tre rider in una sera si ritrova
-             tre file con lo stesso nome. Qui è il momento giusto per chiederlo: è lo stesso
-             `state.titolo` dell'header (nessuno stato nuovo), e sotto si legge come si chiamerà il file. -->
-        <label for="pdfTitolo">Nome del progetto <span class="hdr-why">— intestazione del documento e nome del file</span></label>
-        <input type="text" id="pdfTitolo" placeholder="Dai un nome al palco" maxlength="120">
-        <!-- VERSIONE (12/11/2026): numero del documento, nel piè di ogni pagina e nel nome del file. Vuota = come prima;
-             se il titolo finisce con «vN» si legge da lì. Testo con tastiera numerica: riusa lo stile degli altri campi. -->
-        <label for="pdfVersione">Versione <span class="hdr-why">— nel piè di ogni pagina e nel nome del file</span></label>
-        <input type="text" id="pdfVersione" inputmode="numeric" maxlength="3" placeholder="es. 1" autocomplete="off" style="width:110px">
-        <div class="hdr-saved" id="pdfVersioneHint"></div>
-        <div class="hdr-saved" id="pdfVersioneFrase">Versione = il numero (v1, v2…) scritto sul PDF. Per un'altra disposizione della stessa serata usa «+ Variante»; per un altro progetto, «Duplica» in I miei progetti.</div>
-        <!-- STATO DEL DOCUMENTO (15/11/2026, S22 parte 1; dicitura scelta da Simone): «Provvisorio» / «Definitivo», facoltativo.
-             Nessuno = documento e nome del file identici a prima. In PRODUZIONE vanno solo i definitivi (regola di Diego, 23/01/2025). -->
-        <label for="pdfStatoDoc">Stato del documento <span class="hdr-why">— facoltativo: nel piè, nel cartiglio e nel nome del file</span></label>
-        <select id="pdfStatoDoc" style="width:150px"><option value="">Nessuno</option><option value="provvisorio">Provvisorio</option><option value="definitivo">Definitivo</option></select>
-        <div class="hdr-saved" id="pdfFileName"></div>
-        <div class="hdr-saved" id="pdfUltimo" hidden></div>
-        <!-- SCALETTA e QR (10/10/2026, idee dal confronto con TecRider Pro). Fuori da «Altre opzioni»:
-             la scaletta è contenuto scritto dall'utente, e il QR esiste solo per chi ha già un link
-             attivo. Le righe compaiono solo quando servono (style.display: `.pdf-exp-side>label`
-             batterebbe l'attributo hidden). -->
-        <label class="chk" id="pdfScalettaRow" style="display:none"><input type="checkbox" id="pdfScaletta"> Scaletta <small class="lbl-note" id="pdfScalettaNota"></small></label>
-        <div class="pdf-qr-row" id="pdfQrRow" style="display:none">
-          <label class="chk"><input type="checkbox" id="pdfQr"> Aggiungi un QR alla versione online aggiornata</label>
-          <div class="pdf-qr-nota" id="pdfQrNota">Chi ha il PDF potrà inquadrarlo e aprire il progetto online, aggiornato all'ultima modifica, finché il link di condivisione resta attivo.</div>
-          <div class="pdf-qr-avviso" id="pdfQrAvviso" role="status" hidden></div>
-        </div>
-        <!-- AREA DI STAMPA (31/07): era il passaggio precedente, una finestra a sé che si attraversava
-             per arrivare qui. Ora è una riga di questa: si legge cosa verrà stampato e si cambia se
-             serve, senza uscire. -->
-        <div class="pdf-optrow" id="pdfAreaRow">
-          <div style="flex:1">
-            <label>Area stampata</label>
-            <div class="pdf-area-line"><b id="pdfAreaTxt">tutto il palco</b>
-              <button type="button" class="btn" id="pdfAreaBtn">Cambia…</button></div>
-          </div>
-        </div>
-        <div class="pdf-optrow">
-          <div>
-            <label for="pdfPaper">Formato</label>
-            <select id="pdfPaper" hidden>
-              <option value="a4">A4 (29,7×21 cm)</option>
-              <option value="a3">A3 (42×29,7 cm)</option>
-              <option value="a2">A2 (59,4×42 cm)</option>
-            </select>
-            <div class="chips" data-chips="pdfPaper">
-              <button type="button" data-v="a4" class="on">A4</button>
-              <button type="button" data-v="a3">A3</button>
-              <button type="button" data-v="a2">A2</button>
-            </div>
-          </div>
-          <div>
-            <label>Orientamento</label>
+            <div class="px-g">Disegno</div>
+        <div class="px-col" id="pdfOrientCol">
+<div>
+            <label>Orientamento <span class="px-dove">sul foglio</span></label>
             <!-- «Auto» è il default: sceglie il verso del foglio che stampa il palco più grande, e lo
                  dichiara nella riga di stato qui sotto. I due chip restano, e vincono sempre. -->
             <select id="pdfOrient" hidden>
@@ -6786,32 +6912,16 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
               <button type="button" data-v="portrait">Vert.</button>
             </div>
           </div>
-          <div id="pdfScaleRow">
-            <label for="pdfScale">Scala</label>
-            <select id="pdfScale">
-              <option value="auto">Automatica</option>
-              <option value="50">1:50</option>
-              <option value="100">1:100</option>
-              <option value="200">1:200</option>
-              <option value="250">1:250</option>
-              <option value="500">1:500</option>
-              <option value="custom">Personalizzata…</option>
-            </select>
+        </div>
+        <!-- AREA DI STAMPA (31/07): era il passaggio precedente, una finestra a sé che si attraversava
+             per arrivare qui. Ora è una riga di questa: si legge cosa verrà stampato e si cambia se
+             serve, senza uscire. -->
+        <div class="pdf-optrow" id="pdfAreaRow">
+          <div style="flex:1">
+            <label>Area stampata</label>
+            <div class="pdf-area-line"><b id="pdfAreaTxt">tutto il palco</b>
+              <button type="button" class="btn" id="pdfAreaBtn">Cambia…</button></div>
           </div>
-        </div>
-        <div id="pdfScaleCustomRow" hidden style="display:flex;align-items:center;gap:6px;margin-top:6px">
-          <span style="font-size:13px;color:var(--text-2)">1:</span>
-          <input aria-label="Scala personalizzata" type="number" id="pdfScaleCustom" min="10" max="500" step="1" value="75" style="width:82px" inputmode="numeric">
-          <span style="font-size:12px;color:var(--text-3)">(10–500)</span>
-        </div>
-        <div id="pdfHdrRow">
-        <label>Riferimento nel cartiglio <span class="hdr-why">— stampato in basso su ogni pagina</span></label>
-        <div class="hdr-wrap">
-          <input aria-label="Contatto stampato in testata" type="text" id="pdfHeader" placeholder="Es. Fonico: Nome · +39 …" maxlength="120">
-          <button type="button" class="rub-btn" id="pdfHdrRub">Rubrica ▾</button>
-          <div class="rub-menu" id="pdfHdrMenu" hidden></div>
-        </div>
-        <div class="hdr-saved" id="pdfHdrSaved"></div>
         </div>
         <div id="pdfMisStileRow"><label for="pdfMisStile">Stile delle misure <small class="lbl-note">— pedane, quote e palco, in tutte le pagine</small></label>
           <select id="pdfMisStile"><option value="std" selected>12 × 2 m · h40 (come sempre)</option><option value="mx">12mX2mX40cm</option><option value="xh">12x2 H40</option><option value="mt">mt 12 x 2 x h 0,40</option></select></div>
@@ -6825,18 +6935,43 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
           <select id="pdfDocUnita"><option value="m" selected>metri (m)</option><option value="ft">piedi e pollici (ft-in)</option><option value="both">entrambe: m (ft-in)</option></select></div>
         <div class="hdr-saved" id="pdfDocUnitaHint" hidden>Per una squadra americana di solito servono piedi e pollici. <button type="button" class="btn" id="pdfDocUnitaFt">Usa ft-in</button></div>
         <label class="chk" id="pdfOrganicoRow"><input type="checkbox" id="pdfOrganico"> Organico nel cartiglio <small class="lbl-note">— «Organico: 41 + 9» (strumentisti + voci), come il foglio Organico</small></label>
-        <div class="hdr-saved" id="pdfTagliaHint" hidden><span id="pdfTagliaTesto"></span> <button type="button" class="btn" id="pdfTagliaBtn">Aggiungi al nome</button></div>
+        <div id="pdfHdrRow">
+        <label>Riferimento nel cartiglio <span class="hdr-why">— stampato in basso su ogni pagina</span></label>
+        <div class="hdr-wrap">
+          <input aria-label="Contatto stampato in testata" type="text" id="pdfHeader" placeholder="Es. Fonico: Nome · +39 …" maxlength="120">
+          <button type="button" class="rub-btn" id="pdfHdrRub">Rubrica ▾</button>
+          <div class="rub-menu" id="pdfHdrMenu" hidden></div>
+        </div>
+        <div class="hdr-saved" id="pdfHdrSaved"></div>
+        </div>
+        <label class="chk" id="pdfPesiRow"><input type="checkbox" id="pdfPesi"> Pesi (kg) <small class="lbl-note">— peso stimato dell'allestimento, in testata e nel rider</small></label>
+            <div class="px-g">Pagine e allegati</div>
+        <!-- SCALETTA e QR (10/10/2026, idee dal confronto con TecRider Pro). Dal 23/11 stanno in «Altre opzioni» (V1): la scaletta è contenuto scritto dall'utente, e il QR esiste solo per chi ha già un link
+             attivo. Le righe compaiono solo quando servono (style.display: `.pdf-exp-side>label`
+             batterebbe l'attributo hidden). -->
+        <label class="chk" id="pdfScalettaRow" style="display:none"><input type="checkbox" id="pdfScaletta"> Scaletta <small class="lbl-note" id="pdfScalettaNota"></small></label>
+        <div class="pdf-qr-row" id="pdfQrRow" style="display:none">
+          <label class="chk"><input type="checkbox" id="pdfQr"> Aggiungi un QR alla versione online aggiornata</label>
+          <div class="pdf-qr-nota" id="pdfQrNota">Chi ha il PDF potrà inquadrarlo e aprire il progetto online, aggiornato all'ultima modifica, finché il link di condivisione resta attivo.</div>
+          <div class="pdf-qr-avviso" id="pdfQrAvviso" role="status" hidden></div>
+        </div>
+        <div id="pdfTechBox" style="display:none">
+          <div class="pdf-side-h" id="pdfPillsTitle">Pagine del PDF, una per una</div>
+          <div id="pdfPills" class="pillrow"></div>
+          <div id="pdfTechNote"></div>
+        </div>
         <!-- ALLEGATI RICHIESTI (13/11/2026, S14): elenco libero con stato; se resta qualcosa «da chiedere», «Prima di esportare» lo dice. Solo se l'utente lo usa. -->
         <div id="pdfAllegati" class="pdf-all">
           <div class="pdf-all-t">Allegati richiesti <small class="lbl-note">— facoltativo: se qualcuno resta «da chiedere» te lo ricordo prima di esportare</small></div>
           <ul id="pdfAllegatiLista" class="pdf-all-l"></ul>
           <div class="pdf-all-add"><input type="text" id="pdfAllegatiNome" maxlength="60" placeholder="es. Planimetria del teatro" autocomplete="off" aria-label="Nome dell'allegato"><button type="button" class="btn" id="pdfAllegatiAgg">Aggiungi</button></div>
         </div>
-        <label class="chk" id="pdfPesiRow"><input type="checkbox" id="pdfPesi"> Pesi (kg) <small class="lbl-note">— peso stimato dell'allestimento, in testata e nel rider</small></label>
         <!-- Telefono: le opzioni da scrivania stanno dietro questo, con la STESSA preferenza del
              pannello elemento — chi accende «tecnico» lo accende una volta, non due. -->
         <button type="button" class="btn exp-pro" id="pdfProBtn">Altre opzioni</button>
         <label class="chk" id="pdfTechRow" style="display:none"><input type="checkbox" id="pdfIncludeTech" checked></label>
+          </div>
+        </details>
       </div>
       <div class="pdf-exp-main">
         <div id="pdfPreview" class="pdf-sheet"></div>
@@ -6853,16 +6988,39 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
       <!-- Dopo un export riuscito (01/10/2026): una riga, non un popup. Mai su un documento altrui. -->
       <p class="hint" id="pdfConsulenza" hidden></p>
       <div class="pdf-exp-actions">
-        <!-- ALTRI FORMATI (31/07): stavano nella finestra precedente, e chi arrivava qui non li
-             trovava più. Sono qui, secondari come devono essere. -->
-        <button class="btn" id="pdfAltPng" title="Immagine del palco, per email e messaggi">PNG</button>
-        <button class="btn" id="pdfAltCsv" title="Channel list in CSV: il service la importa senza ridigitarla">CSV</button>
-        <button class="btn" id="pdfAltZip" title="Un file .zip con un PDF per documento (stage plot, channel list, rider…), con la stessa versione e data nel nome">Pacchetto (.zip)</button>
+        <!-- ALTRI FILE (23/11/2026, V1): le uscite secondarie in UN gruppo, con le stesse funzioni di prima. Ogni voce dice cosa scarica. -->
+        <div class="pdf-altri">
+          <button type="button" class="btn" id="pdfAltriBtn" aria-haspopup="true" aria-expanded="false" aria-controls="pdfAltriMenu">Altri file <span aria-hidden="true">▾</span></button>
+          <div class="pdf-altri-menu" id="pdfAltriMenu" role="group" aria-label="Altri file da scaricare" hidden>
+            <!-- PALCO PER ESTERNI (16/11/2026, M-078): solo il disegno con la fascia «titolo · luogo · Stage plot vN · data»; è ciò che si manda a teatro, service, Diego. Scarica SUBITO un PDF. -->
+            <div class="pdf-altri-voce" id="pdfEsterniBox">
+              <button type="button" class="btn" id="pdfEsterni"><span><b>Palco per esterni</b> · PDF</span></button>
+              <small>Solo il disegno con titolo, luogo e versione, per teatro e service. Scarica subito.</small>
+            </div>
+            <!-- FOGLIO PER IL TEATRO (16/11/2026, L4.1): SOLO con «Esporta avanzato» acceso (avanzate chiuse di serie, 13/11) -->
+            <div class="pdf-altri-voce" id="pdfTeatroBox">
+              <button type="button" class="btn" id="pdfTeatro"><span><b>Foglio per il teatro</b> · PDF A4</span></button>
+              <small>Sedie, pedane, scalette e prese, con la stessa versione. Scarica subito.</small>
+            </div>
+            <div class="pdf-altri-voce">
+              <button type="button" class="btn" id="pdfAltZip" title="Un file .zip con un PDF per documento (stage plot, channel list, rider…), con la stessa versione e data nel nome">Pacchetto (.zip)</button>
+              <small>Un PDF per documento, stessa versione e data nel nome. Prima scegli i documenti.</small>
+            </div>
+            <div class="pdf-altri-voce">
+              <button type="button" class="btn" id="pdfAltPng" title="Immagine del palco, per email e messaggi">Immagine PNG</button>
+              <small>Il palco come immagine, per email e messaggi.</small>
+            </div>
+            <div class="pdf-altri-voce">
+              <button type="button" class="btn" id="pdfAltCsv" title="Channel list in CSV: il service la importa senza ridigitarla">Channel list CSV</button>
+              <small>La channel list da importare senza ridigitarla.</small>
+            </div>
+          </div>
+        </div>
         <span style="flex:1"></span>
-        <!-- Rosso perché è l'uscita: in una finestra dove l'azione è «Esporta PDF», l'altro bottone
+        <!-- Rosso perché è l'uscita: in una finestra dove l'azione è «Scarica PDF», l'altro bottone
              chiude senza fare niente, e va distinto a colpo d'occhio. (Simone, 02/09) -->
         <button class="btn danger" id="pdfCancel">Annulla</button>
-        <button class="btn primary" id="pdfGo">Esporta PDF</button>
+        <button class="btn primary" id="pdfGo">Scarica PDF</button>
       </div>
     </div>
     <!-- Invito a salvare dopo il PDF (09/11/2026): sotto il piede, fuori dalla sua fila (che resta com'era).

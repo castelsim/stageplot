@@ -953,8 +953,6 @@
      «automatica» — e l'intestazione col contatto, che si scrive meglio da fermi. */
   body:not(.f-esporta) #pdfTechBox,
   body:not(.f-esporta) #pdfAreaRow,
-  body:not(.f-esporta) #pdfScaleRow,
-  body:not(.f-esporta) #pdfScaleCustomRow,
   body:not(.f-esporta) #pdfHdrRow,
   body:not(.f-esporta) #pdfPesiRow,
   body:not(.f-esporta) #pdfTechRow{display:none !important}
@@ -4221,3 +4219,130 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
   border:1px solid var(--border);border-radius:999px;background:var(--surface);font:600 12px var(--font-ui);color:var(--text-2);box-shadow:0 1px 4px rgba(0,0,0,.06);pointer-events:none}
 #docChip svg{width:14px;height:14px;flex:0 0 auto;color:var(--accent)}
 #mRotChip:not([hidden]) ~ #docChip:not([hidden]){top:56px}   /* sul telefono la pastiglia «Vista girata» sta già in alto a sinistra */
+
+/* ── ESPORTA V1 «ANTEPRIMA SEMPRE VISIBILE» (23/11/2026, lotto A della semplificazione) ──────────────────────
+   Solo disposizione: stessi controlli, stessi id. Computer: le scelte a sinistra (340 px), il foglio grande a destra.
+   Telefono: il foglio in alto, compatto, le scelte sotto. «Altre opzioni» è un <details> chiuso; le uscite secondarie
+   stanno nel menu «Altri file» del piede. Regole scritte DOPO quelle del 14/07 e della colonna a 240 px, che sostituiscono. */
+.mcard.pdf-export{width:960px;max-width:96vw}
+.pdf-export .pdf-exp-grid{grid-template-columns:340px minmax(0,1fr);gap:22px;align-items:stretch}
+.pdf-export .pdf-exp-main{position:sticky;top:0;align-self:start}
+.pdf-export .pdf-sheet{min-height:340px;padding:14px;--px-prev-h:54vh}   /* --px-prev-h: letta dall'anteprima nello shadow DOM */
+.pdf-export .pdf-list-sheet{max-height:56vh}
+.pdf-export .pdf-exp-side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.pdf-export .pdf-exp-side label{display:block;font-size:12px;font-weight:600;color:var(--text-2);margin:0 0 4px}
+.pdf-export .pdf-exp-side label.chk{display:flex;align-items:flex-start;gap:6px;font-weight:500;margin:4px 0}
+.pdf-export .pdf-exp-side input[type=text]{width:100%;min-height:36px}
+.px-sez{display:flex;flex-direction:column;gap:6px;min-width:0}
+.px-riga{display:flex;gap:10px;align-items:flex-end}
+.px-col{min-width:0}
+.px-grow{flex:1 1 0}
+.px-vers{flex:0 0 76px}
+.px-vers input{width:100% !important}
+.px-dove{display:inline-block;margin-left:4px;font-size:11px;font-weight:600;line-height:1.5;color:var(--accent-strong);background:var(--accent-tint);border-radius:var(--r-pill);padding:0 7px;vertical-align:1px;white-space:nowrap}
+.px-sez .pdf-optrow{margin-top:0}
+.px-sez select{width:100%;min-height:36px;font-size:13px}
+.px-sez .chips{flex-wrap:nowrap}
+.px-sez .chips button{min-height:36px;padding:5px 12px;font-size:13px}
+#pdfScaleRow label{margin-bottom:4px}
+/* ALTRE OPZIONI */
+#pdfAltre{border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-raised)}
+#pdfAltre>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:9px 12px;min-height:40px;font-size:13px;font-weight:700;color:var(--text);border-radius:var(--r-md)}
+#pdfAltre>summary::-webkit-details-marker{display:none}
+#pdfAltre>summary::after{content:"▸";margin-left:auto;color:var(--text-3);font-size:12px}
+#pdfAltre[open]>summary::after{content:"▾"}
+#pdfAltre>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#pdfAltre .px-n{background:var(--accent-strong);color:#fff;border-radius:var(--r-pill);font-size:11px;font-weight:700;padding:1px 8px}
+#pdfAltre .px-altre-in{padding:2px 12px 12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+#pdfAltre .px-g{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);margin-top:6px}
+#pdfAltre .px-g:first-child{margin-top:0}
+#pdfAltre .pdf-optrow{margin-top:0}
+#pdfAltre .px-col{margin:0}
+#pdfAltre .exp-pro{margin-top:4px}
+/* MENU «ALTRI FILE» */
+.pdf-altri{position:relative;flex:0 0 auto}
+#pdfAltriBtn{min-height:38px}
+.pdf-altri-menu{position:absolute;left:0;bottom:calc(100% + 6px);z-index:6;width:300px;max-width:88vw;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);box-shadow:var(--elev-3);padding:6px;display:flex;flex-direction:column;gap:2px}
+.pdf-altri-menu[hidden]{display:none}
+.pdf-altri-voce{display:flex;flex-direction:column;gap:1px;padding:2px}
+.pdf-altri-voce>.btn{width:100%;text-align:left;border:0;background:transparent;font-weight:600;min-height:36px}
+.pdf-altri-voce>.btn:hover:not(:disabled){background:var(--surface-raised)}
+.pdf-altri-voce>.btn:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.pdf-altri-voce small{font-size:12px;color:var(--text-2);line-height:1.35;padding:0 10px 4px}
+#pdfTeatroBox{margin:0}
+body:not(.f-esporta) #pdfAltriMenu #pdfTeatroBox{display:none !important}
+#pdfAltriMenu #pdfEsterniBox,#pdfAltriMenu #pdfTeatroBox{margin-top:0}
+/* il piede: una riga di stato e i bottoni */
+.pdf-export .pdf-exp-foot{align-items:center}
+.pdf-export .pdf-exp-foot .mstatus{font-size:13px;line-height:1.35}
+.pdf-export .pdf-exp-foot .mstatus.warn{color:#78350f;background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:var(--r-md);padding:6px 10px}
+#pdfGo{min-height:40px;padding:0 18px;font-weight:700}
+body.dark #pdfAltre{background:#1b2328;border-color:#2c363d}
+body.dark .px-dove{background:#16302d;color:#6fd3c6}
+body.dark .pdf-altri-menu{background:#20292e;border-color:#2c363d}
+body.dark .pdf-export .pdf-exp-foot .mstatus.warn{background:#2a2412;border-color:#5b4a14;color:#f3d98b}
+/* TELEFONO: foglio in alto e compatto, scelte sotto */
+@media(max-width:720px){
+  .pdf-export .pdf-exp-grid{grid-template-columns:1fr;gap:8px}
+  .pdf-export .pdf-exp-main{order:-1;position:static;gap:4px}
+  .pdf-export .pdf-sheet{min-height:0;height:150px;padding:4px;--px-prev-h:142px}
+  .pdf-export .pdf-list-sheet{max-height:100%}
+  .pdf-export .pdf-sheet-ph{padding:6px;gap:3px}
+  .pdf-export .pdf-nav{gap:8px}
+  .pdf-export .pdf-pagelbl{min-width:0;font-size:12px}
+  .pdf-export .pdf-navbtn{width:36px;height:30px}
+  .pdf-export .pdf-exp-hint{display:none}
+  .pdf-export .pdf-exp-head{margin-bottom:8px}
+  .pdf-export .pdf-exp-side{gap:8px}
+  .pdf-altri-menu{left:0;right:auto;width:min(300px,86vw)}
+  .pdf-export .pdf-exp-actions{flex-wrap:nowrap}
+  .pdf-export .pdf-exp-actions>span{flex:1 1 0;min-width:0}
+}
+
+/* compattezza V1: tutto ciò che serve per il PDF di sempre sta sopra la piega (1440×800 e 390×844) */
+.pdf-export .pdf-scelte{margin:0}
+.pdf-export .pdf-sc{min-height:0;padding:7px 8px}
+.pdf-export .pdf-sc b{font-size:13px}
+.pdf-export .pdf-sc small{font-size:11px}
+.pdf-export .pdf-exp-side #pdfPrimaDi .nudge,.pdf-export .pdf-exp-side #pdfPrimaDi>div{margin:0}
+.pdf-export #pdfVersioneHint{display:none}   /* il consiglio «aggiungi la versione» passa al tag sotto l'etichetta: il tag dice già dove esce */
+.pdf-export .pdf-exp-side .hdr-saved{margin-top:0}
+@media(max-width:720px){
+  .pdf-export .pdf-exp-side{gap:6px}
+  .pdf-export .pdf-sc small{display:none}
+  .pdf-export #pdfPrimaDi{font-size:12px}
+  .pdf-export .pdf-sc-riep{margin-top:4px;font-size:12px}
+  .pdf-export .px-sez{gap:3px}
+  .pdf-export .pdf-exp-foot .mstatus{font-size:12px;padding:4px 8px}
+}
+
+/* V1: la scala resta in vista accanto al formato anche sul telefono (era dietro «Altre opzioni» solo col dito) */
+@media(max-width:720px){
+  .pdf-export .pdf-scelte .pdf-side-h{display:none}   /* il gruppo ha già aria-label «Contenuto del PDF» */
+  .pdf-export #pdfPrimaDi{margin:0}
+  .pdf-export .pdf-prima,.pdf-export #pdfPrimaDi .nudge{padding:5px 8px;font-size:12px;line-height:1.3}
+  .pdf-export .pdf-prima .pdf-prima-riga{padding:2px 0;min-height:0;font-size:12px}
+  .pdf-export .pdf-sheet{height:134px;--px-prev-h:126px}
+  .pdf-export .pdf-exp-foot .mstatus .px-scala{display:none}
+  .pdf-export .pdf-exp-foot .mstatus .btn{min-height:0;padding:2px 9px;font-size:12px;vertical-align:baseline}
+  .pdf-export .pdf-exp-foot .mstatus:empty{display:none}
+}
+@media(max-width:720px){
+  .pdf-export .pdf-sc-riep{display:none}   /* le pagine si leggono sotto il foglio («Pag 1/3 · Palco») e nella riga in alto */
+  .pdf-export .px-vers .px-dove{display:none}
+  .pdf-export .pdf-prima ul{margin:2px 0 0;padding-left:16px}
+  .pdf-export .pdf-prima li{margin:1px 0;line-height:1.25}
+  .pdf-export .pdf-exp-side label{margin-bottom:2px}
+  .pdf-export .px-sez .chips button{min-height:34px}
+  .pdf-export .pdf-exp-head{margin-bottom:6px}
+}
+@media(max-width:720px){ .pdf-export .pdf-sheet{height:128px;--px-prev-h:120px} .pdf-export .pdf-exp-grid{gap:5px} }
+@media(max-width:720px){
+  .pdf-export .pdf-sc{min-height:36px}
+  .pdf-export .px-sez .chips button{min-height:36px}
+  .pdf-export .pdf-exp-foot .mstatus .btn{min-height:30px;padding:3px 10px}
+}
+@media(max-width:720px){ .pdf-export .pdf-navbtn{min-height:34px;height:34px;width:40px} .pdf-export .pdf-sheet{height:124px;--px-prev-h:116px} }
+/* niente elementi schiacciati: se non c'è posto, è il corpo della finestra a scorrere (mai «Altre opzioni» tagliata a metà) */
+.pdf-export .pdf-exp-side>*{flex-shrink:0}
+@media(max-width:720px){ .pdf-export .pdf-sc b{font-size:12px;white-space:nowrap} }
