@@ -9680,7 +9680,7 @@ function luciNumeri(){
         montaggio:mountLabel(mo)+(mo!=="floor" ? " · "+h+" m" : "")});
     });
   });
-  return {mappa:mappa, righe:righe};
+  return {mappa:mappa, righe:righe, gruppi:ordineG.map(function(k){ return gruppi[k]; })};
 }
 /* i fogli per reparto si offrono solo con fari o strutture: senza, sarebbero lo stage plot (palco) o un foglio vuoto (luci) */
 function luciFogliDisponibili(){ return haLuciTruss(); }
@@ -9710,6 +9710,113 @@ function luciElencoPdf(doc, L, paperKey){
     doc.text(cut(r.montaggio, pw-M-col[3]), col[3], y);
     y+=passo;
   });
+}
+/* ===== PROGRAMMA LUCI (lotto 3, 24/11/2026) ======================================================
+   Un foglio A4 verticale nel Pacchetto («programma luci», solo con fari o truss): per ogni posizione (T1, T2… a terra,
+   su stativo) quali fari, quanti, che apparecchio, W e kW; totale generale; distinta delle truss. Numeri = quelli di
+   luciNumeri (gli stessi del foglio «pianta luci»). Solo dati già nel progetto: i W vengono da wattOf (come i carichi
+   elettrici); dove non sono noti si scrive «—», non zero, e il totale dice quanti apparecchi non li hanno. Niente salvataggio nuovo. */
+function programmaLuciDati(){
+  var N=luciNumeri(), posizioni=[], tot={n:0, w:0, senzaW:0}, truss=[];
+  N.gruppi.forEach(function(g){
+    var st=g.st, n=g.fari.length, w=0, sw=0, righe=[], idx={};
+    g.fari.forEach(function(f){
+      var watt=wattOf(f), noto=watt>0, lab=(f.label||"").trim(), tipoNome=(TYPES[f.type] && TYPES[f.type].nome) || f.type;
+      var nome=lab || tipoNome, k=nome+"|"+tipoNome+"|"+(noto?watt:"-");
+      if(!idx[k]){ idx[k]={q:0, nome:nome, tipo:(lab && lab!==tipoNome) ? tipoNome : "", codici:[], w:noto?watt:null, wTot:0, senzaW:0}; righe.push(idx[k]); }
+      var r=idx[k]; r.q++; r.codici.push(N.mappa[f.id]);
+      if(noto){ r.wTot+=watt; w+=watt; } else { r.senzaW++; sw++; }
+    });
+    if(st){
+      var rg=rigOf(st);
+      truss.push({code:g.code, tipo:(TYPES[st.type] && TYPES[st.type].nome) || st.type, nome:(st.label||"").trim()===g.code ? "" : (st.label||"").trim(),
+        lungCm:Math.round(st.w||0), h:rg ? rigHPulita(rg.h) : 0, n:n, w:w, senzaW:sw});
+    }
+    if(!n) return;
+    posizioni.push({code:g.code, pos:g.pos, tipo:st ? "struttura" : g.code, n:n, w:w, senzaW:sw, righe:righe});
+    tot.n+=n; tot.w+=w; tot.senzaW+=sw;
+  });
+  return {posizioni:posizioni, tot:tot, truss:truss};
+}
+function programmaLuciDisponibile(){ return haLuciTruss(); }
+function programmaLuciPdf(doc){
+  var D=programmaLuciDati(); if(!D.posizioni.length && !D.truss.length) return false;
+  var en=docEn(), L=function(it,e){ return en ? e : it; };
+  var kW=function(w){ var s=(w/1000).toFixed(1); return (en ? s : s.replace(".",","))+" kW"; };
+  var wTxt=function(w){ return w==null ? "—" : String(Math.round(w))+" W"; };
+  var totTxt=function(o){ return o.n+" "+L(o.n===1?"apparecchio":"apparecchi", o.n===1?"fixture":"fixtures")+" · "+kW(o.w)+(o.senzaW ? " · "+o.senzaW+" "+L("senza W","without W") : ""); };
+  var M=16, R=194, FONDO=282, y;
+  var cQ=M, cA=M+13, cN=M+88, cW=R-22, cT=R;
+  doc.addPage("a4","portrait");
+  doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
+  doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — "+L("Programma luci","Lighting schedule"), M, 9);
+  doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(docTesto(dataDocumento()), R, 9, {align:"right"});
+  y=22;
+  if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
+  doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
+  if(D.tot.n){ doc.text(totTxt(D.tot), M, y); y+=8; }
+  function nuova(){ doc.addPage("a4","portrait"); y=18; }
+  function testaColonne(){
+    doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor("#0b7a70");
+    doc.text(L("Q.tà","Qty"), cQ, y); doc.text(L("APPARECCHIO","FIXTURE"), cA, y); doc.text(L("NUMERI","NUMBERS"), cN, y);
+    doc.text(L("W CAD.","W EACH"), cW, y, {align:"right"}); doc.text(L("W TOT.","W TOTAL"), cT, y, {align:"right"});
+    doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y+1.6, R, y+1.6); y+=6;
+  }
+  function numeri(c){
+    var m=c.map(function(x){ var q=/^(.*)\.(\d+)$/.exec(x); return q ? {p:q[1], n:+q[2]} : null; });
+    if(c.length>2 && m.every(function(a){ return a; }) && m.every(function(a,i){ return a.p===m[0].p && a.n===m[0].n+i; })) return c[0]+"–"+c[c.length-1];
+    return c.join(", ");
+  }
+  if(D.posizioni.length) testaColonne();
+  D.posizioni.forEach(function(p){
+    var nome=p.tipo==="struttura" ? docTesto(p.pos) : p.tipo==="S" ? L("su stativo","on stands") : p.tipo==="F" ? L("a terra","on the floor") : L("appeso, senza struttura","hung, no truss");
+    if(y+14>FONDO){ nuova(); testaColonne(); }
+    doc.setFillColor("#e6f4f1"); doc.rect(M-1, y-4.4, R-M+2, 6.4, "F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor("#111827");
+    doc.text(doc.splitTextToSize(nome, cT-cA-2)[0], M, y);
+    doc.text(p.n+" · "+kW(p.w)+(p.senzaW ? " + "+p.senzaW+" "+L("senza W","without W") : ""), cT, y, {align:"right"}); y+=6.2;
+    p.righe.forEach(function(r){
+      var ap=docTesto(r.nome)+(r.tipo ? " ("+docTesto(r.tipo)+")" : "");
+      var al=doc.splitTextToSize(ap, cN-cA-3), nl=doc.splitTextToSize(numeri(r.codici), cW-cN-14), nr=Math.max(al.length, nl.length);
+      if(y+(nr-1)*4.2>FONDO){ nuova(); testaColonne(); }
+      doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#111827");
+      doc.text(r.q+"×", cQ, y); doc.text(al, cA, y); doc.text(nl, cN, y);
+      doc.text(wTxt(r.w), cW, y, {align:"right"}); doc.text(r.senzaW===r.q ? "—" : wTxt(r.wTot)+(r.senzaW ? "*" : ""), cT, y, {align:"right"});
+      y+=5.2+(nr-1)*4.2;
+    });
+    y+=2.5;
+  });
+  if(D.posizioni.length){
+    if(y+10>FONDO) nuova();
+    doc.setDrawColor("#111827"); doc.setLineWidth(0.5); doc.line(M, y-3, R, y-3);
+    doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor("#111827");
+    doc.text(L("Totale","Total"), M, y+1.5); doc.text(totTxt(D.tot), R, y+1.5, {align:"right"}); y+=11;
+  }
+  if(D.truss.length){
+    var cs=[M, M+14, M+84, M+112, R-22, R];
+    var testa=function(){ doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor("#0b7a70");
+      doc.text(L("SIGLA","CODE"), cs[0], y); doc.text(L("STRUTTURA","STRUCTURE"), cs[1], y); doc.text(L("LUNGHEZZA","LENGTH"), cs[2], y);
+      doc.text(L("ALTEZZA","HEIGHT"), cs[3], y); doc.text(L("FARI","FIXTURES"), cs[4], y, {align:"right"}); doc.text("kW", cs[5], y, {align:"right"});
+      doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y+1.6, R, y+1.6); y+=6; };
+    if(y+30>FONDO) nuova();
+    doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.setTextColor("#111827"); doc.text(L("Distinta truss","Truss list"), M, y); y+=7;
+    testa();
+    D.truss.forEach(function(s){
+      if(y>FONDO){ nuova(); testa(); }
+      doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor("#111827"); doc.text(s.code, cs[0], y);
+      doc.setFont("helvetica","normal");
+      var nm=docTesto(s.tipo)+(s.nome ? " · "+docTesto(s.nome) : "");
+      doc.text(doc.splitTextToSize(nm, cs[2]-cs[1]-3)[0], cs[1], y);
+      doc.text(docLen(s.lungCm), cs[2], y); doc.text(s.h ? docTesto(rigTrimTesto(s.h)) : "—", cs[3], y);
+      doc.text(String(s.n), cs[4], y, {align:"right"}); doc.text(s.n ? (s.senzaW===s.n ? "—" : kW(s.w).replace(" kW","")+(s.senzaW ? "*" : "")) : "0", cs[5], y, {align:"right"});
+      y+=5.4;
+    });
+    if(D.posizioni.some(function(p){ return p.senzaW; })){
+      y+=2; doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#555555");
+      doc.text(L("* senza i W degli apparecchi di cui la potenza non è nota","* excludes fixtures whose power is not known"), M, y);
+    }
+  }
+  return true;
 }
 /* VISTA A UN TOCCO: Palco · Luci e truss · Tutto. È un modo di VEDERE e di prendere, non un dato: non si
    salva nel progetto, non entra in PDF e PNG (sceneMarkup con espandi la ignora), si azzera a ogni
@@ -44240,13 +44347,13 @@ function pdfGateErrori(run){
    CRC32, nomi in UTF-8. Fase 1: solo la variante corrente (col suo nome nei file se il progetto ne ha più d'una). Il marcatore «cambiato da vN-1»
    verrà con la differenza fra versioni (S10): qui solo il punto d'aggancio, `pacchettoCostruisci(…, opz)`. Solo PDF; niente PDP, hospitality, camerini. */
 function pacchettoDocumentiTutti(){
-  return [["stageplot","stage plot"],["piantapalco","pianta palco"],["piantaluci","pianta luci"],["inputlist","channel list"],["outputlist","output list"],["rider","rider"],["organico","organico"],["backline","backline"],["lightslist","lista luci"],["scaletta","scaletta"]];
+  return [["stageplot","stage plot"],["piantapalco","pianta palco"],["piantaluci","pianta luci"],["programmaluci","programma luci"],["inputlist","channel list"],["outputlist","output list"],["rider","rider"],["organico","organico"],["backline","backline"],["lightslist","lista luci"],["scaletta","scaletta"]];
 }
 function pacchettoDocumenti(chiaviPillole, haScaletta, haPalco, haLuci){   /* haLuci (lotto 2): fari o truss → anche i fogli «pianta palco» e «pianta luci»; senza, non escono (sarebbero doppione o vuoti) */
   var have={}; (chiaviPillole||[]).forEach(function(k){ have[k]=true; });
   return pacchettoDocumentiTutti().filter(function(d){
     if(d[0]==="stageplot") return !!haPalco;
-    if(d[0]==="piantapalco" || d[0]==="piantaluci") return !!haPalco && !!haLuci;
+    if(d[0]==="piantapalco" || d[0]==="piantaluci" || d[0]==="programmaluci") return !!haPalco && !!haLuci;
     if(d[0]==="scaletta") return !!haScaletta;
     return !!have[d[0]]; }).map(function(d){ return {chiave:d[0], nome:(d[0]==="rider" && eventoConferenza()) ? "scheda tecnica" : d[1]}; });
 }
@@ -44310,7 +44417,7 @@ function pacchettoProduci(chiave, ctx){
       return buildPdfDoc(ctx.paper, ctx.N, ctx.orient, ctx.header, chiave==="piantapalco" ? "palco" : chiave==="piantaluci" ? "luci" : null).then(function(doc){ ripristina(); return doc; }, function(e){ ripristina(); throw e; });
     }
     var doc=new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true});
-    var F={ inputlist:function(){ patchListServicePdf(doc, {perPagina:ctx.perPagina===48?48:32}); }, outputlist:function(){ outputListPdf(doc); }, rider:function(){ riderPdf(doc); },
+    var F={ programmaluci:function(){ programmaLuciPdf(doc); }, inputlist:function(){ patchListServicePdf(doc, {perPagina:ctx.perPagina===48?48:32}); }, outputlist:function(){ outputListPdf(doc); }, rider:function(){ riderPdf(doc); },
             organico:function(){ organicoPdf(doc); }, backline:function(){ backlineListPdf(doc); }, lightslist:function(){ lightsListPdf(doc); }, scaletta:function(){ scalettaPdf(doc); } };
     if(!F[chiave]) throw new Error("documento sconosciuto: "+chiave);
     F[chiave]();
