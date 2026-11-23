@@ -14146,6 +14146,7 @@ function itemMarkup(it){
      SUE misure, arretrato di mezza sporgenza — altrimenti i draw dei nove userebbero un it.w/it.d
      gonfiati e si stirerebbero. Lo stativo segue il corpo, non il softbox. */
   var _md=(typeof modBody==="function")?modBody(it):null;
+  if(state.coloreFamiglie===true) s += famColoreAlone(it, _pv.w, _pv.d);   /* colore per famiglia (23/11): l'alone sta SOTTO tutto (stativo/aggancio e arte), mai sopra */
   if(isMountable(it)) s += _md ? '<g transform="translate(0 '+_md.dy.toFixed(1)+')">'+mountUnderSvg(_md.it)+'</g>' : mountUnderSvg(it);
   /* lucchettino sull'elemento bloccato che non se lo disegna da sé: nell'angolo del suo ingombro,
      stesso segno degli altri — così aggiungere un bloccabile non vuol dire riscriverne il disegno */
@@ -14153,7 +14154,6 @@ function itemMarkup(it){
   if(_la && inPiedi(it) && !piediIconaOk(_la)){ piediCarica(); _la=null; _pm=true; }   /* figura in piedi non ancora arrivata (solo a schermo; l'export la aspetta): il solo strumento, mai la figura seduta né la sedia */
   var _bi=_md?_md.it:it, _drawn=_la?libIconScene(_la):t.draw(_pm?Object.assign({},_bi,{sedia:false}):_bi);   /* Fase 2: aspetto illustrato → illustrazione musicista invece dello schema */
   if(_md) _drawn='<g transform="translate(0 '+_md.dy.toFixed(1)+')">'+_drawn+'</g>';
-  if(state.coloreFamiglie===true) s += famColoreAlone(it, _pv.w, _pv.d);   /* colore per famiglia (23/11): l'alone sta SOTTO l'arte */
   s += it.mir ? '<g transform="scale(-1,1)">'+_drawn+'</g>' : _drawn;   /* specchia SOLO l'arte (hit/selbox/etichetta restano) */
   if(tastFig(it)){ var _tfg=tastFigGeom(it); s += tastFigSvg(it) + '<rect class="hit" x="'+(-TAST_FIG_LARG/2)+'" y="'+(_tfg.lato>0?0:-_tfg.far.toFixed(1))+'" width="'+TAST_FIG_LARG+'" height="'+_tfg.far.toFixed(1)+'"/>'; }   /* tastierista in piedi dietro lo strumento: sopra l'arte (mani sui tasti) e area di clic */
   if(_md) s += '<g transform="translate(0 '+_md.modY.toFixed(1)+')">'+modOverSvg(it)+'</g>';   /* il softbox davanti: simmetrico, non lo tocca lo specchio */

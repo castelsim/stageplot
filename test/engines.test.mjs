@@ -7389,6 +7389,12 @@ t("colore per famiglia (23/11): opzione di progetto spenta di serie, alone sotto
   for (const v of ["si", 1, "true", null, [], {}, false, 0]) { const m = JSON.parse(A.docToJSON()); m.variants.forEach((x) => { x.state.coloreFamiglie = v; }); A.loadDoc(m); ok(!("coloreFamiglie" in A.state), "valore " + JSON.stringify(v) + ": ripulito"); }
   delete A.state.coloreFamiglie; ok(!("coloreFamiglie" in stDi(JSON.parse(A.docToJSON()))), "spento: la chiave non compare nel file (i progetti esistenti non cambiano)");
   ok(A.CAMPI_DOCUMENTO.includes("coloreFamiglie"), "è un campo del documento: vale per tutte le varianti");
+  /* l'alone sta SOTTO lo stativo e l'arte (rilettura PR 200): mai sopra i simboli di montaggio */
+  A.state.coloreFamiglie = true;
+  A.state.items = A.normalizeLoadedItems([{ id: "pm1", type: "parluci", x: 300, y: 200, mount: { mode: "stand", h: 200 } }]);
+  const pm = A.state.items[0], mk = A.itemMarkup(pm), mu = A.mountUnderSvg(pm);
+  ok(mu.length > 0, "il faro su stativo ha il suo disegno dello stativo");
+  ok(mk.indexOf('class="famcol') > -1 && mk.indexOf(mu) > -1 && mk.indexOf('class="famcol') < mk.indexOf(mu), "faro su stativo: l'alone viene PRIMA dello stativo (non lo copre)");
   /* il controllo e il CSS */
   const shellHtml = readFileSync(join(root, "app/index.html"), "utf8");
   ok(shellHtml.includes('id="pdfFamCol"'), "il controllo «Colore per famiglia» esiste nella shell (Esporta)");
