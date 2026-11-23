@@ -19944,7 +19944,7 @@ t("scheda tecnica: non cannibalizza il rider tecnico", () => {
   ok(h1(schedaHtml) !== h1(rider), "H1 distinti");
   /* l'intento è la differenza: qui «come compilare» (procedura), là «cos'è» (definizione) */
   ok(/come compilare/i.test(title(schedaHtml)), "la nuova punta alla procedura: " + title(schedaHtml));
-  ok(/cos'è|cosa contiene/i.test(title(rider)), "il rider resta la definizione: " + title(rider));
+  ok(/cos'è|cosa contiene|tech rider|esempio/i.test(title(rider)) && !/come compilare/i.test(title(rider)), "il rider resta la definizione/esempio, non la procedura: " + title(rider));
   ok(rider.indexOf('href="/guida/scheda-tecnica-band/"') > -1, "e il rider manda esplicitamente alla procedura");
 });
 
