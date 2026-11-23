@@ -17995,6 +17995,8 @@ function elecConnOf(it, a, ov){
 }
 function elecMargin(){ return 0.2; }
 function elecKW(w){ return (w/1000).toFixed(1).replace(".",",")+" kW"; }
+/* Corrente del totale (23/11/2026): in trifase la corrente utile è quella PER FASE, W/(230·3): 21,4 kW erano «93 A», che a chi legge fa pensare a quadri da 32 A troppo piccoli; sono ~31 A per fase. Monofase invariato (W/230). Solo testo: i W e i carichi non cambiano. */
+function elecAmpTot(totW, trifase){ return trifase ? "~"+Math.round(totW/(ELEC_VOLT*3))+" A per fase" : Math.round(totW/ELEC_VOLT)+" A"; }
 function elecSupplyPoint(){
   var sp=state.elec&&state.elec.supply, W=state.stage.w, D=state.stage.d;
   var gen=(state.items||[]).filter(elecIsGen)[0];
@@ -39249,7 +39251,7 @@ function loadListPdf(shared){
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     var P=elecPotenza(R);
-    y=pdfACapo(doc, (P.picco?"Totale tipico: "+elecKW(R.totW)+" · massimo "+elecKW(P.maxW):"Totale: "+elecKW(R.totW))+" · "+R.totA.toFixed(0)+" A   ·   "+elecQuadriRiga(state, R), M, y, 178, 5);
+    y=pdfACapo(doc, (P.picco?"Totale tipico: "+elecKW(R.totW)+" · massimo "+elecKW(P.maxW):"Totale: "+elecKW(R.totW))+" · "+elecAmpTot(R.totW, R.phase3)+"   ·   "+elecQuadriRiga(state, R), M, y, 178, 5);
     /* A1: la presa da chiedere, dimensionata sul massimo, sotto il totale */
     if(P.preseTxt){ doc.setFontSize(8.5); y=pdfACapo(doc, "Da chiedere: "+P.preseTxt+(P.genKva?" · con un generatore almeno "+P.genKva+" kVA":""), M, y, 178, 3.8)-0.8; }
     y+=3;
@@ -40183,7 +40185,7 @@ function elecReportPdf(shared){
       doc.setTextColor("#92400e"); doc.text(dl, M+3, y+1); y+=dh+4; })();
     line("Riepilogo", 12, true, "#b45309", 6);
     var P=elecPotenza(R);
-    line((P.picco?"Assorbimento tipico: ":"Potenza totale: ")+elecKW(R.totW)+"  ·  "+R.totA.toFixed(0)+" A  ("+(R.phase3?"trifase":"monofase")+")"
+    line((P.picco?"Assorbimento tipico: ":"Potenza totale: ")+elecKW(R.totW)+"  ·  "+elecAmpTot(R.totW, R.phase3)+"  ("+(R.phase3?"trifase":"monofase")+")"
       +(P.picco?"  ·  massimo: "+elecKW(P.maxW)+" (audio a piena potenza)":""), 10, false, null, 5);
     if(P.preseTxt) line("Da chiedere: "+P.preseTxt+", a non più di 10 m dal palco", 10, false, null, 5);
     if(P.genKva) line("Generatore consigliato: almeno "+P.genKva+" kVA (da confermare con il noleggiatore)", 10, false, null, 5);
@@ -41193,7 +41195,7 @@ function pdfListConfig(){
       cols:[{h:"#",num:1,f:function(r){return r.n;}},{h:"Mix",f:function(r){return r.mix;}},{h:"Tipo",f:function(r){return r.tipo+(r.stereo?" · st":"");}},{h:"Monitor",f:function(r){return r.name;}},{h:"Uscita",f:function(r){return r.patch;},warn:function(r){return !r.box;}}] },
     loadlist:{ title:"Lista carichi", color:"#d97706", data:(typeof loadList==="function"?loadList:null),
       sub:function(d){ if(!d.R) return ""; var P=elecPotenza(d.R);
-        return (P.picco?"Totale tipico "+elecKW(d.R.totW)+" · massimo "+elecKW(P.maxW):"Totale "+elecKW(d.R.totW)+" · "+d.R.totA.toFixed(0)+" A")+(P.preseTxt?" · da chiedere: "+P.preseTxt:"")+" · "+elecQuadriRiga(state, d.R); },
+        return (P.picco?"Totale tipico "+elecKW(d.R.totW)+" · massimo "+elecKW(P.maxW):"Totale "+elecKW(d.R.totW)+" · "+elecAmpTot(d.R.totW, d.R.phase3))+(P.preseTxt?" · da chiedere: "+P.preseTxt:"")+" · "+elecQuadriRiga(state, d.R); },
       cols:[{h:"#",num:1,f:function(r){return r.n;}},{h:"Carico",f:function(r){return r.name;}},{h:"W",num:1,f:function(r){return r.w;}},{h:"Fonte W",f:function(r){return wattFonteBreve(r.fonte)||"—";}},{h:"A",num:1,f:function(r){return r.a.toFixed(1);}},{h:"Distro / fase",f:function(r){return r.ok?(r.distro+" / "+r.phase):"— senza distro";},warn:function(r){return !r.ok;}}] },
     backline:{ title:"Backline", color:"#0d9488", data:(typeof backlineList==="function"?backlineList:null),
       sub:function(d){ return d.totItems+" element"+(d.totItems===1?"o":"i")+(d.byService?" · "+d.byService+" da Service":""); },
@@ -41537,7 +41539,7 @@ function riderData(){
       var P=elecPotenza(E);
       /* le multiprese (ciabatte) non sono quadri: dieci ciabatte uscivano «quadri: Q1 16A … Q10 16A» (11/11/2026) */
       var _quadri=(E.distros||[]).filter(function(d){ return !(d.it && d.it.type==="ciabatta"); });
-      return { w:E.totW, a:E.totA, distro:_quadri.map(function(d){ return d.letter+" "+d.a+"A"; }),
+      return { w:E.totW, a:E.totA, aTxt:elecAmpTot(E.totW, _quadri.some(function(d){ return !d.auto && d.ph===3; })), distro:_quadri.map(function(d){ return d.letter+" "+d.a+"A"; }),
                multiprese:(E.distros||[]).length-_quadri.length,
                /* «trifase» solo se c'è davvero un quadro trifase: phase3 nasce vero di default, e il rider scriveva «distribuzione trifase» accanto a «1 presa 16 A monofase» per un wedge (analisi esterna 08/11) */
                fasi:_quadri.some(function(d){ return !d.auto && d.ph===3; }), quadroFrase:elecQuadroFrase(state,_quadri.length),
@@ -41612,7 +41614,7 @@ function riderAlimentazioneText(e){
      massimo coincidono resta un numero solo; sotto una presa da 16 A il generatore non si nomina. */
   var pot = (e.maxW && e.maxW>e.w)
     ? "Assorbimento tipico "+elecKW(e.w)+" · massimo "+elecKW(e.maxW)+" (audio a piena potenza)"
-    : "Assorbimento stimato "+elecKW(e.w)+" · "+Math.ceil(e.a)+" A";
+    : "Assorbimento stimato "+elecKW(e.w)+" · "+(e.aTxt && /per fase/.test(e.aTxt) ? e.aTxt : Math.ceil(e.a)+" A");
   var _quadro = e.quadroFrase!=null ? e.quadroFrase : (e.distro.length?"":ELEC_QUADRO_APERTO);   /* senza il dato (chi chiama con un riassunto vecchio): come un progetto senza risposta */
   return pot+
     (e.distro.length?" · quadri: "+e.distro.join(", "):"")+(e.multiprese?" · "+e.multiprese+(e.multiprese===1?" multipresa":" multiprese"):"")+(e.fasi?" · distribuzione trifase":"")+". "+

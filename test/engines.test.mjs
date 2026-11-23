@@ -39668,5 +39668,19 @@ t("I18N L1 (ricerca): «keyboard» dà per prima la Tastiera, «bs» non trova p
   eq(A.__spSearch("bs").slice(0, 5).map((r) => r.k), ["bassstand", "bassstand", "substg", "substg", "substg"], "«bs» nella barra: i primi 5 identici a main");
 });
 
+t("corrente del totale: trifase = A PER FASE (W/690), monofase invariato W/230 (23/11/2026)", () => {
+  eq(A.elecAmpTot(21350, true), "~31 A per fase", "21,35 kW trifase");
+  eq(A.elecAmpTot(21350, false), "93 A", "monofase: W/230 come prima");
+  eq(A.elecAmpTot(0, true), "~0 A per fase", "zero");
+  reset(); A.state.elec.mode = "manual"; A.state.elec.phase3 = true;
+  add("distro32", 600, 700); add("rack4u", 500, 600); add("rack4u", 700, 600); A.__elecRes = null;
+  const e = A.riderData().elettrico, r = A.riderAlimentazioneText(e);
+  ok(/~\d+ A per fase/.test(r) && /distribuzione trifase/.test(r), "rider con quadro trifase: " + r);
+  reset(); A.state.elec.mode = "manual"; add("wedge", 500, 600); A.__elecRes = null;
+  const r2 = A.riderAlimentazioneText(A.riderData().elettrico);
+  ok(!/per fase/.test(r2) && / A\./.test(r2) || !/per fase/.test(r2), "wedge monofase: invariato: " + r2);
+  reset();
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
