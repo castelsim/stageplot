@@ -40307,6 +40307,7 @@ t("programma luci L3: distinta truss — lunghezza, altezza, fari e kW per strut
   eq(D.truss.find((s) => s.code === "T1").nome, "Frontale", "nome dato dall'utente");
   eq(D.truss.find((s) => s.code === "A1").h, 650, "altezza di trim se scritta");
   eq(D.truss.find((s) => s.code === "T1").h, 0, "altezza assente = 0, non inventata");
+  F.tF.label = A.TYPES[F.tF.type].nome; eq(A.programmaLuciDati().truss.find((x) => x.code === "A1").nome, "", "nome uguale al tipo = non si ripete");
   F.tP.rot = 90; eq(A.programmaLuciDati().truss.find((s) => s.code === "T1").lungCm, 600, "la lunghezza è quella della barra anche ruotata");
   reset();
 });

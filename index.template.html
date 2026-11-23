@@ -9729,7 +9729,7 @@ function programmaLuciDati(){
     });
     if(st){
       var rg=rigOf(st);
-      truss.push({code:g.code, tipo:(TYPES[st.type] && TYPES[st.type].nome) || st.type, nome:(st.label||"").trim()===g.code ? "" : (st.label||"").trim(),
+      truss.push({code:g.code, tipo:(TYPES[st.type] && TYPES[st.type].nome) || st.type, nome:((st.label||"").trim()===g.code || (st.label||"").trim().toLowerCase()===String((TYPES[st.type] && TYPES[st.type].nome) || "").toLowerCase()) ? "" : (st.label||"").trim(),
         lungCm:Math.round(st.w||0), h:rg ? rigHPulita(rg.h) : 0, n:n, w:w, senzaW:sw});
     }
     if(!n) return;
