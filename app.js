@@ -8436,6 +8436,17 @@ function pdfRiepilogoPagine(titoli){
   if(nomi.length>6) nomi=nomi.slice(0,5).concat(["altre "+(n-5)]);
   return n+" pagin"+(n===1?"a":"e")+": "+nomi.join(" \u00b7 ");
 }
+/* RIGA DI RIEPILOGO DELL'ESPORTA (23/11/2026, lotto A0 della semplificazione): una riga in cima alla finestra, sempre visibile,
+   che dice cosa uscirà: «A3 · 1:50 · 6 pagine · v3 · 23/11/2026». Foglio, scala e pagine come in anteprima; versione, data e stato
+   come nel piè dei fogli (versione assente = niente data, come là). `corta` (iPhone): «6 pag.» e data senza anno. SOLO SCHERMO:
+   non entra in nessun PDF. */
+function pdfRigaRiepilogo(paperKey, N, nPagine, d, corta){
+  var p=[String(paperKey||"a4").toUpperCase(), N ? "1:"+N : "non entra", nPagine+(corta ? " pag." : (nPagine===1 ? " pagina" : " pagine"))];
+  var v=versioneNumero();
+  if(v){ p.push("v"+v); p.push(corta ? dataGgMmAaaa(d||new Date(),"/").slice(0,5) : dataGgMmAaaa(d||new Date(),"/")); }
+  var st=statoDocEtichetta(); if(st) p.push(st);
+  return p.join(" \u00b7 ");
+}
 /* Inviti mirati per il nudge: elemento regia presente + sistema NON ancora dichiarato → domanda concreta.
    Mai assumere la risposta: la domanda porta l'utente a dichiararla nel Controllo tecnico. */
 function productionElementHints(s){
@@ -43814,9 +43825,23 @@ function pdfChannelPage(doc, L, paperKey){
       _pdfPillSel={}; sc.sugg.forEach(function(k){ _pdfPillSel[k]=true; });
       pdfRenderPills(); pdfUpdateTechNote(); });
   })();
+  /* La riga di riepilogo in cima (A0): formato · scala · pagine · versione · data, ricalcolata a ogni cambio come l'anteprima. */
+  function pdfRenderRiga(){
+    var el=document.getElementById("pdfRiga"); if(!el) return;
+    var txt="";
+    try{
+      var _o=pdfOrientValue(paper.value, pdfScaleValue(), header.value);
+      var _N=resolveScale(paper.value, pdfScaleValue(), _o, cartHFor(header.value, paper.value, _o));
+      var _c=false; try{ _c=!!(window.matchMedia && window.matchMedia("(max-width:480px)").matches); }catch(_e){}
+      txt=pdfRigaRiepilogo(paper.value, _N, previewPages().length, new Date(), _c);
+    }catch(_e){}
+    if(el.textContent!==txt) el.textContent=txt;
+    el.hidden=!txt;
+  }
   function renderPreview(){
     var host=document.getElementById("pdfPreview"); if(!host) return;
     pdfRenderScelte();   /* riepilogo e scelta seguono ogni cambio (pillole, scaletta, avviso «Aggiungi») */
+    pdfRenderRiga();
     /* stessa altezza di cartiglio di refresh() e dell'export: senza, l'anteprima poteva disegnare a
        una scala e la riga di stato dichiararne un'altra */
     var _or=pdfOrientValue(paper.value, pdfScaleValue(), header.value);   /* «auto» risolto: l'anteprima mostra il foglio che uscirà */

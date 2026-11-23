@@ -23344,6 +23344,46 @@ t("due scelte: quale e' evidenziata segue le pillole (solo · scheda · personal
   eq(A.pdfModoScelta(["rider"], []), "custom", "senza suggerite, una pagina scelta a mano non e' «scheda»");
 });
 
+t("Testata: il badge «Solo su questo dispositivo · Accedi» (#docState) non eredita lo stile dell'avviso lingua sul palco (#docChip): niente position:absolute sul badge", () => {
+  /* Regressione di #193 (22/11): le regole dell'avviso lingua erano scritte su `.doc-chip` e portavano ANCHE il badge della testata
+     (stessa classe) a position:absolute; left:12px, sopra l'inizio del titolo. Ora l'avviso si aggancia solo all'id. */
+  const blocchi = stylesCss.split("}").map((b) => b.trim());
+  const generico = blocchi.filter((b) => /(^|[,\s])\.doc-chip(:not\(\[hidden\]\))?\s*(,|\{)/.test(b.split("{")[0]) && /position\s*:\s*absolute/.test(b));
+  eq(generico.length, 0, "nessuna regola su .doc-chip generico con position:absolute: " + generico.join(" | ").slice(0, 200));
+  ok(/#docChip:not\(\[hidden\]\)\s*\{[^}]*position\s*:\s*absolute/.test(stylesCss), "l'avviso lingua resta assoluto sul palco, agganciato a #docChip");
+  ok(!/\n\.doc-chip svg\s*\{[^}]*color\s*:\s*var\(--accent\)/.test(stylesCss), "l'icona del badge non prende il colore dell'avviso lingua");
+});
+t("Esporta: la riga di riepilogo sta in cima, FUORI dall'area che scorre, con aria-live; si ricalcola a ogni cambio (renderPreview); solo schermo", () => {
+  const shell = readFileSync(join(root, "app/index.html"), "utf8");
+  const iRiga = shell.indexOf('id="pdfRiga"'), iBody = shell.indexOf('class="pdf-exp-body"'), iHead = shell.indexOf('class="pdf-exp-head"');
+  ok(iRiga > iHead && iRiga < iBody, "la riga è dopo l'intestazione e prima di .pdf-exp-body (quello che scorre)");
+  ok(/id="pdfRiga"[^>]*role="status"[^>]*aria-live="polite"/.test(shell), "role=status + aria-live=polite");
+  ok(/\.pdf-exp-riga\{flex:0 0 auto/.test(stylesCss), "non si restringe e non scorre: flex 0 0 auto");
+  const rp = appjs.slice(appjs.indexOf("function renderPreview(){"), appjs.indexOf("function renderPreview(){") + 400);
+  ok(/pdfRenderRiga\(\)/.test(rp), "renderPreview (chiamata da refresh a ogni scelta) ricalcola la riga");
+  ok(/pdfRigaRiepilogo\(paper\.value, _N, previewPages\(\)\.length/.test(appjs), "formato, scala e pagine sono quelli dell'anteprima");
+  ok(!/pdfRiga/.test(appjs.slice(appjs.indexOf("function pdfCredit"), appjs.indexOf("function pdfCredit") + 3000)), "nessuna traccia nel piè dei PDF");
+});
+t("Esporta: riga di riepilogo «A3 · 1:50 · 6 pagine · v3 · 23/11/2026» (formato, scala, pagine, versione, data, stato)", () => {
+  reset(); A.state.versione = 3;
+  const d = new Date(2026, 10, 23);
+  eq(A.pdfRigaRiepilogo("a3", 50, 6, d), "A3 \u00b7 1:50 \u00b7 6 pagine \u00b7 v3 \u00b7 23/11/2026");
+  eq(A.pdfRigaRiepilogo("a4", 100, 1, d), "A4 \u00b7 1:100 \u00b7 1 pagina \u00b7 v3 \u00b7 23/11/2026", "singolare");
+  eq(A.pdfRigaRiepilogo("a3", 50, 6, d, true), "A3 \u00b7 1:50 \u00b7 6 pag. \u00b7 v3 \u00b7 23/11", "iPhone: accorciata, stessi dati");
+  eq(A.pdfRigaRiepilogo("a2", 75, 2, d), "A2 \u00b7 1:75 \u00b7 2 pagine \u00b7 v3 \u00b7 23/11/2026", "cambia formato e scala");
+  eq(A.pdfRigaRiepilogo("a3", 0, 2, d), "A3 \u00b7 non entra \u00b7 2 pagine \u00b7 v3 \u00b7 23/11/2026", "scala impossibile: lo dice");
+  A.state.versione = 12;
+  ok(/ v12 \u00b7 23\/11\/2026$/.test(A.pdfRigaRiepilogo("a3", 50, 6, d)), "cambia versione");
+  A.state.statoDoc = "definitivo";
+  eq(A.pdfRigaRiepilogo("a3", 50, 6, d), "A3 \u00b7 1:50 \u00b7 6 pagine \u00b7 v12 \u00b7 23/11/2026 \u00b7 Definitivo", "stato come nel piè");
+  delete A.state.versione;
+  eq(A.pdfRigaRiepilogo("a3", 50, 6, d), "A3 \u00b7 1:50 \u00b7 6 pagine \u00b7 Definitivo", "senza versione niente data, come nei fogli");
+  delete A.state.statoDoc;
+  eq(A.pdfRigaRiepilogo("a3", 50, 6, d), "A3 \u00b7 1:50 \u00b7 6 pagine", "senza versione e stato: solo foglio, scala, pagine");
+  /* la riga e' solo schermo: nessun PDF la contiene */
+  ok(!/pdfRigaRiepilogo\(/.test(appjs.slice(appjs.indexOf("function buildPdfDoc"), appjs.indexOf("function buildPdfDoc") + 60000)), "buildPdfDoc non usa la riga");
+  reset();
+});
 t("due scelte: il riepilogo dice quante pagine e quali (nomi brevi)", () => {
   eq(A.pdfRiepilogoPagine(["Palco"]), "1 pagina: palco");
   eq(A.pdfRiepilogoPagine(["Palco", "Ingressi", "Monitor", "Channel list"]), "4 pagine: palco · ingressi · monitor · channel list");
@@ -39789,7 +39829,7 @@ t("I18N L1: la lingua del documento si TROVA — riga nel Menu del telefono sopr
   ok(/function docLinguaCambia\(v\)\{\s*docLinguaImposta\(v\);\s*save\(\); render\(\);/.test(src), "docLinguaCambia scrive nel progetto e ridisegna il palco");
   ok(/var _ch=document\.getElementById\("docChip"\); if\(_ch\) _ch\.hidden=!docEn\(\);/.test(src), "l'avviso compare solo se il documento è in inglese");
   ok(/if\(window\.__docLinguaUi!==docLinguaScelta\(\)\)/.test(src), "apertura di un progetto, Annulla/Ripeti e cambio scena riallineano selettori e avviso");
-  ok(/\.doc-chip:not\(\[hidden\]\)\{[^}]*pointer-events:none/.test(css) && /#mRotChip:not\(\[hidden\]\) ~ \.doc-chip/.test(css), "l'avviso non intercetta i clic e non copre la pastiglia «Vista girata»");
+  ok(/#docChip:not\(\[hidden\]\)\{[^}]*pointer-events:none/.test(css) && /#mRotChip:not\(\[hidden\]\) ~ #docChip/.test(css), "l'avviso non intercetta i clic e non copre la pastiglia «Vista girata»");
   ok(!/id="appLangSel|Lingua dell'app/.test(src), "il selettore dell'APP non compare (arriva in L4)");
 });
 t("I18N L1: plurali inglesi delle aste («3 boom stands»), singolare invariato, testi dell'utente intatti", () => {
