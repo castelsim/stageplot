@@ -40484,5 +40484,132 @@ t("ingresso corrente: legenda a 3 righe solo nel corpo del layer Elettrico, mai 
   ok(doc.indexOf("elecLegend") < 0 && doc.indexOf("Linea di alimentazione principale (si sposta)") < 0, "la legenda non entra nel documento");
 });
 
+/* ====== CABLAGGI CHIARI (24/11/2026), lotto B: la linea principale distro → ingresso si sposta =======
+   «non riesco a capire com'è possibile che le linee tratteggiate non riesco a spostarle» (Simone 23/11):
+   la linea era disegnata senza `elec-hit` e senza campo nello stato. Ora `elec.feeds[idDistro].pts`. */
+console.log("\n— Cablaggi chiari: la linea di alimentazione principale si sposta —");
+function scenaFeed() {
+  const d = elecConIngresso("rete");
+  A.__cabStatic = false; A.state.elec.locked = false; A.state.elec.feeds = undefined; delete A.state.elec.feeds;
+  A.__elecRes = null;
+  const R = A.elecResult(true);
+  const f = (R.feeds || []).filter((x) => x.distro.it && x.distro.it.id === d.id)[0];
+  return { d, R, f };
+}
+t("linea principale: senza `feeds` il percorso è quello automatico di sempre (2 punti, stessa lunghezza)", () => {
+  const { d, f } = scenaFeed();
+  ok(f, "la linea principale c'è");
+  eq(f.pts.length, 2, "solo capo distro e ingresso");
+  eq(f.pts[0], [f.x1, f.y1], "capo 1"); eq(f.pts[1], [f.x2, f.y2], "capo 2");
+  eq(f.manual, false, "non è a mano");
+  eq(f.key, "fd:" + d.id, "chiave di selezione");
+  eq(f.lenM, A.cabLenFinale(A.orthLen([[f.x1, f.y1], [f.x2, f.y2]])), "lunghezza invariata");
+  reset();
+});
+t("linea principale: con `feeds[id].pts` il percorso passa dai waypoint e la lunghezza cresce", () => {
+  const { d, f: f0 } = scenaFeed();
+  const lenAuto = f0.lenM;
+  A.state.elec.feeds = { [d.id]: { pts: [[100, 100], [100, 700]] } }; A.__elecRes = null;
+  const f = A.elecResult(true).feeds.filter((x) => x.distro.it.id === d.id)[0];
+  eq(f.pts.length, 4, "capo + 2 waypoint + ingresso");
+  eq(f.pts[1], [100, 100], "primo waypoint"); eq(f.pts[2], [100, 700], "secondo waypoint");
+  eq(f.manual, true, "è a mano");
+  ok(f.lenM > lenAuto, "il giro lungo costa più cavo (" + f.lenM + " > " + lenAuto + ")");
+  reset();
+});
+t("linea principale: «Ripristina percorso automatico» riporta il risultato identico a prima", () => {
+  const { d, f: f0 } = scenaFeed();
+  const prima = JSON.stringify([f0.pts, f0.lenM]);
+  A.state.elec.feeds = { [d.id]: { pts: [[100, 100]] } }; A.__elecRes = null; A.elecResult(true);
+  A.selElec = "fd:" + d.id;
+  const info = A.selectedCableInfo();
+  eq(info.title, "Linea di alimentazione principale", "pannello della linea principale");
+  eq(info.resetPtsLabel, "Ripristina percorso automatico", "etichetta del comando");
+  ok(info.hasPts, "con un percorso a mano il ripristino è attivo");
+  eq(info.unlink, null, "la linea principale non si elimina");
+  info.resetPts();
+  ok(!A.state.elec.feeds, "voce e mappa vuota tolte");
+  const f = A.elecResult(true).feeds.filter((x) => x.distro.it.id === d.id)[0];
+  eq(JSON.stringify([f.pts, f.lenM]), prima, "identico al caso senza personalizzazione");
+  A.selElec = null; reset();
+});
+t("linea principale: distro cancellato → la voce si pulisce; distro con uplink a mano → idem", () => {
+  const { d } = scenaFeed();
+  const q = add("quadro", 950, 80);
+  A.state.elec.feeds = { [d.id]: { pts: [[100, 100]] }, fantasma: { pts: [[5, 5]] } };
+  A.dropOrphanLinks(A.state);
+  ok(A.state.elec.feeds && A.state.elec.feeds[d.id] && !A.state.elec.feeds.fantasma, "voce di un elemento che non c'è: via; la valida resta");
+  A.state.elec.uplinks = { [d.id]: { to: q.id } };
+  A.dropOrphanLinks(A.state);
+  ok(!A.state.elec.feeds, "il distro ha un uplink a mano: la linea principale non esiste più, voce tolta");
+  reset();
+});
+t("linea principale: normalizeState scarta pts malformati e tiene quelli buoni (≤ 50 punti)", () => {
+  const base = (feeds) => A.normalizeState({ _v: A.SCHEMA_VERSION, items: [{ id: "d1", type: "distro32" }], inputs: [], outputs: [], elec: { on: true, feeds } });
+  eq(base({ d1: { pts: [[10.4, 20.6], [30, 40]] } }).elec.feeds, { d1: { pts: [[10, 21], [30, 40]] } }, "buoni (arrotondati)");
+  ok(!base({ d1: { pts: [[1, "x"]] } }).elec.feeds, "coppia non numerica: voce scartata");
+  ok(!base({ d1: { pts: [[1, NaN]] } }).elec.feeds, "NaN: scartata");
+  ok(!base({ d1: { pts: "no" } }).elec.feeds, "pts non array: scartata");
+  ok(!base({ d1: { pts: Array.from({ length: 51 }, (_, i) => [i, i]) } }).elec.feeds, "oltre 50 punti: scartata");
+  ok(!base({ d1: [[1, 2]] }).elec.feeds && !base(undefined).elec.feeds, "forma sbagliata o assente: nessun campo");
+  eq(base({ d1: { seg: 1 } }).elec.feeds, { d1: { seg: 1 } }, "«Segmenta» si conserva");
+});
+t("linea principale: il campo viaggia nel documento (salva-riapri) e un progetto vecchio non lo ha", () => {
+  const { d } = scenaFeed();
+  ok(!A.docToJSON().includes('"feeds"'), "senza personalizzazione il JSON non cambia");
+  A.state.elec.feeds = { [d.id]: { pts: [[120, 130]] } };
+  const json = A.docToJSON();
+  ok(json.includes('"feeds"'), "con personalizzazione il campo c'è");
+  A.loadDoc(JSON.parse(json));
+  eq(A.state.elec.feeds[d.id].pts, [[120, 130]], "dopo la riapertura il percorso resta");
+  reset();
+});
+t("linea principale: lucchetto = niente elec-hit; sbloccato = elec-hit con data-el=fd:; export mai", () => {
+  const { d } = scenaFeed();
+  const k = 'data-el="fd:' + d.id + '"';
+  ok(A.elecMarkup().includes(k), "sbloccato: la linea si seleziona");
+  A.state.elec.locked = true; ok(!A.elecMarkup().includes('data-el="fd:'), "bloccato: niente hit"); A.state.elec.locked = false;
+  A.__cabStatic = true; ok(!A.elecMarkup().includes("elec-hit"), "export: niente hit"); A.__cabStatic = false;
+  reset();
+});
+t("linea principale: in modalità manuale non c'è nessuna linea principale", () => {
+  const { d } = scenaFeed();
+  const carico = A.state.items.filter((x) => x.type === "comboamp")[0];
+  A.state.elec.mode = "auto"; A.__elecRes = null;
+  ok(A.elecResult(true).feeds.length > 0, "controprova: in automatico la linea principale c'è");
+  A.state.elec.mode = "manual"; A.state.elec.manual = { [carico.id]: { distro: d.id } };   /* il distro ha un carico, così «niente feed» non è dovuto a un distro vuoto */
+  A.state.elec.feeds = { [d.id]: { pts: [[100, 100]] } }; A.__elecRes = null;
+  const Rm = A.elecResult(true);
+  ok((Rm.distros || []).some((x) => x.loadW > 0), "il distro ha davvero un carico");
+  eq(Rm.feeds.length, 0, "nessuna feed in manuale (la voce resta dormiente)");
+  reset();
+});
+t("linea principale: Backspace / elecDeleteKey non eliminano niente; selezionata, ha lati trascinabili e nessuna maniglia ai capi", () => {
+  const { d } = scenaFeed();
+  A.state.elec.feeds = { [d.id]: { pts: [[100, 100]] } }; A.__elecRes = null;
+  eq(A.elecDeleteKey("fd:" + d.id), false, "elecDeleteKey ignora fd:");
+  ok(A.state.elec.feeds[d.id], "la voce c'è ancora");
+  A.selElec = "fd:" + d.id;
+  const mk = A.elecMarkup();
+  ok(mk.includes('class="elec-seg-hit" data-el="fd:' + d.id), "lati trascinabili");
+  ok(!mk.includes("elec-endpt"), "nessuna maniglia ai capi");
+  ok(mk.includes('class="elec-feed sel"'), "linea evidenziata");
+  A.selElec = null; reset();
+});
+t("linea principale: «Segmenta» in stile Diretti scrive in feeds[id].seg, non in elec.manual", () => {
+  const { d } = scenaFeed();
+  A.state.cab.route = "dir"; A.__elecRes = null;
+  try {
+    eq(A.elecStyleFor("fd:" + d.id), "dir", "di serie diretta");
+    A.selElec = "fd:" + d.id;
+    const fam = A.cabSelFam(); eq(fam.fam, "feed", "famiglia feed"); eq(fam.key, d.id, "chiave = id del distro");
+    A.cabSegToggle("feed", d.id);
+    eq(A.state.elec.feeds[d.id].seg, 1, "segno scritto in feeds");
+    ok(!Object.keys(A.state.elec.manual || {}).some((x) => x.indexOf("fd:") === 0), "niente chiavi fd: in elec.manual");
+    eq(A.elecStyleFor("fd:" + d.id), "orto", "ora squadrata");
+    A.cabSegToggle("feed", d.id); ok(!A.state.elec.feeds, "«Torna diritto» toglie la voce vuota");
+  } finally { delete A.state.cab.route; A.selElec = null; reset(); }
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
