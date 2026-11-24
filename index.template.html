@@ -1004,6 +1004,28 @@
       <output id="pRotVal">0°</output></div>
     <div id="pWattWrap" style="display:none"><label for="pWatt">Potenza (W)</label>
       <input type="number" id="pWatt" min="0" step="10" inputmode="numeric">
+      <div class="prop-hint" id="pWattHint" style="display:none"></div>
+    </div>
+    <!-- PA passiva (24/11/2026): attivo/passivo sulle casse; canali del finale; kVA del generatore. Tre campi, ciascuno solo sul suo elemento. -->
+    <div class="stpr-f" id="pPassWrap" style="display:none"><label>Alimentazione</label>
+      <div class="chips" data-chips="pPass">
+        <button type="button" data-v="a">Attivo</button>
+        <button type="button" data-v="p" title="Cassa passiva: la potenza sta nel finale">Passivo</button>
+      </div>
+      <select id="pPass" hidden><option value="a">attivo</option><option value="p">passivo</option></select>
+      <div class="prop-hint" id="pPassHint"></div>
+    </div>
+    <div class="stpr-f" id="pFinaleChWrap" style="display:none"><label>Canali</label>
+      <div class="chips" data-chips="pFinaleCh">
+        <button type="button" data-v="2">2 canali</button>
+        <button type="button" data-v="4">4 canali</button>
+      </div>
+      <select id="pFinaleCh" hidden><option value="2">2</option><option value="4">4</option></select>
+    </div>
+    <div id="pKvaWrap" style="display:none"><label for="pKva">Potenza del generatore (kVA)</label>
+      <input type="text" id="pKva" inputmode="decimal" autocomplete="off" list="pKvaList">
+      <datalist id="pKvaList"><option value="5"><option value="10"><option value="20"><option value="60"></datalist>
+      <div class="prop-hint" id="pKvaHint"></div>
     </div>
     <!-- «Fornito da» TOLTO dal pannello dell'elemento il 26/08 (segnalazione): chi porta cosa si
          scrive fra le note, e per chi lo vuole strutturato resta la colonna «forn.» nella channel
@@ -5065,6 +5087,12 @@ var TYPES = {
     draw:function(it){ return topStandDraw(it); }},
   amprack: {nome:"Amp/drive rack", dim:"60×80", cat:"PA e diffusione", sub:"Fill e rack", w:60,d:80,
     draw:function(it){ return drawLibFit("amprack",it,60,80); }},
+  /* PA PASSIVA (24/11/2026): le casse passive non assorbono corrente, la potenza sta nel FINALE. Due apparecchi da rack, senza catalogo di
+     modelli: il finale (2U, 2 o 4 canali, potenza assorbita stimata e modificabile) e il DSP/crossover (1U). */
+  finale: {nome:"Finale di potenza", dim:"rack 2U", cat:"PA e diffusione", sub:"Fill e rack", w:48,d:36, defLabel:"FINALE", get catalog(){ return paFinaleDspAttivi(); },
+    draw:function(){ return bar(0,0,48,36,'ic fBlack',2)+bar(0,-8,40,6,'ic fGrey',1)+bar(0,3,40,6,'ic fGrey',1)+circ(-15,13,2,'ic thin')+circ(-9,13,2,'ic thin')+bar(9,13,16,3,'ic thin',1); }},
+  dsp: {nome:"DSP / crossover", dim:"rack 1U", cat:"PA e diffusione", sub:"Fill e rack", w:48,d:24, defLabel:"DSP", get catalog(){ return paFinaleDspAttivi(); },
+    draw:function(){ return bar(0,0,48,24,'ic fBlack',2)+bar(0,-3,40,7,'ic fGrey',1)+circ(-15,8,1.6,'ic thin')+bar(6,8,22,3,'ic thin',1); }},
   delaytower: {nome:"Delay tower", dim:"220×220", cat:"PA e diffusione", sub:"Torri", w:220,d:220,
     draw:function(it){ return drawLibFit("delaytower",it,220,220); }},
   substg: {nome:"Sub-stagebox", dim:"di zona", cat:"Cablaggio e segnale", w:33,d:14,
@@ -5340,6 +5368,7 @@ var WATT = {
      modello reale vale il suo numero di targa (dm3:43, sq5:75, avantis:150…). (06/08) */
   mixer:80,
   amprack:2500,
+  finale:1000, dsp:30,   /* PA passiva (24/11): stime tipiche dichiarate come tali, modificabili con la targa vera */
   consolaluci:100, testamobile:350, parluci:150, sagomatore:400,   /* il dimmer NON e' qui: assorbe quello che porta, e lo somma il motore (29/07) */
   pcled:200, bttheatre200:105, catenaled:5, ribaltaled:242, barraled:24, dmxsplit:5, fumoz1500:1500, hazerhz400:470,
   lucciola:30, sagomatoreled:200, ribaltaalogena:2000, stroboatomic:740, parslimpar:96, testaspot360x:211, followroxie:286,
@@ -5498,7 +5527,13 @@ var AMP_DB = {
   "fbt_evomaxx6a": {brand:"FBT", model:"EvoMaxX 6A", per:["topattivo"], watt:450, out:500, kg:26, v:true,
                     note:"15\u2033+1\u2033 biamplificato, 400+100 W RMS, 757\u00d7482\u00d7399 mm, 450 VA. Il diffusore pesa 21 kg: qui 26 col treppiede"},
   "fbt_evo2maxx6a":{brand:"FBT", model:"Evo2MaxX 6A", per:["topattivo"], watt:450, out:500, kg:29, v:true,
-                    note:"la seconda serie: stesse misure e stessa richiesta di rete, ma il diffusore pesa 24,4 kg (qui 29 col treppiede)"}
+                    note:"la seconda serie: stesse misure e stessa richiesta di rete, ma il diffusore pesa 24,4 kg (qui 29 col treppiede)"},
+  /* Mackie Thump15A (24/11/2026): dati letti il 24/11/2026 sul manuale ufficiale del costruttore (mackie.com/img/file_resources/Thump12A_Thump15A_OM.pdf,
+     pagina «Thump12A / Thump15A Loudspeakers Specifications», p.16 del PDF): «Line Input Power» 75 W, per reti 100–240 V~ 50–60 Hz; amplificatore classe D 1300 W picco
+     (LF 1000 + HF 300); Thump15A 686 × 442 × 356 mm, 15,8 kg. La scheda online del prodotto non era raggiungibile: vale il manuale. */
+  "mackie_thump15a":{brand:"Mackie", model:"Thump15A", per:["topattivo"], watt:75, out:1300, kg:21, mm:[686,442,356], v:true,
+                    fonte:"Mackie_Thump12A_Thump15A_OM.pdf, Loudspeakers Specifications (p.16 del PDF)",
+                    note:"15\u2033 classe D, 1300 W di picco; 75 W è la «Line Input Power» dichiarata dal costruttore (non il massimo in uscita). Il diffusore pesa 15,8 kg: qui 21 col treppiede"}
 };
 /* Su quali elementi si puo' scegliere un modello di backline: quelli che AMP_DB dichiara di coprire.
    Niente elenco di tipi scritto a parte, che invecchierebbe da solo appena si aggiunge una riga. */
@@ -5568,8 +5603,39 @@ var SUPERFICIE_CON_MOTORE = {
 var MON_DIG_NODE = { hearback:1, mixhub:1 };   /* nodi del cablaggio digitale monitoraggio (mixerini + hub) */
 var WATT_BY_AREA = { schermo:500, ledwallmod:500 };   /* LED wall: W/m² media di dimensionamento (picco 1200) */
 var GEN_KVA = { gen60:60, gen20:20 };                 /* sorgenti, non carichi */
+/* RILASCIO IN DUE FASI della PA passiva (decisione di Simone, 24/11/2026). FASE 1 (merge, 24/11): i tipi `finale` e `dsp` si LEGGONO, si disegnano, si stampano e contano nel carico,
+   ma NON si possono inserire (fuori dal catalogo, dalla ricerca e dal menu «Nuovo» dei rack): cosi' nelle prime 24-48 h le app vecchie rimaste in cache non incontrano progetti con tipi
+   che non conoscono (rifiuterebbero l'intero progetto, UNKNOWN_ITEM_TYPE). FASE 2 (giovedi' 26/11 sera circa, dopo 48 h dal merge): cambiare `false` in `true` (PR di una riga).
+   Per spegnere: `false`, MAI un revert dell'app (i progetti che contengono finale/dsp devono restare leggibili). `it.pass` e `it.kva` non dipendono da questo interruttore. */
+function paFinaleDspAttivi(){ return false; }
+/* I tipi che il menu «Nuovo» di un rack propone */
+function rackNuoviTipi(){ return Object.keys(RACK_ELIGIBLE).filter(function(tp){ return !((tp==="finale" || tp==="dsp") && !paFinaleDspAttivi()); }); }
+/* PA PASSIVA (24/11/2026): una cassa passiva non assorbe corrente — la potenza sta nel finale, che e' un apparecchio a parte.
+   it.pass===true solo sui tipi che possono essere passivi; assente = attivo (mai scritto a false: i progetti vecchi restano identici). */
+var PASSIVABILE = { sub218:1, sub18:1, topattivo:1, wedge:1, frontfill:1, sidefill:1, drumfill:1, arraymid:1, arraylarge:1 };
+function isPassivo(it){ return !!(it && it.pass===true && PASSIVABILE[it.type]); }
+/* kVA scritti a mano: virgola o punto («6,3» e «6.3» = 6,3), fino a 2 decimali, 1–1000. Vuoto = valore del tipo (null); testo non valido = undefined (si tiene il valore di prima).
+   Il campo e' di testo, non number: in alcuni browser il number con virgola legge «6,3» come 63. */
+function kvaParse(txt){
+  var t=String(txt==null?"":txt).trim().replace(/\s*kva$/i,"").trim();
+  if(t==="") return null;
+  if(!/^\d+(?:[.,]\d{1,2})?$/.test(t)) return undefined;
+  var v=Math.round(parseFloat(t.replace(",","."))*10)/10;
+  return (isFinite(v) && v>=1 && v<=1000) ? v : undefined;
+}
+/* Nome automatico del generatore con i kVA scritti dall'utente: derivato, MAI scritto in it.label (cosi' segue it.kva anche da JSON/import e si traduce nel documento in inglese).
+   Un nome scritto dall'utente (diverso dal nome del tipo) non si tocca. */
+function genNomeAuto(it, raw, en){
+  if(!it || GEN_KVA[it.type]==null || raw!==TYPES[it.type].nome) return raw;
+  var k=genKvaOf(it); if(k===GEN_KVA[it.type]) return raw;
+  var n=String(k); return en ? "Generator "+n+" kVA" : "Generatore "+n.replace(".",",")+" kVA";
+}
+/* kVA del generatore: it.kva se scritto (1-1000), altrimenti quello del tipo (20 o 60) */
+function genKvaOf(it){ if(!it || GEN_KVA[it.type]==null) return 0;
+  var k=+it.kva; return (it.kva!=null && isFinite(k) && k>=1 && k<=1000) ? k : GEN_KVA[it.type]; }
 function wattOf(it){
   if(!it) return 0;
+  if(isPassivo(it)) return 0;
   if(it.watt!=null && isFinite(it.watt)) return Math.max(0, +it.watt);
   var pw=(typeof proWatt==="function")?proWatt(it):null;   /* catalogo pro (16/11): consumo di targa del modello, con la fonte */
   if(pw!=null) return pw;
@@ -5640,6 +5706,7 @@ var EQUIP_CATS_BY_CATALOG={ "Microfoni e DI":["microfono"], "Regia e console":["
   "PA e diffusione":["line_array","subwoofer","amps"], "Cablaggio e segnale":["stagebox"] };
 function equipCatsFor(it){
   if(!it||!it.type||!TYPES[it.type]) return null;
+  if(it.type==="finale" || it.type==="dsp") return null;   /* PA passiva (24/11): nessun catalogo di modelli, solo watt e canali */
   if(it.type==="stagebox") return null;   /* unificato 18/07: il modello è il campo hw (STAGEBOX_DB), non un campo separato */
   if(it.type==="hearback"||it.type==="mixhub"||it.type==="mixerino") return null;   /* unificato 28/07: il modello è il campo pm (PM_DB), nel blocco «Personal monitor» */
   if(typeof lightModelApplies==="function" && lightModelApplies(it)) return null;   /* unificato 29/07: sulle luci continue il modello è il campo lm (LIGHT_MODEL_DB), nel blocco «Modello della luce» — stessa scelta di stage box (18/07) e personal monitor (28/07): un solo campo per la stessa cosa */
@@ -5719,7 +5786,7 @@ var WEIGHT = {
   /* elettrico */
   distro125:40, distro63:25, distro32:15, quadro:30, gen20:500, gen60:1400, ciabatta:1,
   /* cablaggio/dispositivi */
-  stagebox:9, splitter:10, multicore:12, rack2u:15, rack4u:25, amprack:60,
+  stagebox:9, splitter:10, multicore:12, rack2u:15, rack4u:25, amprack:60, finale:12, dsp:3,
   /* luci */
   consolaluci:12, dimmerluci:40, testamobile:25, parluci:8, sagomatore:15, followspot:30, farope:6, fresnel:6,
   dimmerport:2, pcled:7.5, bttheatre200:7.25, ribaltaled:10, barraled:2.85, dmxsplit:2.2, etccs40:4.33, fumoz1500:13.3, hazerhz400:18.5, sagomatoreled:11.5, ribaltaalogena:5.35, dimmerddp610:12, stroboatomic:7.8, parslimpar:3.3, testaspot360x:11.4, followroxie:28.5,   /* kg di targa: DDS-405 2, PC HY LED 200 7,5, Solo Edge 3 10, LED BAR-12 2,85, Split 8X 2,22 */
@@ -5731,7 +5798,7 @@ var WEIGHT = {
   /* video */
   ledwallmod:8, schermo:40, proiettore:15, camera:5
 };
-var RACK_U = { rack2u:2, rack4u:4, amprack:12, iemant:6, splitter:4 };
+var RACK_U = { rack2u:2, rack4u:4, amprack:12, iemant:6, splitter:4, finale:2, dsp:1 };
 /* Peso REALE dal modello scelto dall'utente. Esisteva gia' l'equivalente per la corrente
    (equipWatt) ma non per il peso: chi sceglieva «L-Acoustics K2» sul suo line array vedeva il nome
    del modello nel pannello e nel rider, mentre il totale continuava a contare i 34 kg della stima di
@@ -5794,7 +5861,7 @@ function powerTotalW(){ return (state.items||[]).reduce(function(a,it){ return a
    si tiene quello: per la regola del 12/10 il dato di targa è già quello che deve reggere la presa.
    Il motore delle linee resta sul tipico (fasi, quadri e connettori non cambiano); sul massimo si
    dimensionano la presa da chiedere e il generatore. Fonti: STAGEPLOT/CONOSCENZA/studi/elettrico.md. */
-var AUDIO_PICCO = { amprack:1, arraylarge:1, arraymid:1, sub218:1, sub18:1, delaytower:1, frontfill:1,
+var AUDIO_PICCO = { amprack:1, finale:1, arraylarge:1, arraymid:1, sub218:1, sub18:1, delaytower:1, frontfill:1,
   topattivo:1, wedge:1, sidefill:1, drumfill:1 };
 function wattMaxOf(it){
   var w=wattOf(it);
@@ -5867,7 +5934,7 @@ function elecPotenza(R){
   if(gen && maxW>0){
     var genW=gen.kva*1000*ELEC_COSFI, pc=function(w){ return Math.round(w/genW*100)+" %"; };
     genInfo={kva:gen.kva, kw:genW/1000, pctTip:tipW/genW, pctMax:maxW/genW, sopra:maxW>genW};
-    genTxt="Generatore sul palco: "+gen.kva+" kVA (circa "+elecKW(genW)+" con fattore di potenza "+String(ELEC_COSFI).replace(".",",")+", ipotesi). "
+    genTxt="Generatore sul palco: "+String(gen.kva).replace(".",",")+" kVA (circa "+elecKW(genW)+" con fattore di potenza "+String(ELEC_COSFI).replace(".",",")+", ipotesi). "
       +(maxW>tipW ? "Carico tipico "+elecKW(tipW)+" = "+pc(tipW)+", massimo "+elecKW(maxW)+" = "+pc(maxW) : "Carico "+elecKW(tipW)+" = "+pc(tipW))+"."
       +(genInfo.sopra ? " Il massimo supera la potenza del generatore." : "");
   }
@@ -6104,13 +6171,14 @@ function headMicOf(it){
 }
 var TASTIERE = { stagepiano:1, doppiatastiera:1, celesta:1, pianoverticale:1 };   /* tastiere con leggio esterno */
 /* ===== RACK (18/07, mockup approvato): contenitore tecnico — un ingombro sul palco, apparecchi veri dentro ===== */
-var RACK_ELIGIBLE={ stagebox:1, mixhub:1, splitter:1, patchpt:1, distro32:1, distro63:1, rxrf:1, rfsplit:1, netswitch:1, iemant:1, nodofibra:1, rfcomb:1 };   /* lotto 2 (17/11): anche TX in-ear, nodi in fibra e combiner vanno nei rack */
-var RACK_FN=[["stagebox","Stagebox"],["rf","RF"],["dante","Dante / rete"],["monitor","Monitor / cuffie"],["foh","FOH"],["elettrico","Elettrico"],["generico","Generico"]];
+var RACK_ELIGIBLE={ finale:1, dsp:1, stagebox:1, mixhub:1, splitter:1, patchpt:1, distro32:1, distro63:1, rxrf:1, rfsplit:1, netswitch:1, iemant:1, nodofibra:1, rfcomb:1 };   /* lotto 2 (17/11): anche TX in-ear, nodi in fibra e combiner vanno nei rack */
+var RACK_FN=[["stagebox","Stagebox"],["rf","RF"],["dante","Dante / rete"],["monitor","Monitor / cuffie"],["foh","FOH"],["pa","Amplificazione / PA"],["elettrico","Elettrico"],["generico","Generico"]];
 /* altezze U note dai datasheet (archivio manuali) — MAI inventate: gli altri modelli partono da 1U, modificabile */
 var RACK_U_HW={ rio3224d2:5, rio3224d3:3, rio1608d2:3, rio1608d3:2, tio1608d:2 };   /* 16/11/2026: D2 corrette dalla scheda (220 mm = 5U, 132 mm = 3U; Rio3224-D2 OM p.31); le D3 senza scheda in archivio restano */
 function rackUhOf(it){
   if(it.rackUh) return it.rackUh;
   if(it.type==="stagebox" && it.hw && RACK_U_HW[it.hw]) return RACK_U_HW[it.hw];
+  if(it.type==="finale" || it.type==="dsp") return RACK_U[it.type];   /* PA passiva: 2U e 1U di serie, modificabili con rackUh */
   var _pu=(typeof proRackUOf==="function") ? proRackUOf(it) : null; if(_pu) return _pu;   /* catalogo pro: U di scheda (lotto 2: ricevitori, TX, switch…) */
   return 1;
 }
@@ -11072,6 +11140,10 @@ function normalizeState(s){
     if(DOUBLE_TYPES[it.type]){ if(it.sep==null) it.sep=defSepOf(it);
       if(it.w==null) it.w=sepToW(DOUBLE_TYPES[it.type], it.sep); if(it.d==null) it.d=DOUBLE_TYPES[it.type].dbl[1]; }
     if(typeof sbAutoSize==="function") sbAutoSize(it);   /* ciabatta 8in/0out piccola (18/07) */
+    /* PA passiva (24/11): `pass` solo true e solo sui tipi che possono essere passivi; kVA solo sui generatori (1-1000); canali del finale 2 o 4. Mai scritti a valori neutri. */
+    if(it.pass!=null && !(it.pass===true && PASSIVABILE[it.type])) delete it.pass;
+    if(it.kva!=null){ var _kv=+it.kva; if(GEN_KVA[it.type]!=null && isFinite(_kv) && _kv>=1 && _kv<=1000) it.kva=Math.round(_kv*10)/10; else delete it.kva; }
+    if(it.type==="finale"){ if(it.ch!=null && it.ch!==2 && it.ch!==4) delete it.ch; } else if(it.ch!=null && it.type==="dsp") delete it.ch;
     if(it.type==="rack"){ if(!(it.rackU>=4 && it.rackU<=24)) it.rackU=12; if(!it.rackFn) it.rackFn="generico"; }
     if(cabIsBox(it)){ if(!(it.sbId>=1 && it.sbId<=64)) delete it.sbId;
       if(it.foh!==true) delete it.foh;   /* flag "stage box del mixer": solo booleano true */
@@ -19455,7 +19527,7 @@ function elecIsDistro(it){ return !!ELEC_DISTRO[it.type]; }
 function elecIsGen(it){ return GEN_KVA[it.type]!=null; }
 function elecSection(a){ for(var i=0;i<ELEC_SECTIONS.length;i++){ if(a<=ELEC_SECTIONS[i][0]) return ELEC_SECTIONS[i][1]; } return "95 mm²"; }
 /* F4: connettore della linea — dedotto (audio rack → PowerCON, >16A → CEE, altrimenti Schuko) o override */
-var ELEC_POWERCON={ rack:1, amprack:1 };
+var ELEC_POWERCON={ rack:1, amprack:1, finale:1 };
 /* Il powerCON è un connettore da 20 A (TRUE1: 16 A) — sopra quella soglia non esiste, e un rack ampli
    da 7 kW ne chiede 30. Prima il tipo vinceva sulla corrente: il PDF «Alimentazioni» stampava
    «PowerCON» per una linea da 30 A mentre due righe sotto l'avviso diceva «serve una linea dedicata
@@ -19486,6 +19558,27 @@ function elecSenzaWTxt(R){
    - gen: generatore sul palco → si confronta il carico con la sua potenza (niente prese da chiedere);
    - presa: senza generatore, come prima («Da chiedere…»);
    - stima / quadri: in modo manuale, finché i carichi non sono collegati, il totale c'è già (dal catalogo) e i quadri mostrano solo ciò che è collegato. */
+/* AVVISO DISCRETO «casse passive senza finale» (24/11/2026): un chip piccolo e quieto sotto i totali della Lista carichi, con ✕ (resta chiuso per quel
+   progetto). Solo se c'e' almeno una cassa passiva e nessun finale: chi non usa i passivi non lo vede mai. Non blocca niente. */
+var PA_AVVISO_LS="sp_paAvviso", PA_AVVISO_MAX=60;
+function paAvvisoServe(items){
+  var pass=0, fin=0; (items||[]).forEach(function(it){ if(isPassivo(it)) pass++; else if(it && it.type==="finale") fin++; });
+  return pass>0 && fin===0;
+}
+function paAvvisoLeggi(){ try{ var l=JSON.parse(localStorage.getItem(PA_AVVISO_LS)||"[]"); return Array.isArray(l) ? l : []; }catch(e){ return []; } }
+function paAvvisoChiuso(id){ return window.__paAvvisoNo===(window.__docEpoch||0) || (!!id && paAvvisoLeggi().indexOf(id)>=0); }
+function paAvvisoChiudi(id){ window.__paAvvisoNo=(window.__docEpoch||0);
+  if(!id) return; try{ var l=paAvvisoLeggi().filter(function(x){ return typeof x==="string" && x!==id; }); l.push(id); localStorage.setItem(PA_AVVISO_LS, JSON.stringify(l.slice(-PA_AVVISO_MAX))); }catch(e){} }
+function paAvvisoChip(){
+  if(!paAvvisoServe(state.items)) return null;
+  var id=(typeof cavoInvitoId==="function") ? cavoInvitoId() : null;
+  if(paAvvisoChiuso(id)) return null;
+  var c=document.createElement("div"); c.className="pa-chip"; c.setAttribute("role","note");
+  var t=document.createElement("span"); t.className="pa-chip-txt"; t.textContent="Casse passive senza finale: manca chi le alimenta.";
+  var x=document.createElement("button"); x.type="button"; x.className="pa-chip-x"; x.setAttribute("aria-label","Chiudi"); x.title="Chiudi: non lo mostro più per questo progetto"; x.textContent="✕";
+  x.addEventListener("click", function(e){ e.stopPropagation(); paAvvisoChiudi(id); if(c.parentNode) c.parentNode.removeChild(c); });
+  c.appendChild(t); c.appendChild(x); return c;
+}
 function elecPannelloRighe(R){
   var P=elecPotenza(R), out=[];
   if(P.genTxt) out.push({k:"gen", t:P.genTxt, warn:!!(P.gen && P.gen.sopra)});
@@ -19505,7 +19598,7 @@ function elecPannelloRighe(R){
 function elecSupplyPoint(){
   var sp=state.elec&&state.elec.supply, W=state.stage.w, D=state.stage.d;
   var gen=(state.items||[]).filter(elecIsGen)[0];
-  if(gen) return {kind:"gen", name:"Generatore "+GEN_KVA[gen.type]+" kVA", x:gen.x, y:gen.y, kva:GEN_KVA[gen.type]};   /* generatore sul palco = sorgente (vince) */
+  if(gen) return {kind:"gen", name:"Generatore "+String(genKvaOf(gen)).replace(".",",")+" kVA", x:gen.x, y:gen.y, kva:genKvaOf(gen)};   /* generatore sul palco = sorgente (vince) */
   if(!sp) return null;
   /* CABLAGGI CHIARI (24/11/2026): «Ingresso corrente» = dove la corrente entra nel palco (era «Allaccio rete / quadro gen.», «Alimentazione DX/SX») */
   var nm={rete:"Ingresso corrente (rete)", right:"Ingresso corrente DX", left:"Ingresso corrente SX", custom:"Ingresso corrente", gen:"Generatore"};
@@ -19911,7 +20004,7 @@ function electricEngine(){
      ne chiede il doppio. */
   if(supply && supply.kva){
     var _maxW=loads.reduce(function(s,l){ return s+wattMaxOf(l.it); },0), _kvaNeed=_maxW/1000/0.8;
-    if(_kvaNeed>supply.kva) issues.push({lvl:"err", msg:"Generatore "+supply.kva+" kVA sottodimensionato: nel caso peggiore servono circa "+Math.ceil(_kvaNeed)+" kVA (massimo "+elecKW(_maxW)+")."});
+    if(_kvaNeed>supply.kva) issues.push({lvl:"err", msg:"Generatore "+String(supply.kva).replace(".",",")+" kVA sottodimensionato: nel caso peggiore servono circa "+Math.ceil(_kvaNeed)+" kVA (massimo "+elecKW(_maxW)+")."});
   }
   /* Stessa `rule` della regola gemella in auditEngine: una sola voce, non due formulazioni.
      In scala (audit 27/07): sotto AUDIT_MIN_W siamo nell'ordine dell'ampli attaccato alla Schuko che
@@ -22440,6 +22533,26 @@ function renderRxPanel(it){
   if(A.orphans.length) lines.push("⚠ "+A.orphans.length+" radiomic senza ricevitore");
   kv.innerHTML=lines.map(function(l){ return "<div>"+esc(l)+"</div>"; }).join("");
 }
+/* Riga di aiuto dei kVA: kVA × cosφ = kW utili (la stessa formula del motore dei carichi). */
+function kvaAiuto(kva){ return String(kva).replace(".",",")+" kVA ≈ "+elecKW(kva*1000*ELEC_COSFI)+" utili (fattore di potenza "+String(ELEC_COSFI).replace(".",",")+"). Per un generatore da 5 kW scrivi circa 6,3."; }
+function paPassivaPannello(it){
+  var pw=document.getElementById("pPassWrap"), fw=document.getElementById("pFinaleChWrap"), kw=document.getElementById("pKvaWrap"), wh=document.getElementById("pWattHint");
+  if(!pw||!fw||!kw) return;
+  var canPass=!!(it && PASSIVABILE[it.type]);
+  pw.style.display = canPass ? "" : "none";
+  if(canPass){ var ps=document.getElementById("pPass"); ps.value=isPassivo(it)?"p":"a"; try{ ps.dispatchEvent(new Event("chips-sync")); }catch(e){}
+    document.getElementById("pPassHint").textContent = isPassivo(it) ? "Non assorbe corrente. La potenza sta nel finale." : ""; }
+  var isFin=!!(it && it.type==="finale");
+  fw.style.display = isFin ? "" : "none";
+  if(isFin){ var fc=document.getElementById("pFinaleCh"); fc.value=String(it.ch===4?4:2); try{ fc.dispatchEvent(new Event("chips-sync")); }catch(e){} }
+  var isGen=!!(it && GEN_KVA[it.type]!=null);
+  kw.style.display = isGen ? "" : "none";
+  if(isGen){ var kv=document.getElementById("pKva"); kv.value=String(genKvaOf(it)).replace(".",","); document.getElementById("pKvaHint").textContent=kvaAiuto(genKvaOf(it)); }
+  /* i watt: passivo = niente campo (e la riga di aiuto sopra); finale/DSP = «stima» finché non li scrivi tu */
+  var wrap=document.getElementById("pWattWrap");
+  if(wrap && it){ if(isPassivo(it)) wrap.style.display="none";
+    if(wh){ var stima=(it.type==="finale"||it.type==="dsp") && wattFonte(it)==="stima"; wh.style.display=stima?"":"none"; wh.textContent=stima?"Stima tipica: scrivi la potenza assorbita dalla targa del tuo apparecchio.":""; } }
+}
 function renderRackPanel(it){
   var w=document.getElementById("pRackWrap"); if(!w) return;
   var isR=it && it.type==="rack";
@@ -22480,7 +22593,7 @@ function renderRackPanel(it){
     free.forEach(function(x){ var e=document.createElement("option"); e.value="it:"+x.id; e.textContent=rackDevName(x); g1.appendChild(e); });
     add.appendChild(g1); }
   var g2=document.createElement("optgroup"); g2.label="Nuovo";
-  Object.keys(RACK_ELIGIBLE).forEach(function(tp){ var e=document.createElement("option"); e.value="new:"+tp; e.textContent=(TYPES[tp]&&TYPES[tp].nome)||tp; g2.appendChild(e); });
+  rackNuoviTipi().forEach(function(tp){ var e=document.createElement("option"); e.value="new:"+tp; e.textContent=(TYPES[tp]&&TYPES[tp].nome)||tp; g2.appendChild(e); });
   add.appendChild(g2);
   document.getElementById("pRackAddBtn").onclick=function(){
     var v=add.value; if(!v) return;
@@ -22799,6 +22912,7 @@ function renderProps(){
   var pwWrap=document.getElementById("pWattWrap");
   if(pwWrap){ var powered=hasWattItem(it); pwWrap.style.display = powered ? "block" : "none";
     if(powered) document.getElementById("pWatt").value = wattOf(it); }
+  paPassivaPannello(it);
 
   var rfWrap=document.getElementById("pRfWrap");   /* RF: frequenza + banda solo per radiomic/in-ear (#2) */
   if(rfWrap){ var isRfEl=(typeof isRf==="function") && isRf(it); rfWrap.style.display = isRfEl ? "block" : "none";
@@ -23839,11 +23953,14 @@ function pannelloNomeUi(it){
 /* testo dell'etichetta da disegnare in base alla modalità per-elemento (full/abbr/hidden) */
 function lblText(raw, it, isPrimary){
   if(!raw) return "";
+  var _gen=genNomeAuto(it, raw, false)!==raw;   /* generatore con kVA scritti: il nome automatico segue i kVA (24/11) */
   raw=docEtichetta(raw, it);   /* documento in inglese (17/11/2026): solo i nomi automatici del catalogo, mai quelli scritti */
+  if(_gen) raw=genNomeAuto(it, TYPES[it.type].nome, (typeof docEn==="function") && docEn());
   var mode=it.labelMode||"full";   /* default = nome INTERO (Simone 27/07): la sigla è una scelta, non il punto di partenza */
   if(mode==="hidden") return "";
-  if(mode==="abbr") return isPrimary ? abbrOf(it) : abbrOf({type:it.type, label:raw});   /* il 2° strumento della postazione a 2 usa la stessa logica (sigla + numero) */
-  return raw;
+  var _p=(isPrimary && isPassivo(it)) ? " · P" : "";   /* PA passiva (24/11): il segno P accanto al nome, solo sulle casse passive */
+  if(mode==="abbr") return (isPrimary ? abbrOf(it) : abbrOf({type:it.type, label:raw}))+_p;   /* il 2° strumento della postazione a 2 usa la stessa logica (sigla + numero) */
+  return raw+_p;
 }
 /* `primaDiAgire()` in testa ai due helper che salvano SUBITO: sono la porta da cui passano le
    azioni discrete del pannello (specchia, primo piano, in fondo, rotazione, spunte…), 65 usi in
@@ -24242,6 +24359,12 @@ document.getElementById("pRot").addEventListener("change", function(){ applyRot(
 document.getElementById("pWatt").addEventListener("change", function(){
   var v=parseInt(this.value,10); mutSel(function(it){ it.watt = isFinite(v)&&v>=0 ? v : null; });
 });
+/* PA PASSIVA (24/11/2026): alimentazione, canali del finale, kVA del generatore. Si scrive solo il valore NON predefinito: tornare ad «Attivo» o svuotare i kVA cancella il campo. */
+document.getElementById("pPass").addEventListener("change", function(){ var p=this.value==="p"; mutSelAll(function(it){ if(!PASSIVABILE[it.type]) return; if(p) it.pass=true; else delete it.pass; }); if(typeof renderProps==="function") renderProps(); });
+document.getElementById("pFinaleCh").addEventListener("change", function(){ var v=+this.value; mutSelAll(function(it){ if(it.type==="finale") it.ch=v; }); });
+document.getElementById("pKva").addEventListener("change", function(){ var v=kvaParse(this.value);
+  if(v!==undefined) mutSelAll(function(it){ if(GEN_KVA[it.type]==null) return; if(v!==null && v!==GEN_KVA[it.type]) it.kva=v; else delete it.kva; });   /* testo non valido: resta il valore di prima (il campo si riscrive) */
+  if(typeof renderProps==="function") renderProps(); });
 /* DS v2.1 — chips che pilotano una select nascosta (value + change: la logica esistente non cambia) */
 document.querySelectorAll(".chips[data-chips]").forEach(function(box){
   var sel=document.getElementById(box.dataset.chips); if(!sel) return;
@@ -25187,7 +25310,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Installazione", null, ["pMountWrap"]);
   group("Americana", null, ["pRigWrap"]);   /* A4: numero, trim e peso appeso, solo con «Opzioni complete» */
   group("Appendimento", "carico e portata scritti", ["pPtWrap"]);   /* icone approvate 16/11: come l'americana, solo con «Opzioni complete» */
-  group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
+  group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pPassWrap","pFinaleChWrap","pKvaWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoMicWrap","pNoteWrap"]);   /* «Nessun microfono» scritto nel file: sempre in vista, non dietro «Mostra tutte le opzioni» */
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRugWrap","pTintaWrap","pPuntaWrap","pRotRow",
         "pLblSizeWrap","pLblSizeAll","pAlignWrap","pTxtColorWrap","pLblPosWrap"]);
@@ -37318,9 +37441,10 @@ function renderLoadPanel(){
     d.style.cssText="margin:6px 2px;font-size:12px;line-height:1.35;color:"+(r.warn?"var(--warning)":"var(--text-2)");
     d.textContent=r.t;
     if(r.k==="presa") d.title="Presa e generatore si dimensionano sul massimo: PA e monitor a piena potenza (1/3) assorbono circa il doppio del tipico. Stima: verifica con il service o con un elettricista.";
-    else if(r.k==="gen") d.title="Potenza nominale del generatore del catalogo × fattore di potenza 0,8 (ipotesi). Il massimo conta PA e monitor a piena potenza (1/3). Stima: verifica con il noleggiatore.";
+    else if(r.k==="gen") d.title="Potenza del generatore (quella del catalogo, o i kVA che hai scritto) × fattore di potenza 0,8 (ipotesi). Il massimo conta PA e monitor a piena potenza (1/3). Stima: verifica con il noleggiatore.";
     else if(r.k==="stima") d.title="Stima dai consumi tipici del catalogo: il carico per quadro e per fase compare quando colleghi i carichi (pallino ambra → quadro).";
     host.appendChild(d); });
+  var _pac=paAvvisoChip(); if(_pac) host.appendChild(_pac);
 
   pl.rows.forEach(function(r){
     var lid=r.loadId||"";

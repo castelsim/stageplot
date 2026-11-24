@@ -2995,6 +2995,13 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   #funzBanner .cq-x:hover{background:var(--accent-tint);color:var(--text)}
   #funzBanner .cq-si:focus-visible, #funzBanner .cq-x:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
   body.dark #funzBanner.funz-quieto{box-shadow:0 1px 4px rgba(0,0,0,.4)}
+  /* PA passiva (24/11/2026): avviso «casse passive senza finale», stessa pastiglia quieta dell'invito cavi (#213) */
+  .pa-chip{display:inline-flex;align-items:center;gap:0;margin:6px 2px;padding:2px 4px 2px 12px;border:1px solid var(--border);border-radius:999px;
+    background:var(--surface);font-size:12px;line-height:1.3;color:var(--text-2);box-shadow:0 1px 4px rgba(38,33,24,.10);max-width:100%}
+  .pa-chip-x{flex:none;border:0;background:transparent;color:var(--text-2);font-size:13px;line-height:1;padding:4px 8px;min-height:28px;cursor:pointer;border-radius:999px}
+  .pa-chip-x:hover{background:var(--accent-tint);color:var(--text)}
+  .pa-chip-x:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  body.dark .pa-chip{box-shadow:0 1px 4px rgba(0,0,0,.4)}
   @keyframes cqIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
   @media (prefers-reduced-motion:reduce){ #funzBanner.funz-quieto{animation:none} }
   /* «Stai riaprendo…» (analisi esterna 08/11): stessa pastiglia, e mai insieme alle altre due */
