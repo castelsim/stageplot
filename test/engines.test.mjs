@@ -40687,6 +40687,136 @@ t("ingresso corrente: legenda — la riga «Stagebox suggerito» solo se il laye
 t("linea principale: la firma della cache dei fasci include `feeds`", () => {
   ok(/state\.elec\.uplinks\|\|null, state\.elec\.feeds\|\|null/.test(appjs), "firma di cabOccupancy con feeds");
 });
+/* ═══ PA PASSIVA (24/11/2026) ═══ casse passive (0 W), finale e DSP nel rack, kVA del generatore, avviso discreto. Dati finti, ordine di grandezza di un carro. */
+t("PA passiva: una cassa passiva non assorbe corrente; solo i tipi che possono esserlo; assente = attivo", () => {
+  reset();
+  const sub = add("sub218", 300, 300), top = add("topattivo", 600, 300), mix = add("mixer", 900, 300);
+  const sub0 = A.wattOf(sub), top0 = A.wattOf(top), mx0 = A.wattOf(mix);
+  ok(sub0 > 0 && top0 > 0, "attive di serie: assorbono");
+  sub.pass = true; top.pass = true; mix.pass = true;
+  eq([A.wattOf(sub), A.wattMaxOf(sub), A.wattOf(top), A.wattMaxOf(top)], [0, 0, 0, 0], "passive: 0 W tipico e massimo");
+  eq(A.wattOf(mix), mx0, "un mixer non può essere passivo: il flag si ignora");
+  sub.pass = false; eq(A.wattOf(sub), sub0, "pass diverso da true = attivo");
+  delete sub.pass; eq(A.wattOf(sub), sub0, "assente = attivo");
+  reset();
+});
+t("PA passiva: nel salvataggio `pass`, `kva` e `ch` si scrivono solo se validi e sui tipi giusti", () => {
+  reset();
+  const a = add("sub218", 100, 100), b = add("mixer", 300, 100), g = add("gen20", 500, 100), g2 = add("gen60", 700, 100), f = add("finale", 900, 100), f2 = add("finale", 1100, 100);
+  a.pass = true; b.pass = true; g.kva = 6.3; g2.kva = 5000; f.ch = 4; f2.ch = 3;
+  const back = A.normalizeState(JSON.parse(A.stateToJSON()));
+  const by = (id) => back.items.find((x) => x.id === id);
+  eq(by(a.id).pass, true, "pass true resta sulla cassa");
+  eq(by(b.id).pass, undefined, "pass su un mixer cade");
+  eq(by(g.id).kva, 6.3, "kVA validi restano");
+  eq(by(g2.id).kva, undefined, "kVA fuori da 1-1000 cadono");
+  eq([by(f.id).ch, by(f2.id).ch], [4, undefined], "canali del finale: 2 o 4");
+  reset();
+});
+t("PA passiva: kVA del generatore modificabili; il carico si confronta con kVA × 1000 × 0,8", () => {
+  reset(); A.state.elec.on = true;
+  const g = add("gen20", 100, 100);
+  eq(A.genKvaOf(g), 20, "assente = valore del tipo");
+  A.elecSupplyPoint(); eq(A.elecSupplyPoint().kva, 20, "punto di alimentazione: 20 kVA");
+  g.kva = 5; A.__elecRes = null;
+  eq(A.elecSupplyPoint().kva, 5, "con it.kva vale quello");
+  add("topattivo", 300, 300); add("topattivo", 600, 300);   /* 2 × 250 tipico, 500 massimo ciascuna */
+  A.__elecRes = null;
+  const P = A.elecPotenza();
+  eq(P.gen.kw, 4, "5 kVA × 0,8 = 4 kW");
+  eq(Math.round(P.gen.pctTip * 100), 13, "tipico 500 W su 4000 W = 12,5 % ≈ 13");
+  ok(/5 kVA/.test(P.genTxt), "il testo dice 5 kVA"); g.kva = 6.3; A.__elecRes = null; ok(/6,3 kVA/.test(A.elecPotenza().genTxt), "decimali con la virgola"); g.kva = 5; A.__elecRes = null;
+  g.kva = 6.3; A.__elecRes = null; eq(Math.round(A.elecPotenza().gen.kw * 100) / 100, 5.04, "6,3 kVA ≈ 5,04 kW");
+  reset();
+});
+t("PA passiva: finale e DSP stanno nel rack (2U e 1U); il finale è stima raddoppiata al massimo, il DSP no; la targa dell'utente vince", () => {
+  reset();
+  ok(A.RACK_ELIGIBLE.finale && A.RACK_ELIGIBLE.dsp, "ammessi nei rack");
+  ok(A.RACK_FN.some((r) => r[0] === "pa"), "funzione «Amplificazione / PA»");
+  const rk = add("rack", 300, 300), f = add("finale", 600, 300), d = add("dsp", 800, 300);
+  f.rackId = rk.id; d.rackId = rk.id;
+  eq([A.rackUhOf(f), A.rackUhOf(d)], [2, 1], "altezze di serie");
+  eq([A.RACK_U.finale, A.RACK_U.dsp], [2, 1], "RACK_U");
+  eq([A.wattOf(f), A.wattFonte(f), A.wattMaxOf(f)], [1000, "stima", 2000], "finale: stima 1000 W, massimo il doppio");
+  eq([A.wattOf(d), A.wattMaxOf(d)], [30, 30], "DSP: 30 W, massimo uguale");
+  f.watt = 700; eq([A.wattFonte(f), A.wattMaxOf(f)], ["dichiarato", 700], "con la potenza scritta dall'utente il massimo è quella");
+  reset();
+});
+t("PA passiva: avviso discreto solo con ≥1 passiva e nessun finale", () => {
+  reset();
+  const s = add("sub218", 100, 100), t2 = add("topattivo", 300, 100);
+  eq(A.paAvvisoServe(A.state.items), false, "tutto attivo: niente avviso");
+  s.pass = true; eq(A.paAvvisoServe(A.state.items), true, "una passiva senza finale: avviso");
+  add("finale", 600, 100); eq(A.paAvvisoServe(A.state.items), false, "con un finale: niente avviso");
+  reset();
+});
+t("PA passiva: caso carro — numeri prima/dopo (sub e 2 teste passivi, 3 finali + DSP, generatore 5 kVA)", () => {
+  reset(); A.state.elec.on = true;
+  const mk = (ty, o) => Object.assign(add(ty, 100 + A.state.items.length * 60, 100), o || {});
+  /* PRIMA (valori tipici del catalogo): 2 sub 1500 W + 4 teste 250 W + 2 rack 4U (300 W) + generatore 20 kVA */
+  mk("sub218"); mk("sub218");
+  for (let i = 0; i < 4; i++) mk("topattivo");
+  mk("rack4u"); mk("rack4u"); mk("gen20");
+  A.__elecRes = null; let P = A.elecPotenza();
+  eq([P.tipW, P.maxW], [4600, 8600], "prima: 4600 W tipico, 8600 W massimo");
+  eq([Math.round(P.gen.pctTip * 100), Math.round(P.gen.pctMax * 100)], [29, 54], "prima: 29 % e 54 % di 20 kVA");
+  /* DOPO: sub e 2 teste passivi (0 W), 2 teste attive, 3 finali, 1 DSP, niente rack 4U, generatore da 5 kVA */
+  reset(); A.state.elec.on = true;
+  mk("sub218", { pass: true }); mk("sub218", { pass: true });
+  mk("topattivo", { pass: true }); mk("topattivo", { pass: true }); mk("topattivo"); mk("topattivo");
+  for (let i = 0; i < 3; i++) mk("finale"); mk("dsp"); mk("gen20", { kva: 5 });
+  A.__elecRes = null; P = A.elecPotenza();
+  eq([P.tipW, P.maxW], [3530, 7030], "dopo: 500 + 3000 + 30 = 3530 W tipico; 1000 + 6000 + 30 = 7030 W massimo");
+  eq([Math.round(P.gen.kw * 100) / 100, Math.round(P.gen.pctTip * 100), Math.round(P.gen.pctMax * 100), P.gen.sopra], [4, 88, 176, true], "5 kVA = 4 kW: 88 % tipico, 176 % massimo, supera");
+  ok(/Il massimo supera la potenza del generatore/.test(P.genTxt), "c'è la frase di superamento");
+  eq(A.paAvvisoServe(A.state.items), false, "con i finali l'avviso non c'è");
+  reset();
+});
+t("PA passiva: i kVA si scrivono con virgola o punto («6,3» = 6.3, mai 63); vuoto = tipo; testo non valido = invariato", () => {
+  eq(["6,3", "6.3", " 6,3 kVA ", "5", "1,5", "20"].map(A.kvaParse), [6.3, 6.3, 6.3, 5, 1.5, 20], "virgola e punto");
+  eq(["", "  "].map(A.kvaParse), [null, null], "vuoto = valore del tipo");
+  eq(["abc", "0", "-5", "0,5", "1001", "1.000", "6,3,1", "63000", "NaN"].map(A.kvaParse), Array(9).fill(undefined), "non valido = invariato");
+});
+t("PA passiva: il nome automatico del generatore segue i kVA senza scrivere it.label, anche in inglese", () => {
+  reset();
+  const g = add("gen20", 100, 100), nome = A.TYPES.gen20.nome;
+  g.kva = 5; const lab0 = g.label;
+  eq(A.lblText(nome, g, true), "Generatore 5 kVA", "IT: derivato da it.kva (anche arrivato da JSON)");
+  eq(g.label, lab0, "it.label non viene toccata");
+  g.kva = 6.3; eq(A.lblText(nome, g, true), "Generatore 6,3 kVA", "decimali con la virgola");
+  A.state.docLang = "en"; eq(A.lblText(nome, g, true), "Generator 6.3 kVA", "EN: tradotto");
+  delete A.state.docLang; delete g.kva; eq(A.lblText(nome, g, true), nome, "senza kVA scritti: nome di serie");
+  g.kva = 5; eq(A.lblText("Gruppo del Bar", g, true), "Gruppo del Bar", "un nome scritto dall'utente non si tocca");
+  reset();
+});
+t("PA passiva: rilascio in due fasi — interruttore spento: finale e DSP fuori da catalogo e menu rack ma i progetti che li contengono si aprono, contano e si disegnano; acceso: catalogo completo", () => {
+  reset();
+  const orig = A.paFinaleDspAttivi;
+  try {
+    eq(A.paFinaleDspAttivi(), false, "fase 1: spento di serie");
+    eq([A.TYPES.finale.catalog, A.TYPES.dsp.catalog], [false, false], "fuori dal catalogo (e quindi dalla ricerca)");
+    ok(!A.rackNuoviTipi().includes("finale") && !A.rackNuoviTipi().includes("dsp"), "fuori dal menu «Nuovo» del rack");
+    ok(A.rackNuoviTipi().includes("stagebox"), "gli altri apparecchi restano");
+    ok(A.RACK_ELIGIBLE.finale && A.RACK_ELIGIBLE.dsp, "ma sono ammessi nei rack se già presenti");
+    const rk = add("rack", 300, 300), f = add("finale", 600, 300), d = add("dsp", 800, 300); f.rackId = rk.id; d.rackId = rk.id; f.ch = 4;
+    const back = A.normalizeState(JSON.parse(A.stateToJSON()));
+    eq(back.items.filter((x) => x.type === "finale" || x.type === "dsp").length, 2, "il progetto con finale e DSP si apre");
+    eq([A.wattOf(f), A.wattOf(d)], [1000, 30], "e i watt contano");
+    ok(typeof A.TYPES.finale.draw === "function" && String(A.TYPES.finale.draw({})).length > 20, "e si disegna");
+    A.paFinaleDspAttivi = () => true;
+    eq([A.TYPES.finale.catalog, A.TYPES.dsp.catalog], [true, true], "fase 2: nel catalogo");
+    ok(A.rackNuoviTipi().includes("finale") && A.rackNuoviTipi().includes("dsp"), "fase 2: nel menu del rack");
+  } finally { A.paFinaleDspAttivi = orig; reset(); }
+});
+t("PA passiva: Mackie Thump15A nel catalogo dei diffusori attivi, con la fonte del manuale ufficiale", () => {
+  const d = A.AMP_DB.mackie_thump15a;
+  ok(d && d.per.includes("topattivo") && /Mackie_Thump12A_Thump15A_OM/.test(d.fonte), "scheda con fonte");
+  eq([d.watt, d.out, d.mm], [75, 1300, [686, 442, 356]], "dati di targa del manuale");
+  reset(); const it = add("topattivo", 300, 300, { bm: "mackie_thump15a" });
+  eq([A.wattOf(it), A.wattFonte(it)], [75, "targa"], "col modello vale la targa");
+  it.pass = true; eq(A.wattOf(it), 0, "e passivo resta 0");
+  reset();
+});
 /* ===== DISTANZA DELLE SCRITTE FONDO PALCO / PUBBLICO (24/11/2026, Simone: rack e casse vicini al bordo le coprivano).
    state.zonaGap = cm in più rispetto a -42 e D+38; assente = identico a prima. ===== */
 console.log("\nDistanza scritte fondo palco / pubblico:");
