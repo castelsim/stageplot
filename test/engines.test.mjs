@@ -91,6 +91,7 @@ function reset() {
   A.state.titolo = ""; A.state.luogo = ""; A.state.techContact = ""; A.state.venue = null; A.state.printFrame = null; A.state.zones = [];
   A.state.lights = { rows: [], blackout: null, mood: "" };   /* luci = reparto (blocco A): senza azzeramento le righe di un test finiscono nel rider del successivo */
   delete A.state.latiTeatro;   /* giardino e corte (12/11): opzione che esiste solo se accesa; un test che l'accende non deve lasciarla ai successivi */
+  delete A.state.zonaGap;   /* distanza delle scritte (24/11): esiste solo se scelta */
   delete A.state.sonorizzazione; delete A.state.orari;   /* sonorizzazione e orari (12/11): campi che esistono solo se scelti; un test che li imposta non deve lasciarli ai successivi */
   delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
   delete A.state.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): opzione spenta di serie */
@@ -40507,7 +40508,7 @@ t("ingresso corrente: il documento in inglese lo traduce (nome, riga «Alimentaz
   } finally { delete A.state.docLang; }
   reset();
 });
-t("ingresso corrente: nell'export niente tooltip e stessa geometria (92 x 26); a schermo tooltip e riquadro che cresce", () => {
+t("ingresso corrente: nell'export niente tooltip, scala a schermo e stessa larghezza del testo (dal 24/11 non più 92); a schermo tooltip e riquadro che cresce", () => {
   elecConIngresso("rete");
   const prima = A.__cabStatic;
   try {
@@ -40516,7 +40517,8 @@ t("ingresso corrente: nell'export niente tooltip e stessa geometria (92 x 26); a
     ok(ex.indexOf("elec-supply") >= 0, "l'ingresso c'è");
     ok(ex.indexOf("<title>") < 0, "export: nessun <title>");
     ok(ex.indexOf("elec-supply-scr") < 0, "export: nessuna classe di scala a schermo");
-    ok(/class="elec-supply"><rect [^>]*width="92" height="26"/.test(ex), "export: rettangolo 92 x 26 come prima");
+    const wEx = +/class="elec-supply"><rect [^>]*width="([\d.]+)" height="26"/.exec(ex)[1];
+    ok(wEx > 92 && wEx >= 14 + "Ingresso corrente (rete)".length * 6.2 - 0.01, "export: rettangolo largo quanto la scritta (" + wEx + ")");
     ok(ex.indexOf("Ingresso corrente (rete)") >= 0, "export: la stringa nuova");
     A.__cabStatic = false; A.__elecRes = null;
     const sc = A.elecMarkup();
@@ -40524,6 +40526,7 @@ t("ingresso corrente: nell'export niente tooltip e stessa geometria (92 x 26); a
     ok(sc.indexOf("elec-supply-scr") >= 0, "schermo: gruppo scalato col corpo minimo");
     const w = +/class="elec-supply elec-supply-scr"[^>]*><rect [^>]*width="([\d.]+)"/.exec(sc)[1];
     ok(w > 92, "schermo: il riquadro cresce col testo (" + w + ")");
+    eq(w, wEx, "stessa larghezza a schermo e nell'export");
   } finally { A.__cabStatic = prima; }
   reset();
 });
@@ -40776,6 +40779,155 @@ t("PA passiva: Mackie Thump15A nel catalogo dei diffusori attivi, con la fonte d
   reset(); const it = add("topattivo", 300, 300, { bm: "mackie_thump15a" });
   eq([A.wattOf(it), A.wattFonte(it)], [75, "targa"], "col modello vale la targa");
   it.pass = true; eq(A.wattOf(it), 0, "e passivo resta 0");
+  reset();
+});
+/* ===== DISTANZA DELLE SCRITTE FONDO PALCO / PUBBLICO (24/11/2026, Simone: rack e casse vicini al bordo le coprivano).
+   state.zonaGap = cm in più rispetto a -42 e D+38; assente = identico a prima. ===== */
+console.log("\nDistanza scritte fondo palco / pubblico:");
+const zonaY = (svgOrMk, nome) => { const m = svgOrMk.match(new RegExp('y="([-\\d.]+)"[^>]*>' + nome + '<')); return m ? +m[1] : null; };
+t("zonaGap: di serie le scritte stanno a -42 e D+38 come sempre, e lo stato non porta il campo", () => {
+  reset(); A.applyStageSize(8, 6, false);
+  const mk = A.stageLayerMarkup();
+  eq([zonaY(mk, "FONDO PALCO"), zonaY(mk, "PUBBLICO")], [-42, 6 * 100 + 38], "posizioni di sempre");
+  eq(A.zonaGapCm(), 0, "default 0"); ok(!/zonaGap/.test(A.docToJSON()), "niente campo salvato");
+});
+t("zonaGap: con 0,5 m le due scritte si allontanano di 50 cm, il resto del markup non cambia", () => {
+  reset(); A.applyStageSize(8, 6, false);
+  const prima = A.stageLayerMarkup();
+  A.zonaGapImposta("0.5");
+  const dopo = A.stageLayerMarkup();
+  eq([zonaY(dopo, "FONDO PALCO"), zonaY(dopo, "PUBBLICO")], [-92, 6 * 100 + 88], "spostate di 50");
+  eq(dopo.replace(/y="-92"/, 'y="-42"').replace(/y="688"/, 'y="638"'), prima, "tutto il resto identico");
+  A.zonaGapImposta("0"); eq(A.stageLayerMarkup(), prima, "tornando a 0 si torna al markup di prima"); eq(A.zonaGapCm(), 0, "campo tolto");
+  reset();
+});
+t("zonaGap: salvato nel progetto, riletto uguale, valori assurdi ripuliti, tetto 2 m", () => {
+  reset(); A.applyStageSize(8, 6, false); A.zonaGapImposta("1,25");
+  eq(A.zonaGapCm(), 125, "virgola italiana");
+  A.loadDoc(JSON.parse(A.docToJSON())); eq(A.zonaGapCm(), 125, "salva e riapri");
+  A.zonaGapImposta("9"); eq(A.zonaGapCm(), 200, "tetto 2 m");
+  A.state.zonaGap = "boh"; A.loadDoc(JSON.parse(A.docToJSON())); eq(A.zonaGapCm(), 0, "testo non numerico: via"); ok(!("zonaGap" in A.state), "campo cancellato");
+  A.state.zonaGap = 5000; A.loadDoc(JSON.parse(A.docToJSON())); eq(A.state.zonaGap, 200, "il valore salvato è già al tetto");
+  A.state.zonaGap = -30; A.loadDoc(JSON.parse(A.docToJSON())); eq(A.zonaGapCm(), 0, "negativo: via");
+  reset();
+});
+t("zonaGap: palco alto su A4 1:100 con 1 m, FONDO PALCO e PUBBLICO restano sul foglio (il ritaglio non le porta fuori)", () => {
+  reset(); A.applyStageSize(12, 13, false);
+  const vedi = (nome) => {
+    const cartH = A.cartHFor("", "a4", "landscape"), box = A.pdfStageBox(100, "a4", "landscape", cartH);
+    const svg = A.stageSceneSvg(box.vb, { focus: "clean", textK: A.pdfTextK(100), noBlockDims: !box.A.custom && !box.cropped && A.stageBlocks().length < 2 });
+    const v = svg.match(/viewBox="([-\d.]+) ([-\d.]+) ([\d.]+) ([\d.]+)"/).slice(1).map(Number);
+    const f = svg.match(/<text[^>]*font-size="([\d.]+)"[^>]*y="([-\d.]+)">FONDO PALCO</), pb = svg.match(/<text[^>]*font-size="([\d.]+)"[^>]*y="([-\d.]+)">PUBBLICO</);
+    ok(f && pb, nome + ": le due scritte ci sono");
+    ok(+f[2] - 0.8 * +f[1] >= v[1] - 1e-6, nome + ": FONDO PALCO fuori dal foglio (y=" + f[2] + ", foglio da " + v[1] + ")");
+    ok(+pb[2] + 0.25 * +pb[1] <= v[1] + v[3] + 1e-6, nome + ": PUBBLICO fuori dal foglio (y=" + pb[2] + ", foglio fino a " + (v[1] + v[3]) + ")");
+    return { box, svg };
+  };
+  const base = vedi("senza distanza");
+  A.zonaGapImposta("1");
+  const con = vedi("con 1 m");
+  ok(con.box.cropped, "il caso è davvero quello del ritaglio: con 1 m il palco 12×13 su A4 1:100 non entra più intero");
+  const yy = (svg, n) => zonaY(svg, n);
+  ok(yy(con.svg, "FONDO PALCO") <= yy(base.svg, "FONDO PALCO") && yy(con.svg, "PUBBLICO") >= yy(base.svg, "PUBBLICO"), "mai più vicine al palco di prima");
+  /* palco basso: nessun ritaglio, la distanza si vede per intero */
+  reset(); A.applyStageSize(8, 6, false); A.zonaGapImposta("1");
+  const b2 = A.pdfStageBox(100, "a3", "landscape", A.cartHFor("", "a3", "landscape"));
+  const s2 = A.stageSceneSvg(b2.vb, { focus: "clean", textK: A.pdfTextK(100), noBlockDims: true });
+  eq(zonaY(s2, "FONDO PALCO"), -142, "senza ritaglio la distanza è piena");
+  reset();
+});
+t("zonaGap: il campo mostrato si riallinea al valore effettivo", () => {
+  reset(); const inp = { value: "" }; const g0 = A.document && A.document.getElementById;
+  ok(/var _i=document\.getElementById\("zonaGap"\); if\(_i\) _i\.value=String\(zonaGapCm\(\)\/100\)/.test(appjs), "zonaGapImposta riscrive il campo con il valore normalizzato");
+  A.zonaGapImposta("3"); eq(A.zonaGapCm(), 200, "3 m vale 2"); A.zonaGapImposta("-1"); eq(A.zonaGapCm(), 0, "-1 vale 0");
+  reset();
+});
+t("zonaGap: vista (Adatta), riquadro di stampa e PDF contano la distanza, nessuna scritta tagliata", () => {
+  reset(); A.applyStageSize(6, 4, false);
+  const d0 = A.stageDecorBounds(), n0 = A.printNeeds(A.printScene(1), 1), m0 = A.printDM(1);
+  A.zonaGapImposta("1");
+  const d = A.stageDecorBounds();
+  eq([d.y0, d.y1], [d0.y0 - 100, d0.y1 + 100], "limiti della vista");
+  eq(A.printDM(1), m0, "il margine laterale resta quello di sempre");
+  const F0 = A.printScene(1).F; A.zonaGapImposta("0"); const Fs = A.printScene(1).F; A.zonaGapImposta("1");
+  eq([F0.x, F0.w - Fs.w, F0.h - Fs.h], [Fs.x, 0, 200], "il riquadro cresce solo in verticale (2 × 1 m), non ai lati");
+  eq(F0.y, Fs.y - 100, "sopra di 1 m");
+  const n = A.printNeeds(A.printScene(1), 1);
+  ok(n.t >= n0.t && n.b >= n0.b, "il posto richiesto non cala");
+  withCanvas(820, 700, () => A.fit());
+  ok(A.vb.y <= d.y0 && A.vb.y + A.vb.h >= d.y1, "Adatta le contiene");
+  const zy = A.zoneLblY("", 1, 400); eq([zy.f, zy.p], [-142, 538], "zoneLblY (stampa) segue la distanza");
+  reset();
+});
+/* ───────── CABLAGGI RIFINITURE (24/11/2026) ───────── */
+t("dorsale ciabatta→quadro: «Segmenta» e doppio clic scrivono in uplinks[id].seg, resta dopo salva-riapri", () => {
+  reset(); A.state.elec.on = true; A.state.elec.mode = "manual";
+  const m = add("ciabatta", 600, 600), c = add("ciabatta", 300, 300);
+  const r = add("amprack", 300, 200); r.watt = 800;
+  A.state.elec.manual = { [r.id]: { distro: c.id } };
+  A.state.elec.uplinks = { [c.id]: { to: m.id, pts: [[400, 400]] } };
+  A.state.cab.route = "dir"; A.__elecRes = null;
+  try {
+    eq(A.elecStyleFor("up:" + c.id), "dir", "di serie diretta");
+    A.selElec = "up:" + c.id;
+    const fam = A.cabSelFam(); eq(fam.fam, "up", "famiglia up"); eq(fam.key, c.id, "chiave = id della ciabatta");
+    ok(/\{fam:"up", key:String\(_k2\)\.slice\(3\)\}/.test(appjs), "il gestore del doppio clic passa fam up per up:");
+    A.cabSegToggle("up", c.id);
+    eq(A.state.elec.uplinks[c.id].seg, 1, "segno scritto in uplinks");
+    eq(A.state.elec.uplinks[c.id].to, m.id, "il bersaglio resta");
+    ok(!Object.keys(A.state.elec.manual || {}).some((x) => x.indexOf("up:") === 0), "niente chiavi up: in elec.manual");
+    eq(A.elecStyleFor("up:" + c.id), "orto", "ora squadrata");
+    A.loadDoc(JSON.parse(A.docToJSON()));
+    eq(A.state.elec.uplinks[c.id].seg, 1, "dopo salva-riapri il segno c'è");
+    A.dropOrphanLinks(A.state); eq(A.state.elec.uplinks[c.id].seg, 1, "dropOrphanLinks non lo cancella");
+    A.cabSegToggle("up", c.id);
+    ok(!A.state.elec.uplinks[c.id].seg && A.state.elec.uplinks[c.id].to === m.id && !A.state.elec.uplinks[c.id].pts, "«Torna diritto»: via seg e waypoint, il collegamento resta");
+  } finally { delete A.state.cab.route; A.selElec = null; reset(); }
+});
+t("dorsale: `seg` senza bersaglio non sopravvive alla normalizzazione", () => {
+  reset(); A.state.elec.on = true;
+  A.state.elec.uplinks = { zz: { seg: 1 } };
+  A.loadDoc(JSON.parse(A.docToJSON()));
+  ok(!A.state.elec.uplinks || !A.state.elec.uplinks.zz, "voce senza `to` scartata");
+  reset();
+});
+t("ingresso corrente: il riquadro è largo quanto la scritta, anche nell'export; la scritta ci sta dentro", () => {
+  ["rete", "right", "left", "custom"].forEach((k) => {
+    elecConIngresso(k);
+    [false, true].forEach((stat) => {
+      A.__cabStatic = stat; A.__elecRes = null;
+      const mk = A.elecMarkup();
+      const g = mk.match(/<g class="elec-supply[^"]*"[^>]*><rect x="[^"]+" y="[^"]+" width="([\d.]+)" height="26"/);
+      ok(g, "riquadro presente (" + k + ", export=" + stat + ")");
+      const w = +g[1], nome = A.elecSupplyPoint().name;
+      ok(w >= 14 + nome.length * 6.2 - 0.01 && w >= 92, "larghezza " + w + " per «" + nome + "» (export=" + stat + ")");
+    });
+  });
+  A.__cabStatic = false; reset();
+});
+t("dorsale: «Ripristina percorso automatico» della scheda toglie waypoint E segno `seg`, il collegamento resta", () => {
+  reset(); A.state.elec.on = true; A.state.elec.mode = "manual";
+  const m = add("ciabatta", 600, 600), c = add("ciabatta", 300, 300);
+  const r = add("amprack", 300, 200); r.watt = 800;
+  A.state.elec.manual = { [r.id]: { distro: c.id } };
+  A.state.elec.uplinks = { [c.id]: { to: m.id, pts: [[400, 400]], seg: 1 } };
+  A.state.cab.route = "dir"; A.__elecRes = null;
+  try {
+    A.selElec = "up:" + c.id;
+    const info = A.selectedCableInfo();
+    ok(info && typeof info.resetPts === "function", "la scheda della dorsale ha resetPts");
+    info.resetPts();
+    const u = A.state.elec.uplinks[c.id];
+    ok(u && u.to === m.id && !u.pts && !u.seg, "via pts e seg, resta `to`");
+  } finally { delete A.state.cab.route; A.selElec = null; reset(); }
+});
+t("dorsale: dropOrphanLinks tiene `seg` con bersaglio vivo e toglie tutta la voce (anche `seg`) se il bersaglio è sparito", () => {
+  reset(); A.state.elec.on = true;
+  const m = add("ciabatta", 600, 600), c = add("ciabatta", 300, 300), c2 = add("ciabatta", 100, 100);
+  A.state.elec.uplinks = { [c.id]: { to: m.id, seg: 1 }, [c2.id]: { to: "id-sparito", seg: 1, pts: [[5, 5]] } };
+  A.dropOrphanLinks(A.state);
+  eq(A.state.elec.uplinks[c.id].seg, 1, "seg conservato con bersaglio vivo");
+  ok(!A.state.elec.uplinks[c2.id], "bersaglio sparito: la voce cade intera, seg compreso");
   reset();
 });
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

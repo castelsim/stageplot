@@ -463,6 +463,8 @@
     <!-- GIARDINO E CORTE (12/11/2026): opzione del progetto, spenta di serie. Scrive i nomi dei lati del teatro ai lati di FONDO PALCO. -->
     <label class="chk" id="latiTeatroRow" style="margin-top:11px"><input type="checkbox" id="latiTeatro"> Giardino e corte</label>
     <div class="hint" id="latiTeatroNota" style="font-size:11px;color:var(--text-2);margin:2px 0 0">Scrive «sinistra (giardino)» e «destra (corte)» ai lati di fondo palco, guardando dalla platea. Spento di serie: utile nei teatri.</div>
+    <!-- DISTANZA DELLE SCRITTE (24/11/2026): allontana FONDO PALCO e PUBBLICO dal bordo se rack e casse le coprono. 0 = come sempre. -->
+    <label id="zonaGapRow" for="zonaGap" style="display:flex;align-items:center;gap:6px;margin-top:9px;font-size:12px;white-space:nowrap" title="Allontana dal palco le scritte «fondo palco» e «pubblico», senza muovere gli elementi. 0 = posizione di sempre.">Distanza scritte <input type="number" id="zonaGap" min="0" max="2" step="0.25" value="0" inputmode="decimal" style="width:62px;font-size:12px;padding:3px 5px"> m</label>
     <button class="btn primary" id="bStageDone" style="width:100%;margin-top:11px">Fatto</button>
     </div>
     <div id="venueSec" hidden>
@@ -7330,7 +7332,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
 /*__DOCUMENTO_ESTERO__*/
 /*__DOCUMENTO_ESTERO_EN__*/
 DOC_EN["BACKDROP · ROSSO"]="BACKDROP · RED"; DOC_EN["BACKDROP · GRIGIO"]="BACKDROP · GREY"; DOC_EN["BACKDROP · BIANCO"]="BACKDROP · WHITE";   /* colore del fondale (18/11): il dizionario generato non lo conosce */
-var CAMPI_DOCUMENTO=["docLang","docUnits","allegatiRichiesti","dotazioni","misureStile","pedMisure","pdfOrganico","quoteDaTerra","coloreFamiglie","organicoOrdine","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","statoDoc","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
+var CAMPI_DOCUMENTO=["docLang","docUnits","allegatiRichiesti","dotazioni","misureStile","pedMisure","pdfOrganico","quoteDaTerra","coloreFamiglie","organicoOrdine","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","statoDoc","latiTeatro","zonaGap","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -8904,7 +8906,7 @@ function dropOrphanLinks(s){
   }
   if(oggetto(s.elec)){
     pulisci(s.elec.manual, esiste, "distro", ["distro","pts","seg","auto","line"]);
-    pulisci(s.elec.uplinks, esiste, "to", ["to","pts"]);   /* senza bersaglio la voce non ha più niente da dire: resta vuota e cade */
+    pulisci(s.elec.uplinks, esiste, "to", ["to","pts","seg"]);   /* senza bersaglio la voce non ha più niente da dire: resta vuota e cade */
     /* CABLAGGI CHIARI (24/11): `feeds` è indicizzata per id del DISTRO: distro sparito → via la voce; il distro che riceve un uplink
        a mano non ha più la linea principale (la voce resterebbe dormiente: si pulisce) */
     if(oggetto(s.elec.feeds)){
@@ -11173,6 +11175,7 @@ function normalizeState(s){
   if(s.orari && typeof s.orari==="object"){ var _or=orariNorm(s.orari); if(Object.keys(_or).length) s.orari=_or; else delete s.orari; } else delete s.orari;   /* orari (12/11): solo voci valide, «HH:MM»; assente se vuoto */
   if(s.docLang!=="en" && s.docLang!=="it") delete s.docLang;   /* lingua del documento (17/11/2026): "en"; dal 22/11 anche "it" esplicito; assente = come l'app (oggi italiano) */
   if(s.docUnits!=="ft" && s.docUnits!=="both") delete s.docUnits;   /* unità del documento (17/11/2026): "ft" o "both", assente = metri */
+  { var _zg=Math.round(+s.zonaGap); if(_zg>0) s.zonaGap=Math.min(_zg,200); else delete s.zonaGap; }   /* distanza extra di FONDO PALCO e PUBBLICO dal palco, cm (24/11/2026): assente = come sempre */
   if(s.latiTeatro!==true) delete s.latiTeatro;   /* giardino e corte: spenti di serie, solo un true esplicito li accende (12/11/2026) */
   if(s.pdfOrganico!==true) delete s.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): solo un true esplicito la accende */
   if(s.coloreFamiglie!==true) delete s.coloreFamiglie;   /* colore per famiglia (23/11): solo un true esplicito lo accende */
@@ -11349,6 +11352,7 @@ function normalizeState(s){
   if(eb.uplinks && typeof eb.uplinks==="object"){ Object.keys(eb.uplinks).forEach(function(k){ var v=eb.uplinks[k]||{}; var o={};
     if(typeof v.to==="string" && v.to) o.to=v.to.slice(0,ITEM_ID_MAX);
     if(Array.isArray(v.pts)) o.pts=v.pts.filter(function(p){ return p&&isFinite(p[0])&&isFinite(p[1]); }).map(function(p){ return [Math.round(p[0]),Math.round(p[1])]; });
+    if(o.to && v.seg) o.seg=1;   /* «Segmenta» della dorsale: ha senso solo con un bersaglio */
     if(Object.keys(o).length) eups[String(k).slice(0,ITEM_ID_MAX)]=o; }); }
   var efeeds=Object.create(null);   /* CABLAGGI CHIARI (24/11): percorso della linea principale distro → ingresso; solo pts validi (≤50 coppie finite) */
   if(eb.feeds && typeof eb.feeds==="object"){ Object.keys(eb.feeds).forEach(function(k){ var v=eb.feeds[k]; if(!v || typeof v!=="object" || Array.isArray(v)) return; var o={};
@@ -12026,7 +12030,7 @@ function adattaAvvertenzaPosto(testo, via){
   }catch(_e){}
   function libero(q){ return !ost.some(function(r){ return r.x0<q.x1-1 && q.x0<r.x1-1 && r.y0<q.y1-1 && q.y0<r.y1-1; }); }
   function dentro(q){ return q.x0>=pa.x0 && q.y0>=pa.y0 && q.x1<=pa.x1 && q.y1<=pa.y1; }
-  var cand=[], top=D+32, fondo=Math.min(D+79, pa.y1-1);   /* PUBBLICO ha la base a D+38 e niente discendenti */
+  var cand=[], top=D+32+zonaGapCm(), fondo=Math.min(D+79+zonaGapCm(), pa.y1-1);   /* PUBBLICO ha la base a D+38 e niente discendenti */
   var sx0=Math.max(-70, pa.x0+10), sx1=Math.min(W+70, pa.x1-10);   /* un'area di stampa scelta a mano può essere più stretta */
   [[sx0, sx1],[sx0, W/2-50],[W/2+50, sx1]].forEach(function(f){
     if(f[1]-f[0]<100) return;
@@ -17391,7 +17395,7 @@ function cabSetTaglia(n){ n=+n; if(CAB_TAGLIE.indexOf(n)<0) return; if(n===8) de
 function cabSetDigitale(v){ if(v==="auto") delete state.cab.digitale; else if(v==="si") state.cab.digitale=true; else if(v==="no") state.cab.digitale=false; else return; __cabRes=null; save(); render(); }
 function cabSegToggle(fam, key){
   if(cabRouteMode()==="orto") return false;   /* L3: «come sul palco» squadra già ogni cavo; «Segmenta» ha senso solo in «diretto» */
-  var man = fam==="feed" ? elecFeedVoce(key) : fam==="elec" ? elecManual(key) : (fam==="mond" ? mondManual(key) : cabManual(key));
+  var man = fam==="feed" ? elecFeedVoce(key) : fam==="up" ? elecUpVoce(key) : fam==="elec" ? elecManual(key) : (fam==="mond" ? mondManual(key) : cabManual(key));
   if(man.seg){
     delete man.seg;
     /* 28/07 (bug segnalato da Simone): «Torna diritto» diceva diritto e il cavo restava piegato. I
@@ -17399,7 +17403,7 @@ function cabSegToggle(fam, key){
        ci passa comunque attraverso. Un cavo diritto è una retta: via anche quelli. */
     delete man.pts;
   } else man.seg=1;
-  if(fam==="feed"){ elecFeedPulisci(key); __elecRes=null; } else if(fam==="elec") __elecRes=null; else if(fam==="mond") __mondRes=null; else __cabRes=null;
+  if(fam==="feed"){ elecFeedPulisci(key); __elecRes=null; } else if(fam==="up"||fam==="elec") __elecRes=null; else if(fam==="mond") __mondRes=null; else __cabRes=null;
   save(); render();
   return !!man.seg;
 }
@@ -17724,6 +17728,7 @@ function cabSegOn(man, key){ var m=man&&man[key]; return !!(m && m.seg); }
 function cabStyleFor(key){ return (cabRouteMode()==="orto" || cabSegOn(state.cab&&state.cab.manual, key)) ? "orto" : "dir"; }
 function elecStyleFor(key){
   if(String(key).indexOf("fd:")===0) return (cabRouteMode()==="orto" || cabSegOn(state.elec&&state.elec.feeds, String(key).slice(3))) ? "orto" : "dir";   /* linea principale: «Segmenta» sta in elec.feeds[id].seg */
+  if(String(key).indexOf("up:")===0) return (cabRouteMode()==="orto" || cabSegOn(state.elec&&state.elec.uplinks, String(key).slice(3))) ? "orto" : "dir";   /* dorsale ciabatta→quadro: «Segmenta» sta in elec.uplinks[id].seg */
   return (cabRouteMode()==="orto" || cabSegOn(state.elec&&state.elec.manual, key)) ? "orto" : "dir"; }
 function mondStyleFor(key){ return (cabRouteMode()==="orto" || cabSegOn(state.mond&&state.mond.manual, key)) ? "orto" : "dir"; }
 function roundedPathD(ep, r){
@@ -19610,6 +19615,8 @@ function elecManual(key){ state.elec.manual=state.elec.manual||{}; if(!state.ele
   if(!state.elec.manual[key] || typeof state.elec.manual[key]!=="object") state.elec.manual[key]={}; return state.elec.manual[key]; }
 /* CABLAGGI CHIARI (24/11/2026): voce della linea principale (distro → ingresso corrente) = `elec.feeds[idDistro]` {pts, seg}. */
 function elecFeedVoce(id){ state.elec.feeds=state.elec.feeds||{}; if(!state.elec.feeds[id] || typeof state.elec.feeds[id]!=="object") state.elec.feeds[id]={}; return state.elec.feeds[id]; }
+/* dorsale ciabatta/distro → quadro = `elec.uplinks[idDistro]` {to, pts, seg} (fam "up"; chiave del disegno «up:ID») */
+function elecUpVoce(id){ state.elec.uplinks=state.elec.uplinks||{}; if(!state.elec.uplinks[id] || typeof state.elec.uplinks[id]!=="object") state.elec.uplinks[id]={}; return state.elec.uplinks[id]; }
 function elecFeedPulisci(id){ var f=state.elec&&state.elec.feeds; if(!f) return; if(f[id] && !Object.keys(f[id]).length) delete f[id]; if(!Object.keys(f).length) delete state.elec.feeds; }
 /* La FASE PIÙ CARICA dell'impianto (29/07) — l'equivalente elettrico della capienza «10/16 su A»
    dell'Input. Non la somma dei kW dei quadri, che non fa saltare niente: quello che conta è la
@@ -19721,9 +19728,8 @@ function elecMarkup(){
     s+='<g class="elec-badge"><rect x="'+(d.x-bw/2)+'" y="'+(d.y-bTop)+'" width="'+bw+'" height="15" rx="7"/><text x="'+d.x+'" y="'+(d.y-bTop+11)+'" text-anchor="middle">'+esc(bt)+'</text></g>';
   });
   if(R.supply){ var h=R.supply;
-    /* A SCHERMO (non nell'export: geometria identica a prima, cambia solo la stringa) l'etichetta cresce col testo
-       e col corpo minimo (--lblK, come i nomi): a zoom normale si legge; ha un tooltip che dice cos'è e che si sposta. */
-    var scrS=!window.__cabStatic, hwS=scrS?Math.max(92, 14+String(h.name).length*6.2):92;
+    /* La larghezza segue il testo sia a schermo sia nell'export; A SCHERMO l'etichetta cresce anche col corpo minimo (--lblK, come i nomi): a zoom normale si legge; ha un tooltip che dice cos'è e che si sposta. */
+    var scrS=!window.__cabStatic, hwS=Math.max(92, 14+String(h.name).length*6.2);   /* larghezza dal testo ANCHE nell'export (24/11, D2: «Ingresso corrente (rete)» sbordava dai 92 e le lettere bianche sparivano sul fondo dei PNG) */
     var ttS=scrS?'<title>'+(h.kind==="gen"?'Generatore: sorgente di corrente del palco. Trascinalo dove sta davvero.':'Ingresso corrente: da qui parte l\u2019alimentazione del palco. Trascinalo dove c\u2019\u00e8 davvero la presa o il quadro del luogo.')+'</title>':'';
     s+='<g class="elec-supply'+(scrS?' elec-supply-scr':'')+'"'+(scrS?' style="transform-origin:'+h.x+'px '+h.y+'px"':'')+'><rect x="'+(h.x-hwS/2)+'" y="'+(h.y-13)+'" width="'+hwS+'" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>'
     +'<rect class="elec-supplyhit" data-elecsupply="1" x="'+(h.x-hwS/2-2)+'" y="'+(h.y-15)+'" width="'+(hwS+4)+'" height="30" rx="6">'+ttS+'</rect></g>'; }
@@ -21443,11 +21449,22 @@ function stageEmptyHintMarkup(){
   return '<text class="stage-empty-hint" x="'+(W/2)+'" y="'+(D/2)+'" text-anchor="middle" dominant-baseline="middle">'+esc(testo)+'</text>';
 }
 function stageLayerMarkup(){
-  var W=state.stage.w, D=state.stage.d;
+  var W=state.stage.w, D=state.stage.d, zg=zonaGapCm();
   return stageFloorMarkup()+stageDimsMarkup()
-    +'<text class="zone-lbl" x="'+(W/2)+'" y="-42" text-anchor="middle">'+docZona("FONDO PALCO")+'</text>'
-    +'<text class="zone-lbl" x="'+(W/2)+'" y="'+(D+38)+'" text-anchor="middle">'+docZona("PUBBLICO")+'</text>'
-    +stageEmptyHintMarkup()+latiTeatroMarkup(-42, 1, 'class="zone-lbl zone-lato"');
+    +'<text class="zone-lbl" x="'+(W/2)+'" y="'+(-42-zg)+'" text-anchor="middle">'+docZona("FONDO PALCO")+'</text>'
+    +'<text class="zone-lbl" x="'+(W/2)+'" y="'+(D+38+zg)+'" text-anchor="middle">'+docZona("PUBBLICO")+'</text>'
+    +stageEmptyHintMarkup()+latiTeatroMarkup(-42-zg, 1, 'class="zone-lbl zone-lato"');
+}
+/* DISTANZA DELLE SCRITTE (24/11/2026, Simone, dall'analisi del progetto di un utente: FONDO PALCO e PUBBLICO erano coperte da
+   rack e casse vicini al bordo, e l'utente ci aveva sovrapposto le icone). `state.zonaGap` = centimetri in più rispetto a
+   -42 e D+38, scelti nel pannello Palco; assente = come sempre (progetti e PDF esistenti identici). Sposta SOLO le due scritte
+   (e giardino/corte sulla riga di FONDO PALCO), mai gli elementi; vista, riquadro di stampa e PDF seguono. Tetto 200 cm. */
+function zonaGapCm(){ var g=Math.round(+(state && state.zonaGap)); return g>0 ? Math.min(g,200) : 0; }
+function zonaGapImposta(m){
+  var cm=Math.round((+String(m).replace(",","."))*100);
+  if(cm>0) state.zonaGap=Math.min(cm,200); else delete state.zonaGap;
+  var _i=document.getElementById("zonaGap"); if(_i) _i.value=String(zonaGapCm()/100);   /* «3» → 2, «-1» → 0: il campo dice quello che vale */
+  save(); render();
 }
 /* GIARDINO E CORTE (10/11/2026, proposta di un tecnico di teatro, decisa da Simone). Su stageplot.it destra e
    sinistra si intendono SEMPRE guardando il palco dalla platea (decisione del 07/11), e il disegno ha già quel
@@ -22333,7 +22350,7 @@ function selectedCableInfo(){
       var uid=ul.from.it?ul.from.it.id:null, uo=uid?((state.elec.uplinks||{})[uid]||null):null;
       return { title:"Dorsale elettrica", sub:(ul.from.letter||"Q?")+" → alimentazione", rows:rowsU,
         hasPts:!!(uo&&uo.pts&&uo.pts.length), from:ul.from.it||null, to:(ul.to&&ul.to.it)||null,
-        resetPts:function(){ if(uid && state.elec.uplinks && state.elec.uplinks[uid]){ delete state.elec.uplinks[uid].pts; if(!Object.keys(state.elec.uplinks[uid]).length) delete state.elec.uplinks[uid]; } __elecRes=null; },
+        resetPts:function(){ if(uid && state.elec.uplinks && state.elec.uplinks[uid]){ delete state.elec.uplinks[uid].pts; delete state.elec.uplinks[uid].seg; if(!Object.keys(state.elec.uplinks[uid]).length) delete state.elec.uplinks[uid]; } __elecRes=null; },
         unlink:null };
     }
   }
@@ -28201,7 +28218,7 @@ svg.addEventListener("pointerdown", function(e){
     var _h1=e.target.closest(".cab-hit,.cab-seg-hit"), _h2=e.target.closest(".elec-hit,.elec-seg-hit"), _h3=e.target.closest(".mond-hit,.mond-seg-hit");
     if(_h1 && state.cab && state.cab.on) _dcCab={fam:"cab", key:_h1.getAttribute("data-cab")};
     else if(_h2 && state.elec && state.elec.on){ var _k2=_h2.getAttribute("data-el");
-      _dcCab=(String(_k2).indexOf("fd:")===0) ? {fam:"feed", key:String(_k2).slice(3)} : {fam:"elec", key:_k2};   /* linea principale: «Segmenta» sta in elec.feeds[id], non in elec.manual (che dropOrphanLinks pulisce) */
+      _dcCab=(String(_k2).indexOf("fd:")===0) ? {fam:"feed", key:String(_k2).slice(3)} : (String(_k2).indexOf("up:")===0) ? {fam:"up", key:String(_k2).slice(3)} : {fam:"elec", key:_k2};   /* linea principale: «Segmenta» sta in elec.feeds[id], non in elec.manual (che dropOrphanLinks pulisce) */
     }
     else if(_h3 && state.mond && state.mond.on) _dcCab={fam:"mond", key:_h3.getAttribute("data-mond")};
   }
@@ -28211,7 +28228,7 @@ svg.addEventListener("pointerdown", function(e){
     drag={mode:"none"};   /* il rilascio che segue non deve essere letto come clic sul vuoto (deselezionava il cavo) */
     try{ svg.setPointerCapture(e.pointerId); }catch(_e){}
     cabSegToggle(_dcCab.fam, _dcCab.key);
-    var _segNow=cabSegOn(_dcCab.fam==="feed" ? (state.elec&&state.elec.feeds) : _dcCab.fam==="elec" ? (state.elec&&state.elec.manual) : (_dcCab.fam==="mond" ? (state.mond&&state.mond.manual) : (state.cab&&state.cab.manual)), _dcCab.key);
+    var _segNow=cabSegOn(_dcCab.fam==="feed" ? (state.elec&&state.elec.feeds) : _dcCab.fam==="up" ? (state.elec&&state.elec.uplinks) : _dcCab.fam==="elec" ? (state.elec&&state.elec.manual) : (_dcCab.fam==="mond" ? (state.mond&&state.mond.manual) : (state.cab&&state.cab.manual)), _dcCab.key);
     showToast(_segNow ? "Cavo segmentato \u2014 trascina i lati per modellarlo" : "Cavo diritto");
     return;
   }
@@ -29172,7 +29189,8 @@ function stageDecorBounds(){
   var W=state.stage.w||0, D=state.stage.d||0, half=65, side=45;
   /* «Crea elemento»: niente scritte fuori dal palco; resta il posto del righello (in alto e a sinistra) */
   if(custEditorAttivo()){ var rg=Math.max(W,D)*0.09; return {x0:-rg, y0:-rg, x1:W+rg*0.4, y1:D+rg*0.4}; }
-  return { x0:Math.min(-side, W/2-half), y0:-58, x1:Math.max(W+side, W/2+half), y1:D+42 };
+  var zg=zonaGapCm();
+  return { x0:Math.min(-side, W/2-half), y0:-58-zg, x1:Math.max(W+side, W/2+half), y1:D+42+zg };
 }
 /* riquadro di TUTTO il contenuto (palco + scritte/quote + elementi) per "vedere sempre tutto" */
 function contentBounds(){
@@ -29258,6 +29276,7 @@ function renderStagePanel(){
   var b=stageBlocks();
   document.getElementById("stageTotal").textContent = fmtM(state.stage.w)+" × "+fmtM(state.stage.d);
   var _lt=document.getElementById("latiTeatro"); if(_lt) _lt.checked=(state.latiTeatro===true);   /* giardino e corte (12/11) */
+  var _zgi=document.getElementById("zonaGap"); if(_zgi && document.activeElement!==_zgi) _zgi.value=String(zonaGapCm()/100);
   var _ltn=document.getElementById("latiTeatroNota");
   if(_ltn) _ltn.textContent="Scrive «sinistra (giardino)» e «destra (corte)» ai lati di fondo palco, guardando dalla platea. Spento di serie: utile nei teatri."+(latiTeatroSuggerimento() ? " "+latiTeatroSuggerimento() : "");
   /* lista chip dei blocchi */
@@ -29627,6 +29646,7 @@ document.addEventListener("click", function(e){
 })();
 document.getElementById("bStageShape").addEventListener("click", toggleStageEdit);
 document.getElementById("bStageDone").addEventListener("click", toggleStageEdit);
+(function(){ var c=document.getElementById("zonaGap"); if(c) c.addEventListener("change", function(){ zonaGapImposta(this.value); }); })();   /* distanza delle scritte (24/11) */
 (function(){ var c=document.getElementById("latiTeatro"); if(c) c.addEventListener("change", function(){ latiTeatroImposta(this.checked); }); })();   /* giardino e corte (12/11) */
 document.getElementById("venueBtnDone").addEventListener("click", toggleVenueEdit);
 document.getElementById("bEventoDone").addEventListener("click", toggleEvento);
@@ -34491,6 +34511,7 @@ var cabOpen=false;   /* legacy: pannello tolto */
 function cabSelFam(){
   if(selCab) return {fam:"cab", key:selCab, store:(state.cab&&state.cab.manual)};
   if(selElec && String(selElec).indexOf("fd:")===0) return {fam:"feed", key:String(selElec).slice(3), store:(state.elec&&state.elec.feeds)};
+  if(selElec && String(selElec).indexOf("up:")===0) return {fam:"up", key:String(selElec).slice(3), store:(state.elec&&state.elec.uplinks)};
   if(selElec) return {fam:"elec", key:selElec, store:(state.elec&&state.elec.manual)};
   if(selMond) return {fam:"mond", key:selMond, store:(state.mond&&state.mond.manual)};
   return null;
@@ -37485,7 +37506,7 @@ function renderElecPanel(){
     elecDeleteKey(selElec); selElec=null; save(); render(); });
   document.getElementById("elecSelResetPath").addEventListener("click", function(){ if(!selElec) return;
     if(selElec.indexOf("fd:")===0){ var fv=state.elec.feeds&&state.elec.feeds[selElec.slice(3)]; if(fv){ delete fv.pts; delete fv.seg; elecFeedPulisci(selElec.slice(3)); } }
-    else if(selElec.indexOf("up:")===0){ var u=state.elec.uplinks&&state.elec.uplinks[selElec.slice(3)]; if(u) delete u.pts; }
+    else if(selElec.indexOf("up:")===0){ var u=state.elec.uplinks&&state.elec.uplinks[selElec.slice(3)]; if(u){ delete u.pts; delete u.seg; } }
     else { var m=state.elec.manual&&state.elec.manual[selElec]; if(m) delete m.pts; }
     __elecRes=null; save(); render(); });
 })();
@@ -40057,9 +40078,9 @@ function cartHForHeader(header, titleW){
    → {A, F, R, dentro, esclusi}: chi sta fuori ed entra nel riquadro, e chi ne resta fuori. */
 var __printSoloPalco=false;
 function printScene(k, opz){
-  var A=printArea(), DM=printDM(k);
+  var A=printArea(), DM=printDM(k), DMy=DM+zonaGapCm();   /* sopra FONDO PALCO e sotto PUBBLICO la distanza scelta si aggiunge; ai lati no */
   if(!A.custom){
-    var F0={x:A.x-DM, y:A.y-DM, w:A.w+2*DM, h:A.h+2*DM};
+    var F0={x:A.x-DM, y:A.y-DMy, w:A.w+2*DM, h:A.h+2*DMy};
     if(__printSoloPalco) return {A:A, F:F0, R:F0, dentro:[], esclusi:[]};
     opz=opz||{};
     var lim=opz.lim, entra = opz.tutti ? null : lim ? function(G){ return G.w<=lim.w+1e-6 && G.h<=lim.h+1e-6; } : entraSenzaScala(F0);
@@ -40068,8 +40089,8 @@ function printScene(k, opz){
   }
   var W=state.stage.w||0, D=state.stage.d||0, e=1, x0=A.x, y0=A.y, x1=A.x+A.w, y1=A.y+A.h;
   var traX=x0<W && x1>0, traY=y0<D && y1>0;   /* l'area incrocia il palco in orizzontale / in verticale */
-  if(traX && y0<=e && y1>0)  y0=Math.min(y0, -DM);      /* contiene il bordo di fondo → FONDO PALCO e la quota sopra */
-  if(traX && y1>=D-e && y0<D) y1=Math.max(y1, D+DM);   /* il bordo verso il pubblico → PUBBLICO */
+  if(traX && y0<=e && y1>0)  y0=Math.min(y0, -DMy);      /* contiene il bordo di fondo → FONDO PALCO e la quota sopra */
+  if(traX && y1>=D-e && y0<D) y1=Math.max(y1, D+DMy);   /* il bordo verso il pubblico → PUBBLICO */
   if(traY && x0<=e && x1>0)  x0=Math.min(x0, -DM);      /* il lato sinistro → profondità e altezza */
   if(traY && x1>=W-e && x0<W) x1=Math.max(x1, W+DM);   /* il lato destro (e il disegno resta centrato sul palco) */
   return {A:A, F:{x:x0, y:y0, w:x1-x0, h:y1-y0}, R:{x:A.x, y:A.y, w:A.w, h:A.h}, dentro:[], esclusi:[]};
@@ -40090,7 +40111,7 @@ function printNeeds(S, k){
     else if(!inBlocco(q.x+q.w+4, my) && q.x+q.w>=W-1) r=Math.max(r, quota);
   });
   /* sopra e sotto: dove zoneLblY mette FONDO PALCO e PUBBLICO quando sullo stesso bordo c'è una quota */
-  var fondo=Math.max(42, 16+0.75*14*k+aria), pubblico=Math.max(38, 22+0.25*14*k+aria+0.75*16*k);
+  var zg=zonaGapCm(), fondo=Math.max(42+zg, 16+0.75*14*k+aria), pubblico=Math.max(38+zg, 22+0.25*14*k+aria+0.75*16*k);
   return { t:Math.min(R.y-F.y, fondo+0.8*16*k+aria), b:Math.min(F.y+F.h-R.y-R.h, pubblico+0.25*16*k+aria),
            l:Math.min(R.x-F.x, l), r:Math.min(F.x+F.w-R.x-R.w, r) };
 }
@@ -40515,7 +40536,7 @@ function stageSceneSvgDisegna(cropVb, opts){
   /* Con l'area scelta a mano le quote prima non c'erano (non avevano posto): ora il riquadro gliene fa
      (printScene), e la misura del palco va sul foglio anche lì (14/10). */
   var dims = opts.noBlockDims ? '' : stageDimsMarkup();
-  var W=state.stage.w, D=state.stage.d, zy=zoneLblY(dims, window.__sceneTextK, D);
+  var W=state.stage.w, D=state.stage.d, zy=zoneLblYVb(dims, window.__sceneTextK, D, cropVb);   /* cropVb: col ritaglio la distanza non spinge fuori le scritte */
   var zones='<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="'+zy.f+'">'+docZona("FONDO PALCO")+'</text>'+
             '<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="'+zy.p+'">'+docZona("PUBBLICO")+'</text>'+
             latiTeatroMarkup(zy.f, window.__sceneTextK, 'fill="#1f2937" font-size="11"');   /* giardino e corte, solo in teatro */
@@ -40565,9 +40586,9 @@ function stageSceneSvgDisegna(cropVb, opts){
    no: col palco a blocchi la larghezza del blocco in basso va SOTTO il bordo, e già a 1:100 «6,6 m» toccava
    PUBBLICO; a 1:200 la quota in alto sale fino a FONDO PALCO. Di base restano a -42 e D+38 (come a schermo); se
    sullo stesso bordo c'è una quota, la scritta si scosta quanto basta: altezza delle cifre 0,75 em, 4 cm d'aria. */
-function zoneLblY(dims, k, D){
+function zoneLblY(dims, k, D, zgOv){
   k=k>0 ? k : 1;
-  var f=-42, p=D+38, aria=4;
+  var zg=(zgOv==null ? zonaGapCm() : zgOv), f=-42-zg, p=D+38+zg, aria=4;
   String(dims||"").replace(/<text class="dim-(?:edge|h)" x="[-\d.]+" y="([-\d.]+)"[^>]*>/g, function(tag, y){
     if(/transform=/.test(tag)) return tag;   /* le quote ruotate stanno sui lati */
     y=+y;
@@ -40577,11 +40598,23 @@ function zoneLblY(dims, k, D){
   });
   return {f:Math.round(f*10)/10, p:Math.round(p*10)/10};
 }
+/* Come zoneLblY, ma in STAMPA la distanza scelta non porta mai le scritte fuori dal ritaglio del foglio (vb): se il disegno
+   non entra e pdfStageBox ne prende la parte centrale, FONDO PALCO e PUBBLICO sparivano (palco pieno fino al bordo, A4 1:100).
+   Si limita solo l'effetto della distanza: mai più vicino del -42 / D+38 di sempre, e senza distanza è identico a prima. */
+function zoneLblYVb(dims, k, D, vb){
+  var zy=zoneLblY(dims, k, D), zg=zonaGapCm();
+  if(zg>0 && vb){
+    var z0=zoneLblY(dims, k, D, 0), kk=k>0 ? k : 1, aria=4;
+    zy.f=Math.round(Math.min(z0.f, Math.max(zy.f, vb.y+0.8*16*kk+aria))*10)/10;
+    zy.p=Math.round(Math.max(z0.p, Math.min(zy.p, vb.y+vb.h-0.25*16*kk-aria))*10)/10;
+  }
+  return zy;
+}
 /* Margine del riquadro per le scritte del palco (cm per lato): 80 come sempre, di più solo dove il testo
    ingrandito (k oltre ~2, da 1:200) e FONDO PALCO scostato sopra la quota non ci starebbero più. */
 function printDM(k){
   k=k>0 ? k : 1;
-  return Math.max(80, Math.ceil(16+0.75*14*k+4+0.8*16*k+4));
+  return Math.max(80, Math.ceil(16+0.75*14*k+4+0.8*16*k+4));   /* la distanza delle scritte (zonaGap) si somma solo in verticale: printScene */
 }
 /* TESTO A DIMENSIONE FISSA SUL FOGLIO (11/08). Le scritte del disegno — nomi, quote, FONDO PALCO —
    sono espresse nelle unità dell'SVG, che sono CENTIMETRI REALI: un corpo 14 diventa 14 cm di palco,
@@ -42763,7 +42796,7 @@ function scalaBarOstacoli(box, N, opz){
     var r={x0:Math.max(dx0, box.ix+(x0-vb.x)*mpc), y0:Math.max(dy0, box.iy+(y0-vb.y)*mpc), x1:Math.min(dx1, box.ix+(x1-vb.x)*mpc), y1:Math.min(dy1, box.iy+(y1-vb.y)*mpc)};
     if(r.x1>r.x0 && r.y1>r.y0) out.push(r);
   }
-  var dims=opz.blockDims ? stageDimsMarkup() : "", zy=zoneLblY(dims, k, D), fp=16*k, wp=lblTextW("PUBBLICO", fp)+8*2*k;
+  var dims=opz.blockDims ? stageDimsMarkup() : "", zy=zoneLblYVb(dims, k, D, vb), fp=16*k, wp=lblTextW("PUBBLICO", fp)+8*2*k;
   mondo(W/2-wp/2, zy.p-0.75*fp, W/2+wp/2, zy.p+0.25*fp);
   String(dims).replace(/<text class="(dim-edge|dim-h)" x="([-\d.]+)" y="([-\d.]+)"([^>]*)>([^<]*)</g, function(m, cls, x, y, resto, t){
     var fs=(cls==="dim-h" ? 13 : 14)*k, w=lblTextW(t, fs); x=+x; y=+y;

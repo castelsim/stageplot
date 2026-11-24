@@ -4864,6 +4864,8 @@ body.dark .pdf-export .px-det-b{color:#6fd3c6}
     <!-- GIARDINO E CORTE (12/11/2026): opzione del progetto, spenta di serie. Scrive i nomi dei lati del teatro ai lati di FONDO PALCO. -->
     <label class="chk" id="latiTeatroRow" style="margin-top:11px"><input type="checkbox" id="latiTeatro"> Giardino e corte</label>
     <div class="hint" id="latiTeatroNota" style="font-size:11px;color:var(--text-2);margin:2px 0 0">Scrive «sinistra (giardino)» e «destra (corte)» ai lati di fondo palco, guardando dalla platea. Spento di serie: utile nei teatri.</div>
+    <!-- DISTANZA DELLE SCRITTE (24/11/2026): allontana FONDO PALCO e PUBBLICO dal bordo se rack e casse le coprono. 0 = come sempre. -->
+    <label id="zonaGapRow" for="zonaGap" style="display:flex;align-items:center;gap:6px;margin-top:9px;font-size:12px;white-space:nowrap" title="Allontana dal palco le scritte «fondo palco» e «pubblico», senza muovere gli elementi. 0 = posizione di sempre.">Distanza scritte <input type="number" id="zonaGap" min="0" max="2" step="0.25" value="0" inputmode="decimal" style="width:62px;font-size:12px;padding:3px 5px"> m</label>
     <button class="btn primary" id="bStageDone" style="width:100%;margin-top:11px">Fatto</button>
     </div>
     <div id="venueSec" hidden>
