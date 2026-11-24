@@ -21063,7 +21063,7 @@ function auditEngine(){
      e mai più letto da nessuna parte — passati i 3 secondi del toast, l'informazione era persa e il
      service riceveva un palco standard come se fosse una misura dichiarata (06/08). */
   if(state.stage && state.stage._provisional) add("warn","Le misure del palco sono ancora quelle standard 8 × 6 m, da confermare.","Palco","Apri «Palco» e inserisci le misure reali: il service le legge dal disegno.");
-  if(items.length && (state.status||"bozza")==="bozza") add("info","Questa versione è ancora una «Bozza»: quando la mandi al service, segnala «Inviata».","Stato");
+  if(items.length && (state.status||"bozza")==="bozza") add("info","Il progetto è ancora una «Bozza»: portalo ad «Approvato» quando è pronto da inviare al service.","Stato");
   /* metriche */
   var totCableM=(Rc.links||[]).filter(function(l){return !l.deleted;}).reduce(function(a,l){return a+l.lenM;},0)
     +(Rc.returnLinks||[]).reduce(function(a,l){return a+l.lenM;},0)
