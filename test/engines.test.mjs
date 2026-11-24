@@ -91,6 +91,7 @@ function reset() {
   A.state.titolo = ""; A.state.luogo = ""; A.state.techContact = ""; A.state.venue = null; A.state.printFrame = null; A.state.zones = [];
   A.state.lights = { rows: [], blackout: null, mood: "" };   /* luci = reparto (blocco A): senza azzeramento le righe di un test finiscono nel rider del successivo */
   delete A.state.latiTeatro;   /* giardino e corte (12/11): opzione che esiste solo se accesa; un test che l'accende non deve lasciarla ai successivi */
+  delete A.state.zonaGap;   /* distanza delle scritte (24/11): esiste solo se scelta */
   delete A.state.sonorizzazione; delete A.state.orari;   /* sonorizzazione e orari (12/11): campi che esistono solo se scelti; un test che li imposta non deve lasciarli ai successivi */
   delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
   delete A.state.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): opzione spenta di serie */
@@ -40685,6 +40686,84 @@ t("ingresso corrente: legenda — la riga «Stagebox suggerito» solo se il laye
 });
 t("linea principale: la firma della cache dei fasci include `feeds`", () => {
   ok(/state\.elec\.uplinks\|\|null, state\.elec\.feeds\|\|null/.test(appjs), "firma di cabOccupancy con feeds");
+});
+/* ===== DISTANZA DELLE SCRITTE FONDO PALCO / PUBBLICO (24/11/2026, Simone: rack e casse vicini al bordo le coprivano).
+   state.zonaGap = cm in più rispetto a -42 e D+38; assente = identico a prima. ===== */
+console.log("\nDistanza scritte fondo palco / pubblico:");
+const zonaY = (svgOrMk, nome) => { const m = svgOrMk.match(new RegExp('y="([-\\d.]+)"[^>]*>' + nome + '<')); return m ? +m[1] : null; };
+t("zonaGap: di serie le scritte stanno a -42 e D+38 come sempre, e lo stato non porta il campo", () => {
+  reset(); A.applyStageSize(8, 6, false);
+  const mk = A.stageLayerMarkup();
+  eq([zonaY(mk, "FONDO PALCO"), zonaY(mk, "PUBBLICO")], [-42, 6 * 100 + 38], "posizioni di sempre");
+  eq(A.zonaGapCm(), 0, "default 0"); ok(!/zonaGap/.test(A.docToJSON()), "niente campo salvato");
+});
+t("zonaGap: con 0,5 m le due scritte si allontanano di 50 cm, il resto del markup non cambia", () => {
+  reset(); A.applyStageSize(8, 6, false);
+  const prima = A.stageLayerMarkup();
+  A.zonaGapImposta("0.5");
+  const dopo = A.stageLayerMarkup();
+  eq([zonaY(dopo, "FONDO PALCO"), zonaY(dopo, "PUBBLICO")], [-92, 6 * 100 + 88], "spostate di 50");
+  eq(dopo.replace(/y="-92"/, 'y="-42"').replace(/y="688"/, 'y="638"'), prima, "tutto il resto identico");
+  A.zonaGapImposta("0"); eq(A.stageLayerMarkup(), prima, "tornando a 0 si torna al markup di prima"); eq(A.zonaGapCm(), 0, "campo tolto");
+  reset();
+});
+t("zonaGap: salvato nel progetto, riletto uguale, valori assurdi ripuliti, tetto 2 m", () => {
+  reset(); A.applyStageSize(8, 6, false); A.zonaGapImposta("1,25");
+  eq(A.zonaGapCm(), 125, "virgola italiana");
+  A.loadDoc(JSON.parse(A.docToJSON())); eq(A.zonaGapCm(), 125, "salva e riapri");
+  A.zonaGapImposta("9"); eq(A.zonaGapCm(), 200, "tetto 2 m");
+  A.state.zonaGap = "boh"; A.loadDoc(JSON.parse(A.docToJSON())); eq(A.zonaGapCm(), 0, "testo non numerico: via"); ok(!("zonaGap" in A.state), "campo cancellato");
+  A.state.zonaGap = 5000; A.loadDoc(JSON.parse(A.docToJSON())); eq(A.state.zonaGap, 200, "il valore salvato è già al tetto");
+  A.state.zonaGap = -30; A.loadDoc(JSON.parse(A.docToJSON())); eq(A.zonaGapCm(), 0, "negativo: via");
+  reset();
+});
+t("zonaGap: palco alto su A4 1:100 con 1 m, FONDO PALCO e PUBBLICO restano sul foglio (il ritaglio non le porta fuori)", () => {
+  reset(); A.applyStageSize(12, 13, false);
+  const vedi = (nome) => {
+    const cartH = A.cartHFor("", "a4", "landscape"), box = A.pdfStageBox(100, "a4", "landscape", cartH);
+    const svg = A.stageSceneSvg(box.vb, { focus: "clean", textK: A.pdfTextK(100), noBlockDims: !box.A.custom && !box.cropped && A.stageBlocks().length < 2 });
+    const v = svg.match(/viewBox="([-\d.]+) ([-\d.]+) ([\d.]+) ([\d.]+)"/).slice(1).map(Number);
+    const f = svg.match(/<text[^>]*font-size="([\d.]+)"[^>]*y="([-\d.]+)">FONDO PALCO</), pb = svg.match(/<text[^>]*font-size="([\d.]+)"[^>]*y="([-\d.]+)">PUBBLICO</);
+    ok(f && pb, nome + ": le due scritte ci sono");
+    ok(+f[2] - 0.8 * +f[1] >= v[1] - 1e-6, nome + ": FONDO PALCO fuori dal foglio (y=" + f[2] + ", foglio da " + v[1] + ")");
+    ok(+pb[2] + 0.25 * +pb[1] <= v[1] + v[3] + 1e-6, nome + ": PUBBLICO fuori dal foglio (y=" + pb[2] + ", foglio fino a " + (v[1] + v[3]) + ")");
+    return { box, svg };
+  };
+  const base = vedi("senza distanza");
+  A.zonaGapImposta("1");
+  const con = vedi("con 1 m");
+  ok(con.box.cropped, "il caso è davvero quello del ritaglio: con 1 m il palco 12×13 su A4 1:100 non entra più intero");
+  const yy = (svg, n) => zonaY(svg, n);
+  ok(yy(con.svg, "FONDO PALCO") <= yy(base.svg, "FONDO PALCO") && yy(con.svg, "PUBBLICO") >= yy(base.svg, "PUBBLICO"), "mai più vicine al palco di prima");
+  /* palco basso: nessun ritaglio, la distanza si vede per intero */
+  reset(); A.applyStageSize(8, 6, false); A.zonaGapImposta("1");
+  const b2 = A.pdfStageBox(100, "a3", "landscape", A.cartHFor("", "a3", "landscape"));
+  const s2 = A.stageSceneSvg(b2.vb, { focus: "clean", textK: A.pdfTextK(100), noBlockDims: true });
+  eq(zonaY(s2, "FONDO PALCO"), -142, "senza ritaglio la distanza è piena");
+  reset();
+});
+t("zonaGap: il campo mostrato si riallinea al valore effettivo", () => {
+  reset(); const inp = { value: "" }; const g0 = A.document && A.document.getElementById;
+  ok(/var _i=document\.getElementById\("zonaGap"\); if\(_i\) _i\.value=String\(zonaGapCm\(\)\/100\)/.test(appjs), "zonaGapImposta riscrive il campo con il valore normalizzato");
+  A.zonaGapImposta("3"); eq(A.zonaGapCm(), 200, "3 m vale 2"); A.zonaGapImposta("-1"); eq(A.zonaGapCm(), 0, "-1 vale 0");
+  reset();
+});
+t("zonaGap: vista (Adatta), riquadro di stampa e PDF contano la distanza, nessuna scritta tagliata", () => {
+  reset(); A.applyStageSize(6, 4, false);
+  const d0 = A.stageDecorBounds(), n0 = A.printNeeds(A.printScene(1), 1), m0 = A.printDM(1);
+  A.zonaGapImposta("1");
+  const d = A.stageDecorBounds();
+  eq([d.y0, d.y1], [d0.y0 - 100, d0.y1 + 100], "limiti della vista");
+  eq(A.printDM(1), m0, "il margine laterale resta quello di sempre");
+  const F0 = A.printScene(1).F; A.zonaGapImposta("0"); const Fs = A.printScene(1).F; A.zonaGapImposta("1");
+  eq([F0.x, F0.w - Fs.w, F0.h - Fs.h], [Fs.x, 0, 200], "il riquadro cresce solo in verticale (2 × 1 m), non ai lati");
+  eq(F0.y, Fs.y - 100, "sopra di 1 m");
+  const n = A.printNeeds(A.printScene(1), 1);
+  ok(n.t >= n0.t && n.b >= n0.b, "il posto richiesto non cala");
+  withCanvas(820, 700, () => A.fit());
+  ok(A.vb.y <= d.y0 && A.vb.y + A.vb.h >= d.y1, "Adatta le contiene");
+  const zy = A.zoneLblY("", 1, 400); eq([zy.f, zy.p], [-142, 538], "zoneLblY (stampa) segue la distanza");
+  reset();
 });
 /* ───────── CABLAGGI RIFINITURE (24/11/2026) ───────── */
 t("dorsale ciabatta→quadro: «Segmenta» e doppio clic scrivono in uplinks[id].seg, resta dopo salva-riapri", () => {
