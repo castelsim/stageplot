@@ -22358,7 +22358,7 @@ t("arrivo da un link: l'avvio consuma ?from=, mostra gli avvisi e lascia stare l
   ok(/window\.openNewDialog\(\)/.test(m), "«Nuovo palco» passa dalla stessa strada di File → Nuovo (conferma e punto di recupero)");
   ok(/setTimeout\(function\(\)\{ riapriChiudi\(\); funzRenderAvviso\(\); \}, RIAPRI_DURATA_MS\)/.test(m), "se la si ignora se ne va");
   /* una riga alla volta */
-  const r = appjs.slice(appjs.indexOf("function funzRenderAvviso"), appjs.indexOf("function funzRenderAvviso") + 900);
+  const r = appjs.slice(appjs.indexOf("function funzRenderAvviso"), appjs.indexOf("function funzRenderAvviso") + 2400);   /* la funzione è cresciuta con l'invito discreto (24/11) */
   ok(/\(riapri && !riapri\.hidden\) \|\|/.test(r), "mentre c'è la riga, l'altro avviso tace");
   ok(/riapri\.__epoch!==\(window\.__docEpoch\|\|0\)\)\) riapriChiudi\(\)/.test(r), "un altro documento la chiude");
   ok(/body\.cust-editor #riapriBanner/.test(stylesCss), "l'editor «Crea elemento» la nasconde, come le altre");
@@ -28609,6 +28609,50 @@ t("exportNudgeStatoDopo: conta, «fatto» e «no» restano", () => {
   eq(f(null, "mostrato"), "1"); eq(f("2", "mostrato"), "3"); eq(f("x", "mostrato"), "1");
   eq(f("2", "fatto"), "fatto"); eq(f(null, "no"), "no");
   eq(f("fatto", "mostrato"), "fatto", "esportato non torna conteggio"); eq(f("no", "fatto"), "no", "il primo esito vince");
+});
+/* Invito «cavi e corrente» discreto (24/11/2026, segnalazione di Simone: «dev'essere più indiscreto») */
+t("cavoInvitoDecidi: chi lo vede e quando (telefono, vista, «riapri», documento altrui, già mostrato o ignorato)", () => {
+  const d = (o) => A.cavoInvitoDecidi(Object.assign({ cavo: true, mobile: false, vista: false, riapri: false, altrui: false, visto: false, ricordato: false }, o));
+  ok(d({}), "desktop, suggerimento valido, mai mostrato: sì");
+  ok(!d({ cavo: false }), "senza suggerimento: no");
+  ok(!d({ mobile: true }), "telefono: no");
+  ok(!d({ vista: true }), "vista attiva: no");
+  ok(!d({ riapri: true }), "«Stai riaprendo»: no");
+  ok(!d({ altrui: true }), "documento altrui o consultazione: no");
+  ok(!d({ visto: true }), "già mostrato in questo documento: no");
+  ok(!d({ ricordato: true }), "già ignorato per questo progetto: no");
+  ok(!A.cavoInvitoDecidi(null), "senza dati: no");
+});
+t("cavoInvitoAttesa: aspetta la quiete, e riparte se si lavora", () => {
+  eq(A.CAVO_QUIETE_MS, 8000, "quiete ~8 s"); eq(A.CAVO_DURATA_MS, 12000, "ritiro automatico ~12 s");
+  eq(A.cavoInvitoAttesa(1000, 1000), 8000, "appena fatto qualcosa: 8 s da aspettare");
+  eq(A.cavoInvitoAttesa(5000, 1000), 4000, "dopo 4 s ne restano 4");
+  eq(A.cavoInvitoAttesa(9000, 1000), 0, "dopo 8 s: via");
+  eq(A.cavoInvitoAttesa(60000, 1000), 0, "mai negativa");
+});
+t("cavoInvitoListaAggiungi: ricordo per progetto, senza doppioni e con un tetto", () => {
+  eq(JSON.stringify(A.cavoInvitoListaAggiungi(null, "a")), '["a"]');
+  eq(JSON.stringify(A.cavoInvitoListaAggiungi(["a", "b"], "a")), '["b","a"]', "niente doppioni");
+  eq(JSON.stringify(A.cavoInvitoListaAggiungi(["a", 5, null], "b")), '["a","b"]', "valori strani scartati");
+  eq(JSON.stringify(A.cavoInvitoListaAggiungi(["a"], null)), '["a"]', "bozza senza id: non si ricorda");
+  const lunga = Array.from({ length: 80 }, (_, i) => "p" + i);
+  const r = A.cavoInvitoListaAggiungi(lunga, "nuovo"); eq(r.length, 60, "tetto"); eq(r[r.length - 1], "nuovo"); ok(!r.includes("p0"), "i più vecchi escono");
+});
+t("invito cavi discreto: non compare subito, niente barra a tutta larghezza, ricordo e ritiro nel sorgente", () => {
+  const srcUX = readFileSync(join(root, "index.template.html"), "utf8");   /* (la costante globale più sotto non è ancora nata qui) */
+  const i0 = srcUX.indexOf("function funzRenderAvviso(){"), i1 = srcUX.indexOf("function funzApriFinestra(){");
+  const render = srcUX.slice(i0, i1);
+  const ramo = render.slice(render.indexOf("if(cavo){"), render.indexOf('var k=mancano.join(",")'));
+  ok(/cavoInvitoArma\(\)/.test(ramo) && !/innerHTML\s*=\s*'/.test(ramo), "il ramo cavo arma l'attesa e non costruisce il chip da sé");
+  ok(/cavoInvitoRicordato\(/.test(ramo), "il ramo cavo rispetta il ricordo per progetto");
+  const mostra = srcUX.slice(srcUX.indexOf("function cavoInvitoMostra(){"), srcUX.indexOf("(function(){\n  var segna"));
+  ok(/setTimeout\(function\(\)\{ cavoInvitoRitira\(true\); \}, CAVO_DURATA_MS\)/.test(mostra), "si ritira da solo e lo ricorda");
+  ok(/funz-quieto/.test(mostra) && /id="funzNonOra"[^>]*>✕/.test(mostra), "chip quieto con ✕");
+  ok(!/<b>cavi, metri e potenza/.test(srcUX) && !/vb-si" id="funzAccendi">Mostra cavi e corrente/.test(srcUX), "via grassetto e pulsante pieno");
+  ok(/cavoCorrenteAccendi\(\)/.test(mostra), "«Mostra» fa quello di sempre");
+  ok(/\["pointerdown","keydown","wheel","touchstart"\]/.test(srcUX), "l'attesa guarda clic, tasti, rotella e tocco");
+  ok(/#funzBanner\.funz-quieto\{left:12px;top:auto;bottom:12px;transform:none/.test(stylesCss), "chip in basso a sinistra, non sopra il disegno");
+  ok(/@media \(prefers-reduced-motion:reduce\)\{ #funzBanner\.funz-quieto\{animation:none\}/.test(stylesCss), "senza animazioni se richiesto");
 });
 t("exportNudgeAggiorna: compare una volta, «✕» e l'export lo spengono, mai senza i requisiti", () => {
   const old = { doc: A.document, ls: A.localStorage, st: A.state, inSess: A.exportNudgeInSessione, mm: A.matchMedia, cons: A.__consultMode };
@@ -40464,7 +40508,7 @@ t("ingresso corrente: il documento in inglese lo traduce (nome, riga «Alimentaz
   } finally { delete A.state.docLang; }
   reset();
 });
-t("ingresso corrente: nell'export niente tooltip e stessa geometria (92 x 26); a schermo tooltip e riquadro che cresce", () => {
+t("ingresso corrente: nell'export niente tooltip, scala a schermo e stessa larghezza del testo (dal 24/11 non più 92); a schermo tooltip e riquadro che cresce", () => {
   elecConIngresso("rete");
   const prima = A.__cabStatic;
   try {
@@ -40473,7 +40517,8 @@ t("ingresso corrente: nell'export niente tooltip e stessa geometria (92 x 26); a
     ok(ex.indexOf("elec-supply") >= 0, "l'ingresso c'è");
     ok(ex.indexOf("<title>") < 0, "export: nessun <title>");
     ok(ex.indexOf("elec-supply-scr") < 0, "export: nessuna classe di scala a schermo");
-    ok(/class="elec-supply"><rect [^>]*width="92" height="26"/.test(ex), "export: rettangolo 92 x 26 come prima");
+    const wEx = +/class="elec-supply"><rect [^>]*width="([\d.]+)" height="26"/.exec(ex)[1];
+    ok(wEx > 92 && wEx >= 14 + "Ingresso corrente (rete)".length * 6.2 - 0.01, "export: rettangolo largo quanto la scritta (" + wEx + ")");
     ok(ex.indexOf("Ingresso corrente (rete)") >= 0, "export: la stringa nuova");
     A.__cabStatic = false; A.__elecRes = null;
     const sc = A.elecMarkup();
@@ -40481,6 +40526,7 @@ t("ingresso corrente: nell'export niente tooltip e stessa geometria (92 x 26); a
     ok(sc.indexOf("elec-supply-scr") >= 0, "schermo: gruppo scalato col corpo minimo");
     const w = +/class="elec-supply elec-supply-scr"[^>]*><rect [^>]*width="([\d.]+)"/.exec(sc)[1];
     ok(w > 92, "schermo: il riquadro cresce col testo (" + w + ")");
+    eq(w, wEx, "stessa larghezza a schermo e nell'export");
   } finally { A.__cabStatic = prima; }
   reset();
 });
@@ -40717,6 +40763,77 @@ t("zonaGap: vista (Adatta), riquadro di stampa e PDF contano la distanza, nessun
   withCanvas(820, 700, () => A.fit());
   ok(A.vb.y <= d.y0 && A.vb.y + A.vb.h >= d.y1, "Adatta le contiene");
   const zy = A.zoneLblY("", 1, 400); eq([zy.f, zy.p], [-142, 538], "zoneLblY (stampa) segue la distanza");
+  reset();
+});
+/* ───────── CABLAGGI RIFINITURE (24/11/2026) ───────── */
+t("dorsale ciabatta→quadro: «Segmenta» e doppio clic scrivono in uplinks[id].seg, resta dopo salva-riapri", () => {
+  reset(); A.state.elec.on = true; A.state.elec.mode = "manual";
+  const m = add("ciabatta", 600, 600), c = add("ciabatta", 300, 300);
+  const r = add("amprack", 300, 200); r.watt = 800;
+  A.state.elec.manual = { [r.id]: { distro: c.id } };
+  A.state.elec.uplinks = { [c.id]: { to: m.id, pts: [[400, 400]] } };
+  A.state.cab.route = "dir"; A.__elecRes = null;
+  try {
+    eq(A.elecStyleFor("up:" + c.id), "dir", "di serie diretta");
+    A.selElec = "up:" + c.id;
+    const fam = A.cabSelFam(); eq(fam.fam, "up", "famiglia up"); eq(fam.key, c.id, "chiave = id della ciabatta");
+    ok(/\{fam:"up", key:String\(_k2\)\.slice\(3\)\}/.test(appjs), "il gestore del doppio clic passa fam up per up:");
+    A.cabSegToggle("up", c.id);
+    eq(A.state.elec.uplinks[c.id].seg, 1, "segno scritto in uplinks");
+    eq(A.state.elec.uplinks[c.id].to, m.id, "il bersaglio resta");
+    ok(!Object.keys(A.state.elec.manual || {}).some((x) => x.indexOf("up:") === 0), "niente chiavi up: in elec.manual");
+    eq(A.elecStyleFor("up:" + c.id), "orto", "ora squadrata");
+    A.loadDoc(JSON.parse(A.docToJSON()));
+    eq(A.state.elec.uplinks[c.id].seg, 1, "dopo salva-riapri il segno c'è");
+    A.dropOrphanLinks(A.state); eq(A.state.elec.uplinks[c.id].seg, 1, "dropOrphanLinks non lo cancella");
+    A.cabSegToggle("up", c.id);
+    ok(!A.state.elec.uplinks[c.id].seg && A.state.elec.uplinks[c.id].to === m.id && !A.state.elec.uplinks[c.id].pts, "«Torna diritto»: via seg e waypoint, il collegamento resta");
+  } finally { delete A.state.cab.route; A.selElec = null; reset(); }
+});
+t("dorsale: `seg` senza bersaglio non sopravvive alla normalizzazione", () => {
+  reset(); A.state.elec.on = true;
+  A.state.elec.uplinks = { zz: { seg: 1 } };
+  A.loadDoc(JSON.parse(A.docToJSON()));
+  ok(!A.state.elec.uplinks || !A.state.elec.uplinks.zz, "voce senza `to` scartata");
+  reset();
+});
+t("ingresso corrente: il riquadro è largo quanto la scritta, anche nell'export; la scritta ci sta dentro", () => {
+  ["rete", "right", "left", "custom"].forEach((k) => {
+    elecConIngresso(k);
+    [false, true].forEach((stat) => {
+      A.__cabStatic = stat; A.__elecRes = null;
+      const mk = A.elecMarkup();
+      const g = mk.match(/<g class="elec-supply[^"]*"[^>]*><rect x="[^"]+" y="[^"]+" width="([\d.]+)" height="26"/);
+      ok(g, "riquadro presente (" + k + ", export=" + stat + ")");
+      const w = +g[1], nome = A.elecSupplyPoint().name;
+      ok(w >= 14 + nome.length * 6.2 - 0.01 && w >= 92, "larghezza " + w + " per «" + nome + "» (export=" + stat + ")");
+    });
+  });
+  A.__cabStatic = false; reset();
+});
+t("dorsale: «Ripristina percorso automatico» della scheda toglie waypoint E segno `seg`, il collegamento resta", () => {
+  reset(); A.state.elec.on = true; A.state.elec.mode = "manual";
+  const m = add("ciabatta", 600, 600), c = add("ciabatta", 300, 300);
+  const r = add("amprack", 300, 200); r.watt = 800;
+  A.state.elec.manual = { [r.id]: { distro: c.id } };
+  A.state.elec.uplinks = { [c.id]: { to: m.id, pts: [[400, 400]], seg: 1 } };
+  A.state.cab.route = "dir"; A.__elecRes = null;
+  try {
+    A.selElec = "up:" + c.id;
+    const info = A.selectedCableInfo();
+    ok(info && typeof info.resetPts === "function", "la scheda della dorsale ha resetPts");
+    info.resetPts();
+    const u = A.state.elec.uplinks[c.id];
+    ok(u && u.to === m.id && !u.pts && !u.seg, "via pts e seg, resta `to`");
+  } finally { delete A.state.cab.route; A.selElec = null; reset(); }
+});
+t("dorsale: dropOrphanLinks tiene `seg` con bersaglio vivo e toglie tutta la voce (anche `seg`) se il bersaglio è sparito", () => {
+  reset(); A.state.elec.on = true;
+  const m = add("ciabatta", 600, 600), c = add("ciabatta", 300, 300), c2 = add("ciabatta", 100, 100);
+  A.state.elec.uplinks = { [c.id]: { to: m.id, seg: 1 }, [c2.id]: { to: "id-sparito", seg: 1, pts: [[5, 5]] } };
+  A.dropOrphanLinks(A.state);
+  eq(A.state.elec.uplinks[c.id].seg, 1, "seg conservato con bersaglio vivo");
+  ok(!A.state.elec.uplinks[c2.id], "bersaglio sparito: la voce cade intera, seg compreso");
   reset();
 });
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

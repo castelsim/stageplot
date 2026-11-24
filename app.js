@@ -6730,7 +6730,7 @@ function dropOrphanLinks(s){
   }
   if(oggetto(s.elec)){
     pulisci(s.elec.manual, esiste, "distro", ["distro","pts","seg","auto","line"]);
-    pulisci(s.elec.uplinks, esiste, "to", ["to","pts"]);   /* senza bersaglio la voce non ha più niente da dire: resta vuota e cade */
+    pulisci(s.elec.uplinks, esiste, "to", ["to","pts","seg"]);   /* senza bersaglio la voce non ha più niente da dire: resta vuota e cade */
     /* CABLAGGI CHIARI (24/11): `feeds` è indicizzata per id del DISTRO: distro sparito → via la voce; il distro che riceve un uplink
        a mano non ha più la linea principale (la voce resterebbe dormiente: si pulisce) */
     if(oggetto(s.elec.feeds)){
@@ -9172,6 +9172,7 @@ function normalizeState(s){
   if(eb.uplinks && typeof eb.uplinks==="object"){ Object.keys(eb.uplinks).forEach(function(k){ var v=eb.uplinks[k]||{}; var o={};
     if(typeof v.to==="string" && v.to) o.to=v.to.slice(0,ITEM_ID_MAX);
     if(Array.isArray(v.pts)) o.pts=v.pts.filter(function(p){ return p&&isFinite(p[0])&&isFinite(p[1]); }).map(function(p){ return [Math.round(p[0]),Math.round(p[1])]; });
+    if(o.to && v.seg) o.seg=1;   /* «Segmenta» della dorsale: ha senso solo con un bersaglio */
     if(Object.keys(o).length) eups[String(k).slice(0,ITEM_ID_MAX)]=o; }); }
   var efeeds=Object.create(null);   /* CABLAGGI CHIARI (24/11): percorso della linea principale distro → ingresso; solo pts validi (≤50 coppie finite) */
   if(eb.feeds && typeof eb.feeds==="object"){ Object.keys(eb.feeds).forEach(function(k){ var v=eb.feeds[k]; if(!v || typeof v!=="object" || Array.isArray(v)) return; var o={};
@@ -16252,7 +16253,7 @@ function cabSetTaglia(n){ n=+n; if(CAB_TAGLIE.indexOf(n)<0) return; if(n===8) de
 function cabSetDigitale(v){ if(v==="auto") delete state.cab.digitale; else if(v==="si") state.cab.digitale=true; else if(v==="no") state.cab.digitale=false; else return; __cabRes=null; save(); render(); }
 function cabSegToggle(fam, key){
   if(cabRouteMode()==="orto") return false;   /* L3: «come sul palco» squadra già ogni cavo; «Segmenta» ha senso solo in «diretto» */
-  var man = fam==="feed" ? elecFeedVoce(key) : fam==="elec" ? elecManual(key) : (fam==="mond" ? mondManual(key) : cabManual(key));
+  var man = fam==="feed" ? elecFeedVoce(key) : fam==="up" ? elecUpVoce(key) : fam==="elec" ? elecManual(key) : (fam==="mond" ? mondManual(key) : cabManual(key));
   if(man.seg){
     delete man.seg;
     /* 28/07 (bug segnalato da Simone): «Torna diritto» diceva diritto e il cavo restava piegato. I
@@ -16260,7 +16261,7 @@ function cabSegToggle(fam, key){
        ci passa comunque attraverso. Un cavo diritto è una retta: via anche quelli. */
     delete man.pts;
   } else man.seg=1;
-  if(fam==="feed"){ elecFeedPulisci(key); __elecRes=null; } else if(fam==="elec") __elecRes=null; else if(fam==="mond") __mondRes=null; else __cabRes=null;
+  if(fam==="feed"){ elecFeedPulisci(key); __elecRes=null; } else if(fam==="up"||fam==="elec") __elecRes=null; else if(fam==="mond") __mondRes=null; else __cabRes=null;
   save(); render();
   return !!man.seg;
 }
@@ -16585,6 +16586,7 @@ function cabSegOn(man, key){ var m=man&&man[key]; return !!(m && m.seg); }
 function cabStyleFor(key){ return (cabRouteMode()==="orto" || cabSegOn(state.cab&&state.cab.manual, key)) ? "orto" : "dir"; }
 function elecStyleFor(key){
   if(String(key).indexOf("fd:")===0) return (cabRouteMode()==="orto" || cabSegOn(state.elec&&state.elec.feeds, String(key).slice(3))) ? "orto" : "dir";   /* linea principale: «Segmenta» sta in elec.feeds[id].seg */
+  if(String(key).indexOf("up:")===0) return (cabRouteMode()==="orto" || cabSegOn(state.elec&&state.elec.uplinks, String(key).slice(3))) ? "orto" : "dir";   /* dorsale ciabatta→quadro: «Segmenta» sta in elec.uplinks[id].seg */
   return (cabRouteMode()==="orto" || cabSegOn(state.elec&&state.elec.manual, key)) ? "orto" : "dir"; }
 function mondStyleFor(key){ return (cabRouteMode()==="orto" || cabSegOn(state.mond&&state.mond.manual, key)) ? "orto" : "dir"; }
 function roundedPathD(ep, r){
@@ -18450,6 +18452,8 @@ function elecManual(key){ state.elec.manual=state.elec.manual||{}; if(!state.ele
   if(!state.elec.manual[key] || typeof state.elec.manual[key]!=="object") state.elec.manual[key]={}; return state.elec.manual[key]; }
 /* CABLAGGI CHIARI (24/11/2026): voce della linea principale (distro → ingresso corrente) = `elec.feeds[idDistro]` {pts, seg}. */
 function elecFeedVoce(id){ state.elec.feeds=state.elec.feeds||{}; if(!state.elec.feeds[id] || typeof state.elec.feeds[id]!=="object") state.elec.feeds[id]={}; return state.elec.feeds[id]; }
+/* dorsale ciabatta/distro → quadro = `elec.uplinks[idDistro]` {to, pts, seg} (fam "up"; chiave del disegno «up:ID») */
+function elecUpVoce(id){ state.elec.uplinks=state.elec.uplinks||{}; if(!state.elec.uplinks[id] || typeof state.elec.uplinks[id]!=="object") state.elec.uplinks[id]={}; return state.elec.uplinks[id]; }
 function elecFeedPulisci(id){ var f=state.elec&&state.elec.feeds; if(!f) return; if(f[id] && !Object.keys(f[id]).length) delete f[id]; if(!Object.keys(f).length) delete state.elec.feeds; }
 /* La FASE PIÙ CARICA dell'impianto (29/07) — l'equivalente elettrico della capienza «10/16 su A»
    dell'Input. Non la somma dei kW dei quadri, che non fa saltare niente: quello che conta è la
@@ -18561,9 +18565,8 @@ function elecMarkup(){
     s+='<g class="elec-badge"><rect x="'+(d.x-bw/2)+'" y="'+(d.y-bTop)+'" width="'+bw+'" height="15" rx="7"/><text x="'+d.x+'" y="'+(d.y-bTop+11)+'" text-anchor="middle">'+esc(bt)+'</text></g>';
   });
   if(R.supply){ var h=R.supply;
-    /* A SCHERMO (non nell'export: geometria identica a prima, cambia solo la stringa) l'etichetta cresce col testo
-       e col corpo minimo (--lblK, come i nomi): a zoom normale si legge; ha un tooltip che dice cos'è e che si sposta. */
-    var scrS=!window.__cabStatic, hwS=scrS?Math.max(92, 14+String(h.name).length*6.2):92;
+    /* La larghezza segue il testo sia a schermo sia nell'export; A SCHERMO l'etichetta cresce anche col corpo minimo (--lblK, come i nomi): a zoom normale si legge; ha un tooltip che dice cos'è e che si sposta. */
+    var scrS=!window.__cabStatic, hwS=Math.max(92, 14+String(h.name).length*6.2);   /* larghezza dal testo ANCHE nell'export (24/11, D2: «Ingresso corrente (rete)» sbordava dai 92 e le lettere bianche sparivano sul fondo dei PNG) */
     var ttS=scrS?'<title>'+(h.kind==="gen"?'Generatore: sorgente di corrente del palco. Trascinalo dove sta davvero.':'Ingresso corrente: da qui parte l\u2019alimentazione del palco. Trascinalo dove c\u2019\u00e8 davvero la presa o il quadro del luogo.')+'</title>':'';
     s+='<g class="elec-supply'+(scrS?' elec-supply-scr':'')+'"'+(scrS?' style="transform-origin:'+h.x+'px '+h.y+'px"':'')+'><rect x="'+(h.x-hwS/2)+'" y="'+(h.y-13)+'" width="'+hwS+'" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>'
     +'<rect class="elec-supplyhit" data-elecsupply="1" x="'+(h.x-hwS/2-2)+'" y="'+(h.y-15)+'" width="'+(hwS+4)+'" height="30" rx="6">'+ttS+'</rect></g>'; }
@@ -21184,7 +21187,7 @@ function selectedCableInfo(){
       var uid=ul.from.it?ul.from.it.id:null, uo=uid?((state.elec.uplinks||{})[uid]||null):null;
       return { title:"Dorsale elettrica", sub:(ul.from.letter||"Q?")+" → alimentazione", rows:rowsU,
         hasPts:!!(uo&&uo.pts&&uo.pts.length), from:ul.from.it||null, to:(ul.to&&ul.to.it)||null,
-        resetPts:function(){ if(uid && state.elec.uplinks && state.elec.uplinks[uid]){ delete state.elec.uplinks[uid].pts; if(!Object.keys(state.elec.uplinks[uid]).length) delete state.elec.uplinks[uid]; } __elecRes=null; },
+        resetPts:function(){ if(uid && state.elec.uplinks && state.elec.uplinks[uid]){ delete state.elec.uplinks[uid].pts; delete state.elec.uplinks[uid].seg; if(!Object.keys(state.elec.uplinks[uid]).length) delete state.elec.uplinks[uid]; } __elecRes=null; },
         unlink:null };
     }
   }
@@ -23826,6 +23829,81 @@ function riapriMostra(){
     if(window.openNewDialog) window.openNewDialog(); else if(window.proxyClick) window.proxyClick("bNew"); });
   el.__t=setTimeout(function(){ riapriChiudi(); funzRenderAvviso(); }, RIAPRI_DURATA_MS);   /* non blocca niente: se la si ignora, se ne va */
 }
+/* INVITO «CAVI E CORRENTE» DISCRETO (segnalazione di Simone, 24/11/2026: «dev'essere più indiscreto»). Prima era una barra
+   larga sopra il disegno con un pulsante pieno, subito all'apertura. Ora è un chip piccolo in basso a sinistra che:
+   - compare solo dopo una quiete (CAVO_QUIETE_MS senza clic, tasti o rotella; se si riparte, l'attesa ricomincia);
+   - si ritira da solo dopo CAVO_DURATA_MS (come «Stai riaprendo»), e con ✕ subito;
+   - una volta mostrato non torna in quel documento, e il ricordo resta per quel progetto (localStorage, per id);
+   - sul telefono, con la vista attiva, con «Stai riaprendo» o in un documento altrui, non c'è.
+   Cosa fa «Mostra» (cavoCorrenteAccendi) e quando il suggerimento serve (cavoSuggerimento) non cambiano. */
+var CAVO_QUIETE_MS=8000, CAVO_DURATA_MS=12000, CAVO_LS="sp_cavoInvito", CAVO_LS_MAX=60;
+function cavoInvitoDecidi(o){
+  if(!o || !o.cavo) return false;
+  if(o.mobile || o.vista || o.riapri || o.altrui) return false;
+  if(o.visto || o.ricordato) return false;   /* già mostrato in questo documento, o già ignorato per questo progetto */
+  return true;
+}
+function cavoInvitoAttesa(ora, ultima){ var r=CAVO_QUIETE_MS-((ora||0)-(ultima||0)); return r>0 ? r : 0; }
+function cavoInvitoListaAggiungi(lista, id){
+  var l=Array.isArray(lista) ? lista.filter(function(x){ return typeof x==="string" && x!==id; }) : [];
+  if(typeof id==="string" && id) l.push(id);
+  return l.slice(-CAVO_LS_MAX);
+}
+function cavoInvitoLeggi(){ try{ var l=JSON.parse(localStorage.getItem(CAVO_LS)||"[]"); return Array.isArray(l) ? l : []; }catch(e){ return []; } }
+function cavoInvitoId(){ try{ var C=window.__cloud; var i=(C && C.currentId && C.currentId()) || window.__bootCloudId; return (typeof i==="string" && i) ? i : null; }catch(e){ return null; } }
+function cavoInvitoRicorda(id){ if(!id) return; try{ localStorage.setItem(CAVO_LS, JSON.stringify(cavoInvitoListaAggiungi(cavoInvitoLeggi(), id))); }catch(e){} }
+function cavoInvitoRicordato(id){ return !!id && cavoInvitoLeggi().indexOf(id)>=0; }
+var __cavoUltima=Date.now();
+function cavoInvitoFerma(el){
+  if(!el) return;
+  if(el.__cavoAttesa){ clearTimeout(el.__cavoAttesa); el.__cavoAttesa=null; }
+  if(el.__cavoDurata){ clearTimeout(el.__cavoDurata); el.__cavoDurata=null; }
+}
+function cavoInvitoRitira(ricorda){
+  var el=document.getElementById("funzBanner"); if(!el) return;
+  cavoInvitoFerma(el);
+  if(el.__cavoVis){ el.__cavoVis=false; if(ricorda) cavoInvitoRicorda(el.__cavoId); }
+  el.hidden=true; el.innerHTML=""; el.__k=""; el.className="";
+  try{ exportNudgeAggiorna(); }catch(e){}
+}
+function cavoInvitoArma(){
+  var el=document.getElementById("funzBanner"); if(!el) return;
+  if(el.__cavoAttesa) clearTimeout(el.__cavoAttesa);
+  el.__cavoAttesa=setTimeout(function(){
+    el.__cavoAttesa=null;
+    var r=cavoInvitoAttesa(Date.now(), __cavoUltima);
+    if(r>0){ cavoInvitoArma(); return; }   /* nel frattempo si è lavorato: si aspetta ancora */
+    cavoInvitoMostra();
+  }, cavoInvitoAttesa(Date.now(), __cavoUltima)+20);
+}
+function cavoInvitoMostra(){
+  var el=document.getElementById("funzBanner"); if(!el || el.__cavoVis) return;
+  var vista=document.getElementById("vistaBanner"), riapri=document.getElementById("riapriBanner");
+  var cavo=cavoSuggerimento(), epoch=window.__docEpoch||0, id=cavoInvitoId();
+  if(!cavoInvitoDecidi({ cavo:!!cavo, mobile:isMobile(), vista:!!(vista && !vista.hidden), riapri:!!(riapri && !riapri.hidden),
+      altrui:foreignDoc(), visto:window.__cavoVisto===epoch, ricordato:cavoInvitoRicordato(id) })) return;
+  window.__cavoVisto=epoch; el.__cavoVis=true; el.__cavoEpoch=epoch; el.__cavoId=id;
+  var cosa=(cavo.box&&cavo.distro)?"una stage box e un quadro":(cavo.box?"una stage box":"un quadro");
+  el.className="funz-quieto";
+  el.innerHTML='<span class="vb-txt">Vuoi vedere cavi e corrente?</span>'
+    + '<button type="button" class="cq-si" id="funzAccendi" title="Aggiungo io '+cosa+' e traccio i collegamenti">Mostra</button>'
+    + '<button type="button" class="cq-x" id="funzNonOra" aria-label="Non ora" title="Non ora">✕</button>';
+  el.__k="cavo-quieto";
+  el.querySelector("#funzAccendi").addEventListener("click", function(e){ e.stopPropagation(); cavoInvitoRitira(false); cavoCorrenteAccendi(); funzRenderAvviso(); });
+  el.querySelector("#funzNonOra").addEventListener("click", function(e){ e.stopPropagation(); cavoInvitoRitira(true); });
+  el.hidden=false;
+  el.__cavoDurata=setTimeout(function(){ cavoInvitoRitira(true); }, CAVO_DURATA_MS);   /* non blocca niente: se la si ignora, se ne va e non torna */
+  try{ exportNudgeAggiorna(); }catch(e){}
+}
+(function(){
+  var segna=function(e){
+    var el=document.getElementById("funzBanner");
+    if(el && el.contains && e && e.target && el.contains(e.target)) return;   /* il clic sul chip non è «lavorare» */
+    __cavoUltima=Date.now();
+    if(el && el.__cavoAttesa) cavoInvitoArma();   /* si è ripreso a lavorare: l'attesa riparte */
+  };
+  try{ ["pointerdown","keydown","wheel","touchstart"].forEach(function(t){ document.addEventListener(t, segna, {capture:true, passive:true}); }); }catch(e){}
+})();
 function funzRenderAvviso(){
   var el=document.getElementById("funzBanner"); if(!el) return;
   var vista=document.getElementById("vistaBanner");
@@ -23836,20 +23914,26 @@ function funzRenderAvviso(){
   /* Sul telefono no: lì pallini e liste non dipendono da queste funzioni. E una riga alla volta: se la
      vista attiva si sta dichiarando, parla lei. */
   var cavo = mancano.length ? null : cavoSuggerimento();
-  var zitto = (!mancano.length && !cavo) || isMobile() || (vista && !vista.hidden) || (riapri && !riapri.hidden) || window.__funzAvvisoNo===(window.__docEpoch||0);
-  if(zitto){ el.hidden=true; el.innerHTML=""; el.__k=""; return; }
-  var k=cavo ? "cavo:"+(cavo.box?"b":"")+(cavo.distro?"d":"") : mancano.join(",");
-  if(el.__k!==k && cavo){
-    var cosa=(cavo.box&&cavo.distro)?"una stage box e un quadro":(cavo.box?"una stage box":"un quadro");
-    el.innerHTML='<span class="vb-txt">Vuoi vedere <b>cavi, metri e potenza</b>? Aggiungo io '+cosa+' e traccio i collegamenti</span>'
-      + '<button type="button" class="vb-esci vb-si" id="funzAccendi">Mostra cavi e corrente</button>'
-      + '<button type="button" class="vb-esci" id="funzNonOra">Non ora</button>';
-    el.__k=k;
-    el.querySelector("#funzAccendi").addEventListener("click", function(e){ e.stopPropagation(); cavoCorrenteAccendi(); });
-    el.querySelector("#funzNonOra").addEventListener("click", function(e){ e.stopPropagation(); window.__funzAvvisoNo=(window.__docEpoch||0); funzRenderAvviso(); });
+  var epoch=window.__docEpoch||0;
+  /* invito discreto già a schermo: resta finché serve (suggerimento valido, stesso documento, nessuna vista né «riapri») */
+  if(el.__cavoVis){
+    if(!cavo || el.__cavoEpoch!==epoch || isMobile() || (vista && !vista.hidden) || (riapri && !riapri.hidden)){ cavoInvitoRitira(false); }
+    else { el.hidden=false; return; }
   }
-  else if(el.__k!==k){
+  var zitto = (!mancano.length && !cavo) || isMobile() || (vista && !vista.hidden) || (riapri && !riapri.hidden) || window.__funzAvvisoNo===epoch;
+  if(zitto){ cavoInvitoFerma(el); el.hidden=true; el.innerHTML=""; el.__k=""; el.className=""; return; }
+  if(cavo){
+    /* l'invito non compare subito: si arma l'attesa di quiete (una volta per documento, e mai se già ignorato per questo progetto) */
+    el.hidden=true; el.innerHTML=""; el.__k=""; el.className="";
+    if(window.__cavoVisto===epoch || cavoInvitoRicordato(cavoInvitoId())) return;
+    if(el.__cavoArmEpoch!==epoch){ el.__cavoArmEpoch=epoch; __cavoUltima=Date.now(); }
+    if(!el.__cavoAttesa) cavoInvitoArma();
+    return;
+  }
+  var k=mancano.join(",");
+  if(el.__k!==k){
     var nomi=mancano.map(function(id){ var n=""; FUNZIONI.forEach(function(f){ if(f.id===id) n="<b>"+esc(f.nome)+"</b>"; }); return n; });
+    el.className="";
     el.innerHTML='<span class="vb-txt">Questo progetto usa '+nomi.join(" e ")+', che hai spento</span>'
       + '<button type="button" class="vb-esci vb-si" id="funzAccendi">Accendi</button>'
       + '<button type="button" class="vb-esci" id="funzNonOra">Non ora</button>';
@@ -26939,7 +27023,7 @@ svg.addEventListener("pointerdown", function(e){
     var _h1=e.target.closest(".cab-hit,.cab-seg-hit"), _h2=e.target.closest(".elec-hit,.elec-seg-hit"), _h3=e.target.closest(".mond-hit,.mond-seg-hit");
     if(_h1 && state.cab && state.cab.on) _dcCab={fam:"cab", key:_h1.getAttribute("data-cab")};
     else if(_h2 && state.elec && state.elec.on){ var _k2=_h2.getAttribute("data-el");
-      _dcCab=(String(_k2).indexOf("fd:")===0) ? {fam:"feed", key:String(_k2).slice(3)} : {fam:"elec", key:_k2};   /* linea principale: «Segmenta» sta in elec.feeds[id], non in elec.manual (che dropOrphanLinks pulisce) */
+      _dcCab=(String(_k2).indexOf("fd:")===0) ? {fam:"feed", key:String(_k2).slice(3)} : (String(_k2).indexOf("up:")===0) ? {fam:"up", key:String(_k2).slice(3)} : {fam:"elec", key:_k2};   /* linea principale: «Segmenta» sta in elec.feeds[id], non in elec.manual (che dropOrphanLinks pulisce) */
     }
     else if(_h3 && state.mond && state.mond.on) _dcCab={fam:"mond", key:_h3.getAttribute("data-mond")};
   }
@@ -26949,7 +27033,7 @@ svg.addEventListener("pointerdown", function(e){
     drag={mode:"none"};   /* il rilascio che segue non deve essere letto come clic sul vuoto (deselezionava il cavo) */
     try{ svg.setPointerCapture(e.pointerId); }catch(_e){}
     cabSegToggle(_dcCab.fam, _dcCab.key);
-    var _segNow=cabSegOn(_dcCab.fam==="feed" ? (state.elec&&state.elec.feeds) : _dcCab.fam==="elec" ? (state.elec&&state.elec.manual) : (_dcCab.fam==="mond" ? (state.mond&&state.mond.manual) : (state.cab&&state.cab.manual)), _dcCab.key);
+    var _segNow=cabSegOn(_dcCab.fam==="feed" ? (state.elec&&state.elec.feeds) : _dcCab.fam==="up" ? (state.elec&&state.elec.uplinks) : _dcCab.fam==="elec" ? (state.elec&&state.elec.manual) : (_dcCab.fam==="mond" ? (state.mond&&state.mond.manual) : (state.cab&&state.cab.manual)), _dcCab.key);
     showToast(_segNow ? "Cavo segmentato \u2014 trascina i lati per modellarlo" : "Cavo diritto");
     return;
   }
@@ -33232,6 +33316,7 @@ var cabOpen=false;   /* legacy: pannello tolto */
 function cabSelFam(){
   if(selCab) return {fam:"cab", key:selCab, store:(state.cab&&state.cab.manual)};
   if(selElec && String(selElec).indexOf("fd:")===0) return {fam:"feed", key:String(selElec).slice(3), store:(state.elec&&state.elec.feeds)};
+  if(selElec && String(selElec).indexOf("up:")===0) return {fam:"up", key:String(selElec).slice(3), store:(state.elec&&state.elec.uplinks)};
   if(selElec) return {fam:"elec", key:selElec, store:(state.elec&&state.elec.manual)};
   if(selMond) return {fam:"mond", key:selMond, store:(state.mond&&state.mond.manual)};
   return null;
@@ -36225,7 +36310,7 @@ function renderElecPanel(){
     elecDeleteKey(selElec); selElec=null; save(); render(); });
   document.getElementById("elecSelResetPath").addEventListener("click", function(){ if(!selElec) return;
     if(selElec.indexOf("fd:")===0){ var fv=state.elec.feeds&&state.elec.feeds[selElec.slice(3)]; if(fv){ delete fv.pts; delete fv.seg; elecFeedPulisci(selElec.slice(3)); } }
-    else if(selElec.indexOf("up:")===0){ var u=state.elec.uplinks&&state.elec.uplinks[selElec.slice(3)]; if(u) delete u.pts; }
+    else if(selElec.indexOf("up:")===0){ var u=state.elec.uplinks&&state.elec.uplinks[selElec.slice(3)]; if(u){ delete u.pts; delete u.seg; } }
     else { var m=state.elec.manual&&state.elec.manual[selElec]; if(m) delete m.pts; }
     __elecRes=null; save(); render(); });
 })();
