@@ -7569,7 +7569,7 @@ function createVariant(name){
   var nuovoN=versioneNumeroNuovo();
   if(nuovoN>VERSIONE_MAX){ if(window.__toast) window.__toast("Hai raggiunto il numero massimo di versioni ("+VERSIONE_MAX+").", true); return null; }
   var srcIdx=VARIANTS.indexOf(src);
-  if(!versioneNumeroDi(src, srcIdx).esplicito){ src.state.versione=srcIdx+1; if(state) state.versione=srcIdx+1; }
+  if(!versioneChiusa(src.state) && !versioneNumeroDi(src, srcIdx).esplicito){ src.state.versione=srcIdx+1; if(state) state.versione=srcIdx+1; }
   var copy=JSON.parse(JSON.stringify(src.state)); var id=newVarId();
   delete copy.pdfEsportato;   /* una variante nuova non è mai stata esportata */
   copy.versione=nuovoN; copy.status="bozza"; delete copy.statusAt; copy.approval={by:"",at:""};
@@ -26039,6 +26039,7 @@ function setEventInputs(){
   if(_fn && typeof fileName==="function") _fn.textContent="Il file uscirà come "+pdfNomeFileTesto();
   var _vc=document.getElementById("pdfVersione");   /* la versione: quella del campo, o letta dal titolo (precompilata) */
   if(_vc && document.activeElement!==_vc) _vc.value=versioneNumero()||"";
+  if(_vc) _vc.disabled=versioneNumeroBloccato();   /* versione chiusa: il numero non si cambia da qui */
   var _vh=document.getElementById("pdfVersioneHint"); if(_vh) _vh.textContent=versioneSuggerimento();
   var _sd=document.getElementById("pdfStatoDoc"); if(_sd && document.activeElement!==_sd) _sd.value=statoDocValore();
   try{ var _tg=tagliaSuggerimento(), _th=document.getElementById("pdfTagliaHint"); if(_th){ _th.hidden=!_tg; if(_tg) document.getElementById("pdfTagliaTesto").textContent="La taglia è "+_tg.taglia+": nel nome «"+_tg.nuovo+"»."; } }catch(_e){}
@@ -39227,7 +39228,10 @@ function versioneNumero(){
   if(typeof v==="number" && v%1===0 && v>=1 && v<=VERSIONE_MAX) return v;
   return versioneDaTitolo(state && state.titolo);
 }
+/* il numero di una versione chiusa è quello stampato sul foglio mandato: non cambia per nessuna via (box Esporta, Numera, Nuova versione) */
+function versioneNumeroBloccato(){ return !!(window.__verChiusa || scenaChiusaDecidi(state, foreignDoc())); }
 function versioneImposta(txt){
+  if(versioneNumeroBloccato()){ if(typeof setEventInputs==="function") setEventInputs(); if(window.__toast) window.__toast("Questa versione è chiusa: il suo numero non cambia. Per un numero diverso crea una Nuova versione.", true); return; }
   var n=parseInt(String(txt==null?"":txt).trim(),10);
   if(n>=1 && n<=VERSIONE_MAX) state.versione=n; else delete state.versione;
   if(typeof setEventInputs==="function") setEventInputs();
@@ -39276,7 +39280,9 @@ function numeraVersioni(){
   var punto=false;
   try{ punto = typeof saveVersion==="function" && saveVersion("Prima di numerare le versioni",true)===true; }catch(_numErr){ punto=false; }
   if(!punto){ if(window.__toast) window.__toast("Punto di ripristino non creato: i numeri restano come sono.", true); return false; }
-  VARIANTS.forEach(function(v,i){ if(v.state) v.state.versione=Math.min(i+1, VERSIONE_MAX); });
+  /* le versioni chiuse tengono il loro numero; le Bozze prendono, nell'ordine della barra, i numeri liberi */
+  var usati={}; VARIANTS.forEach(function(v,i){ if(v.state && versioneChiusa(v.state)) usati[versioneNumeroDi(v,i).n]=true; });
+  var prossimo=1; VARIANTS.forEach(function(v){ if(!v.state || versioneChiusa(v.state)) return; while(usati[prossimo]) prossimo++; v.state.versione=Math.min(prossimo, VERSIONE_MAX); prossimo++; });
   var att=activeVarObj(); if(att && att.state && state) state.versione=att.state.versione;   /* lo stato vivo segue la scheda attiva */
   if(typeof setEventInputs==="function") setEventInputs();
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave();
@@ -39286,7 +39292,7 @@ function numeraVersioni(){
 }
 function confermaNumeraVersioni(){
   var ask={ icon:"info", title:"Numerare le versioni 1, 2, 3…?", confirmText:"Numera",
-    message:"Ogni versione prende il numero della sua posizione nella barra. I nomi restano. Prima si crea un punto di ripristino: File → Punti di ripristino…" };
+    message:"Le Bozze prendono i numeri liberi nell'ordine della barra; le versioni chiuse (Inviata, Approvata, Superata) tengono il loro. I nomi restano. Prima si crea un punto di ripristino: File → Punti di ripristino…" };
   if(typeof window.confirmDialog==="function") window.confirmDialog(ask).then(function(ok){ if(ok) numeraVersioni(); });
   else numeraVersioni();
 }

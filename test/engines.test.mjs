@@ -41220,6 +41220,28 @@ t("Versioni L1 · numeri doppi (i progetti vecchi hanno lo stesso numero in tutt
   ok(/data-vm="num" hidden>Numera 1, 2, 3…/.test(html) && /data-act="var-num" id="mVarNum" hidden>Numera 1, 2, 3…/.test(html), "la voce nel menu e sul telefono, nascosta finché non servono");
   reset();
 });
+t("Versioni L1 · C1: il numero di una versione chiusa non cambia per nessuna via (box Esporta, Numera, Nuova versione)", () => senzaForeign(() => {
+  /* via 1: box «Versione» dell'Esporta */
+  reset(); docVersioni([{ versione: 3, status: "revisione" }]); A.applicaVersioneChiusa();
+  A.versioneImposta("9"); A.syncActiveVariant(); eq(A.state.versione, 3, "Inviata: versioneImposta non cambia il numero");
+  A.versioneImposta(""); eq(A.state.versione, 3, "né lo toglie");
+  ok(/_vc\.disabled=versioneNumeroBloccato\(\)/.test(appjs), "il campo #pdfVersione è disabilitato con versione chiusa");
+  docVersioni([{ versione: 3 }]); A.applicaVersioneChiusa(); A.versioneImposta("9"); eq(A.state.versione, 9, "Bozza: si cambia come sempre");
+  /* via 2: Numera */
+  docVersioni([{ versione: 3, status: "revisione" }, { versione: 3 }, { versione: 3 }]);
+  const sv = A.saveVersion; A.saveVersion = () => true;
+  try {
+    eq(A.numeraVersioni(), true); A.syncActiveVariant();
+    eq(A.VARIANTS.map((v) => v.state.versione), [3, 1, 2], "la Inviata resta v3, le Bozze prendono i numeri liberi in ordine");
+  } finally { A.saveVersion = sv; }
+  /* via 3: Nuova versione da sorgente chiusa senza numero */
+  docVersioni([{ titolo: "prova.pdf", status: "revisione" }]); A.syncActiveVariant();
+  ok(A.VARIANTS[0].state.versione == null, "premessa: la Inviata non ha numero");
+  A.createVariant(); const prima = A.VARIANTS.find((v) => v.id === "w0");
+  ok(prima.state.versione == null, "la sorgente chiusa non riceve un numero"); eq(prima.state.status, "revisione");
+  eq(A.VARIANTS.length, 2, "la nuova c'è"); ok(A.VARIANTS[1].state.versione >= 2, "la nuova ha il suo numero");
+  reset();
+}));
 t("Versioni L1 · eliminare: una versione chiusa non si elimina finché non torna Bozza", () => senzaForeign(() => {
   reset(); docVersioni([{ versione: 1, status: "revisione" }, { versione: 2 }]);
   A.syncActiveVariant(); const sv = A.saveVersion; A.saveVersion = () => true;
