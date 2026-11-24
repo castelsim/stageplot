@@ -40533,9 +40533,9 @@ t("ingresso corrente: nell'export niente tooltip, scala a schermo e stessa largh
 t("ingresso corrente: legenda a 3 righe solo nel corpo del layer Elettrico, mai in un export", () => {
   ok(/\.id="elecLegend"/.test(appjs), "la legenda esiste nel pannello layer");
   ok(/if\(L\.id==="elec"\)\{ var lg=document\.createElement/.test(appjs), "solo per il layer elec");
-  ok(/Linea di alimentazione principale \(si sposta\)/.test(appjs) && /Stagebox suggerito \(cavi audio\)/.test(appjs), "testi delle righe");
+  ok(/Linea di alimentazione principale \(si sposta; compare con ingresso e quadro impostati\)/.test(appjs) && /Stagebox suggerito \(cavi audio\)/.test(appjs), "testi delle righe");
   const doc = A.docToJSON();
-  ok(doc.indexOf("elecLegend") < 0 && doc.indexOf("Linea di alimentazione principale (si sposta)") < 0, "la legenda non entra nel documento");
+  ok(doc.indexOf("elecLegend") < 0 && doc.indexOf("Linea di alimentazione principale (si sposta") < 0, "la legenda non entra nel documento");
 });
 
 /* ====== CABLAGGI CHIARI (24/11/2026), lotto B: la linea principale distro → ingresso si sposta =======
@@ -40835,6 +40835,23 @@ t("dorsale: dropOrphanLinks tiene `seg` con bersaglio vivo e toglie tutta la voc
   eq(A.state.elec.uplinks[c.id].seg, 1, "seg conservato con bersaglio vivo");
   ok(!A.state.elec.uplinks[c2.id], "bersaglio sparito: la voce cade intera, seg compreso");
   reset();
+});
+t("linee desktop 24/11: in stile «dir» trascinare una linea non segmentata la segmenta e dà il lato da trascinare; clic fermo non cambia nulla", () => {
+  reset(); A.state.elec.on = true; A.state.elec.mode = "manual";
+  const m = add("ciabatta", 600, 600), c = add("ciabatta", 300, 300);
+  A.state.elec.uplinks = { [c.id]: { to: m.id } };
+  A.state.cab.route = "dir"; A.__elecRes = null;
+  try {
+    const key = "up:" + c.id;
+    eq(A.elecStyleFor(key), "dir", "partenza: diretta, senza lati");
+    const before = JSON.stringify(A.state.elec);
+    const dr = A.elecPreDragSegmenta(key, { x: 450, y: 450 });
+    ok(dr && dr.mode === "elecseg" && dr.key === key && (dr.ori === "h" || dr.ori === "v") && dr.fp0.length >= 3, "drag del lato");
+    eq(A.state.elec.uplinks[c.id].seg, 1, "seg salvato dove già era (uplinks[id].seg), nessuna migrazione");
+    eq(A.elecStyleFor(key), "orto", "ora ha i lati");
+    ok(before !== JSON.stringify(A.state.elec), "lo stato cambia solo dopo il trascinamento");
+    ok(!A.elecPreDragSegmenta("up:inesistente", { x: 0, y: 0 }), "chiave sconosciuta: nessun drag");
+  } finally { delete A.state.cab.route; A.selElec = null; reset(); }
 });
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
