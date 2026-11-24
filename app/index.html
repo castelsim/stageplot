@@ -3061,6 +3061,20 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   #funzBanner .vb-si:hover{background:var(--accent-deep);border-color:var(--accent-deep)}
   #funzBanner .vb-esci:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   body.dark #funzBanner{box-shadow:0 6px 20px rgba(0,0,0,.4)}
+  /* Invito «cavi e corrente» (24/11): un chip quieto in basso a sinistra, non una barra sopra il disegno */
+  #funzBanner.funz-quieto{left:12px;top:auto;bottom:12px;transform:none;width:max-content;gap:0;padding:2px 4px 2px 12px;
+    font-size:12px;line-height:1.3;border-color:var(--border);box-shadow:0 1px 4px rgba(38,33,24,.10);animation:cqIn .3s ease both}
+  #funzBanner.funz-quieto .vb-txt{color:var(--text-2)}
+  #funzBanner .cq-si{flex:none;border:0;background:transparent;color:var(--accent-strong);font:inherit;font-weight:600;
+    padding:4px 8px;min-height:28px;cursor:pointer;border-radius:999px;white-space:nowrap}
+  #funzBanner .cq-si:hover{background:var(--accent-tint)}
+  #funzBanner .cq-x{flex:none;border:0;background:transparent;color:var(--text-2);font-size:13px;line-height:1;
+    padding:4px 8px;min-height:28px;cursor:pointer;border-radius:999px}
+  #funzBanner .cq-x:hover{background:var(--accent-tint);color:var(--text)}
+  #funzBanner .cq-si:focus-visible, #funzBanner .cq-x:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  body.dark #funzBanner.funz-quieto{box-shadow:0 1px 4px rgba(0,0,0,.4)}
+  @keyframes cqIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){ #funzBanner.funz-quieto{animation:none} }
   /* «Stai riaprendo…» (analisi esterna 08/11): stessa pastiglia, e mai insieme alle altre due */
   #riapriBanner{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:29;
     display:flex;align-items:center;gap:8px;width:max-content;max-width:calc(100% - 24px);
