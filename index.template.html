@@ -24905,6 +24905,81 @@ function riapriMostra(){
     if(window.openNewDialog) window.openNewDialog(); else if(window.proxyClick) window.proxyClick("bNew"); });
   el.__t=setTimeout(function(){ riapriChiudi(); funzRenderAvviso(); }, RIAPRI_DURATA_MS);   /* non blocca niente: se la si ignora, se ne va */
 }
+/* INVITO «CAVI E CORRENTE» DISCRETO (segnalazione di Simone, 24/11/2026: «dev'essere più indiscreto»). Prima era una barra
+   larga sopra il disegno con un pulsante pieno, subito all'apertura. Ora è un chip piccolo in basso a sinistra che:
+   - compare solo dopo una quiete (CAVO_QUIETE_MS senza clic, tasti o rotella; se si riparte, l'attesa ricomincia);
+   - si ritira da solo dopo CAVO_DURATA_MS (come «Stai riaprendo»), e con ✕ subito;
+   - una volta mostrato non torna in quel documento, e il ricordo resta per quel progetto (localStorage, per id);
+   - sul telefono, con la vista attiva, con «Stai riaprendo» o in un documento altrui, non c'è.
+   Cosa fa «Mostra» (cavoCorrenteAccendi) e quando il suggerimento serve (cavoSuggerimento) non cambiano. */
+var CAVO_QUIETE_MS=8000, CAVO_DURATA_MS=12000, CAVO_LS="sp_cavoInvito", CAVO_LS_MAX=60;
+function cavoInvitoDecidi(o){
+  if(!o || !o.cavo) return false;
+  if(o.mobile || o.vista || o.riapri || o.altrui) return false;
+  if(o.visto || o.ricordato) return false;   /* già mostrato in questo documento, o già ignorato per questo progetto */
+  return true;
+}
+function cavoInvitoAttesa(ora, ultima){ var r=CAVO_QUIETE_MS-((ora||0)-(ultima||0)); return r>0 ? r : 0; }
+function cavoInvitoListaAggiungi(lista, id){
+  var l=Array.isArray(lista) ? lista.filter(function(x){ return typeof x==="string" && x!==id; }) : [];
+  if(typeof id==="string" && id) l.push(id);
+  return l.slice(-CAVO_LS_MAX);
+}
+function cavoInvitoLeggi(){ try{ var l=JSON.parse(localStorage.getItem(CAVO_LS)||"[]"); return Array.isArray(l) ? l : []; }catch(e){ return []; } }
+function cavoInvitoId(){ try{ var C=window.__cloud; var i=(C && C.currentId && C.currentId()) || window.__bootCloudId; return (typeof i==="string" && i) ? i : null; }catch(e){ return null; } }
+function cavoInvitoRicorda(id){ if(!id) return; try{ localStorage.setItem(CAVO_LS, JSON.stringify(cavoInvitoListaAggiungi(cavoInvitoLeggi(), id))); }catch(e){} }
+function cavoInvitoRicordato(id){ return !!id && cavoInvitoLeggi().indexOf(id)>=0; }
+var __cavoUltima=Date.now();
+function cavoInvitoFerma(el){
+  if(!el) return;
+  if(el.__cavoAttesa){ clearTimeout(el.__cavoAttesa); el.__cavoAttesa=null; }
+  if(el.__cavoDurata){ clearTimeout(el.__cavoDurata); el.__cavoDurata=null; }
+}
+function cavoInvitoRitira(ricorda){
+  var el=document.getElementById("funzBanner"); if(!el) return;
+  cavoInvitoFerma(el);
+  if(el.__cavoVis){ el.__cavoVis=false; if(ricorda) cavoInvitoRicorda(el.__cavoId); }
+  el.hidden=true; el.innerHTML=""; el.__k=""; el.className="";
+  try{ exportNudgeAggiorna(); }catch(e){}
+}
+function cavoInvitoArma(){
+  var el=document.getElementById("funzBanner"); if(!el) return;
+  if(el.__cavoAttesa) clearTimeout(el.__cavoAttesa);
+  el.__cavoAttesa=setTimeout(function(){
+    el.__cavoAttesa=null;
+    var r=cavoInvitoAttesa(Date.now(), __cavoUltima);
+    if(r>0){ cavoInvitoArma(); return; }   /* nel frattempo si è lavorato: si aspetta ancora */
+    cavoInvitoMostra();
+  }, cavoInvitoAttesa(Date.now(), __cavoUltima)+20);
+}
+function cavoInvitoMostra(){
+  var el=document.getElementById("funzBanner"); if(!el || el.__cavoVis) return;
+  var vista=document.getElementById("vistaBanner"), riapri=document.getElementById("riapriBanner");
+  var cavo=cavoSuggerimento(), epoch=window.__docEpoch||0, id=cavoInvitoId();
+  if(!cavoInvitoDecidi({ cavo:!!cavo, mobile:isMobile(), vista:!!(vista && !vista.hidden), riapri:!!(riapri && !riapri.hidden),
+      altrui:foreignDoc(), visto:window.__cavoVisto===epoch, ricordato:cavoInvitoRicordato(id) })) return;
+  window.__cavoVisto=epoch; el.__cavoVis=true; el.__cavoEpoch=epoch; el.__cavoId=id;
+  var cosa=(cavo.box&&cavo.distro)?"una stage box e un quadro":(cavo.box?"una stage box":"un quadro");
+  el.className="funz-quieto";
+  el.innerHTML='<span class="vb-txt">Vuoi vedere cavi e corrente?</span>'
+    + '<button type="button" class="cq-si" id="funzAccendi" title="Aggiungo io '+cosa+' e traccio i collegamenti">Mostra</button>'
+    + '<button type="button" class="cq-x" id="funzNonOra" aria-label="Non ora" title="Non ora">✕</button>';
+  el.__k="cavo-quieto";
+  el.querySelector("#funzAccendi").addEventListener("click", function(e){ e.stopPropagation(); cavoInvitoRitira(false); cavoCorrenteAccendi(); funzRenderAvviso(); });
+  el.querySelector("#funzNonOra").addEventListener("click", function(e){ e.stopPropagation(); cavoInvitoRitira(true); });
+  el.hidden=false;
+  el.__cavoDurata=setTimeout(function(){ cavoInvitoRitira(true); }, CAVO_DURATA_MS);   /* non blocca niente: se la si ignora, se ne va e non torna */
+  try{ exportNudgeAggiorna(); }catch(e){}
+}
+(function(){
+  var segna=function(e){
+    var el=document.getElementById("funzBanner");
+    if(el && el.contains && e && e.target && el.contains(e.target)) return;   /* il clic sul chip non è «lavorare» */
+    __cavoUltima=Date.now();
+    if(el && el.__cavoAttesa) cavoInvitoArma();   /* si è ripreso a lavorare: l'attesa riparte */
+  };
+  try{ ["pointerdown","keydown","wheel","touchstart"].forEach(function(t){ document.addEventListener(t, segna, {capture:true, passive:true}); }); }catch(e){}
+})();
 function funzRenderAvviso(){
   var el=document.getElementById("funzBanner"); if(!el) return;
   var vista=document.getElementById("vistaBanner");
@@ -24915,20 +24990,26 @@ function funzRenderAvviso(){
   /* Sul telefono no: lì pallini e liste non dipendono da queste funzioni. E una riga alla volta: se la
      vista attiva si sta dichiarando, parla lei. */
   var cavo = mancano.length ? null : cavoSuggerimento();
-  var zitto = (!mancano.length && !cavo) || isMobile() || (vista && !vista.hidden) || (riapri && !riapri.hidden) || window.__funzAvvisoNo===(window.__docEpoch||0);
-  if(zitto){ el.hidden=true; el.innerHTML=""; el.__k=""; return; }
-  var k=cavo ? "cavo:"+(cavo.box?"b":"")+(cavo.distro?"d":"") : mancano.join(",");
-  if(el.__k!==k && cavo){
-    var cosa=(cavo.box&&cavo.distro)?"una stage box e un quadro":(cavo.box?"una stage box":"un quadro");
-    el.innerHTML='<span class="vb-txt">Vuoi vedere <b>cavi, metri e potenza</b>? Aggiungo io '+cosa+' e traccio i collegamenti</span>'
-      + '<button type="button" class="vb-esci vb-si" id="funzAccendi">Mostra cavi e corrente</button>'
-      + '<button type="button" class="vb-esci" id="funzNonOra">Non ora</button>';
-    el.__k=k;
-    el.querySelector("#funzAccendi").addEventListener("click", function(e){ e.stopPropagation(); cavoCorrenteAccendi(); });
-    el.querySelector("#funzNonOra").addEventListener("click", function(e){ e.stopPropagation(); window.__funzAvvisoNo=(window.__docEpoch||0); funzRenderAvviso(); });
+  var epoch=window.__docEpoch||0;
+  /* invito discreto già a schermo: resta finché serve (suggerimento valido, stesso documento, nessuna vista né «riapri») */
+  if(el.__cavoVis){
+    if(!cavo || el.__cavoEpoch!==epoch || isMobile() || (vista && !vista.hidden) || (riapri && !riapri.hidden)){ cavoInvitoRitira(false); }
+    else { el.hidden=false; return; }
   }
-  else if(el.__k!==k){
+  var zitto = (!mancano.length && !cavo) || isMobile() || (vista && !vista.hidden) || (riapri && !riapri.hidden) || window.__funzAvvisoNo===epoch;
+  if(zitto){ cavoInvitoFerma(el); el.hidden=true; el.innerHTML=""; el.__k=""; el.className=""; return; }
+  if(cavo){
+    /* l'invito non compare subito: si arma l'attesa di quiete (una volta per documento, e mai se già ignorato per questo progetto) */
+    el.hidden=true; el.innerHTML=""; el.__k=""; el.className="";
+    if(window.__cavoVisto===epoch || cavoInvitoRicordato(cavoInvitoId())) return;
+    if(el.__cavoArmEpoch!==epoch){ el.__cavoArmEpoch=epoch; __cavoUltima=Date.now(); }
+    if(!el.__cavoAttesa) cavoInvitoArma();
+    return;
+  }
+  var k=mancano.join(",");
+  if(el.__k!==k){
     var nomi=mancano.map(function(id){ var n=""; FUNZIONI.forEach(function(f){ if(f.id===id) n="<b>"+esc(f.nome)+"</b>"; }); return n; });
+    el.className="";
     el.innerHTML='<span class="vb-txt">Questo progetto usa '+nomi.join(" e ")+', che hai spento</span>'
       + '<button type="button" class="vb-esci vb-si" id="funzAccendi">Accendi</button>'
       + '<button type="button" class="vb-esci" id="funzNonOra">Non ora</button>';
