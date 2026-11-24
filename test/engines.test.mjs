@@ -22355,7 +22355,7 @@ t("arrivo da un link: l'avvio consuma ?from=, mostra gli avvisi e lascia stare l
   ok(/window\.openNewDialog\(\)/.test(m), "«Nuovo palco» passa dalla stessa strada di File → Nuovo (conferma e punto di recupero)");
   ok(/setTimeout\(function\(\)\{ riapriChiudi\(\); funzRenderAvviso\(\); \}, RIAPRI_DURATA_MS\)/.test(m), "se la si ignora se ne va");
   /* una riga alla volta */
-  const r = appjs.slice(appjs.indexOf("function funzRenderAvviso"), appjs.indexOf("function funzRenderAvviso") + 900);
+  const r = appjs.slice(appjs.indexOf("function funzRenderAvviso"), appjs.indexOf("function funzRenderAvviso") + 2400);   /* la funzione è cresciuta con l'invito discreto (24/11) */
   ok(/\(riapri && !riapri\.hidden\) \|\|/.test(r), "mentre c'è la riga, l'altro avviso tace");
   ok(/riapri\.__epoch!==\(window\.__docEpoch\|\|0\)\)\) riapriChiudi\(\)/.test(r), "un altro documento la chiude");
   ok(/body\.cust-editor #riapriBanner/.test(stylesCss), "l'editor «Crea elemento» la nasconde, come le altre");
@@ -28606,6 +28606,50 @@ t("exportNudgeStatoDopo: conta, «fatto» e «no» restano", () => {
   eq(f(null, "mostrato"), "1"); eq(f("2", "mostrato"), "3"); eq(f("x", "mostrato"), "1");
   eq(f("2", "fatto"), "fatto"); eq(f(null, "no"), "no");
   eq(f("fatto", "mostrato"), "fatto", "esportato non torna conteggio"); eq(f("no", "fatto"), "no", "il primo esito vince");
+});
+/* Invito «cavi e corrente» discreto (24/11/2026, segnalazione di Simone: «dev'essere più indiscreto») */
+t("cavoInvitoDecidi: chi lo vede e quando (telefono, vista, «riapri», documento altrui, già mostrato o ignorato)", () => {
+  const d = (o) => A.cavoInvitoDecidi(Object.assign({ cavo: true, mobile: false, vista: false, riapri: false, altrui: false, visto: false, ricordato: false }, o));
+  ok(d({}), "desktop, suggerimento valido, mai mostrato: sì");
+  ok(!d({ cavo: false }), "senza suggerimento: no");
+  ok(!d({ mobile: true }), "telefono: no");
+  ok(!d({ vista: true }), "vista attiva: no");
+  ok(!d({ riapri: true }), "«Stai riaprendo»: no");
+  ok(!d({ altrui: true }), "documento altrui o consultazione: no");
+  ok(!d({ visto: true }), "già mostrato in questo documento: no");
+  ok(!d({ ricordato: true }), "già ignorato per questo progetto: no");
+  ok(!A.cavoInvitoDecidi(null), "senza dati: no");
+});
+t("cavoInvitoAttesa: aspetta la quiete, e riparte se si lavora", () => {
+  eq(A.CAVO_QUIETE_MS, 8000, "quiete ~8 s"); eq(A.CAVO_DURATA_MS, 12000, "ritiro automatico ~12 s");
+  eq(A.cavoInvitoAttesa(1000, 1000), 8000, "appena fatto qualcosa: 8 s da aspettare");
+  eq(A.cavoInvitoAttesa(5000, 1000), 4000, "dopo 4 s ne restano 4");
+  eq(A.cavoInvitoAttesa(9000, 1000), 0, "dopo 8 s: via");
+  eq(A.cavoInvitoAttesa(60000, 1000), 0, "mai negativa");
+});
+t("cavoInvitoListaAggiungi: ricordo per progetto, senza doppioni e con un tetto", () => {
+  eq(JSON.stringify(A.cavoInvitoListaAggiungi(null, "a")), '["a"]');
+  eq(JSON.stringify(A.cavoInvitoListaAggiungi(["a", "b"], "a")), '["b","a"]', "niente doppioni");
+  eq(JSON.stringify(A.cavoInvitoListaAggiungi(["a", 5, null], "b")), '["a","b"]', "valori strani scartati");
+  eq(JSON.stringify(A.cavoInvitoListaAggiungi(["a"], null)), '["a"]', "bozza senza id: non si ricorda");
+  const lunga = Array.from({ length: 80 }, (_, i) => "p" + i);
+  const r = A.cavoInvitoListaAggiungi(lunga, "nuovo"); eq(r.length, 60, "tetto"); eq(r[r.length - 1], "nuovo"); ok(!r.includes("p0"), "i più vecchi escono");
+});
+t("invito cavi discreto: non compare subito, niente barra a tutta larghezza, ricordo e ritiro nel sorgente", () => {
+  const srcUX = readFileSync(join(root, "index.template.html"), "utf8");   /* (la costante globale più sotto non è ancora nata qui) */
+  const i0 = srcUX.indexOf("function funzRenderAvviso(){"), i1 = srcUX.indexOf("function funzApriFinestra(){");
+  const render = srcUX.slice(i0, i1);
+  const ramo = render.slice(render.indexOf("if(cavo){"), render.indexOf('var k=mancano.join(",")'));
+  ok(/cavoInvitoArma\(\)/.test(ramo) && !/innerHTML\s*=\s*'/.test(ramo), "il ramo cavo arma l'attesa e non costruisce il chip da sé");
+  ok(/cavoInvitoRicordato\(/.test(ramo), "il ramo cavo rispetta il ricordo per progetto");
+  const mostra = srcUX.slice(srcUX.indexOf("function cavoInvitoMostra(){"), srcUX.indexOf("(function(){\n  var segna"));
+  ok(/setTimeout\(function\(\)\{ cavoInvitoRitira\(true\); \}, CAVO_DURATA_MS\)/.test(mostra), "si ritira da solo e lo ricorda");
+  ok(/funz-quieto/.test(mostra) && /id="funzNonOra"[^>]*>✕/.test(mostra), "chip quieto con ✕");
+  ok(!/<b>cavi, metri e potenza/.test(srcUX) && !/vb-si" id="funzAccendi">Mostra cavi e corrente/.test(srcUX), "via grassetto e pulsante pieno");
+  ok(/cavoCorrenteAccendi\(\)/.test(mostra), "«Mostra» fa quello di sempre");
+  ok(/\["pointerdown","keydown","wheel","touchstart"\]/.test(srcUX), "l'attesa guarda clic, tasti, rotella e tocco");
+  ok(/#funzBanner\.funz-quieto\{left:12px;top:auto;bottom:12px;transform:none/.test(stylesCss), "chip in basso a sinistra, non sopra il disegno");
+  ok(/@media \(prefers-reduced-motion:reduce\)\{ #funzBanner\.funz-quieto\{animation:none\}/.test(stylesCss), "senza animazioni se richiesto");
 });
 t("exportNudgeAggiorna: compare una volta, «✕» e l'export lo spengono, mai senza i requisiti", () => {
   const old = { doc: A.document, ls: A.localStorage, st: A.state, inSess: A.exportNudgeInSessione, mm: A.matchMedia, cons: A.__consultMode };
