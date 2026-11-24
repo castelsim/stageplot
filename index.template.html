@@ -28017,7 +28017,9 @@ svg.addEventListener("pointerdown", function(e){
        vale come doppio click. */
     var _h1=e.target.closest(".cab-hit,.cab-seg-hit"), _h2=e.target.closest(".elec-hit,.elec-seg-hit"), _h3=e.target.closest(".mond-hit,.mond-seg-hit");
     if(_h1 && state.cab && state.cab.on) _dcCab={fam:"cab", key:_h1.getAttribute("data-cab")};
-    else if(_h2 && state.elec && state.elec.on) _dcCab={fam:"elec", key:_h2.getAttribute("data-el")};
+    else if(_h2 && state.elec && state.elec.on){ var _k2=_h2.getAttribute("data-el");
+      _dcCab=(String(_k2).indexOf("fd:")===0) ? {fam:"feed", key:String(_k2).slice(3)} : {fam:"elec", key:_k2};   /* linea principale: «Segmenta» sta in elec.feeds[id], non in elec.manual (che dropOrphanLinks pulisce) */
+    }
     else if(_h3 && state.mond && state.mond.on) _dcCab={fam:"mond", key:_h3.getAttribute("data-mond")};
   }
   if(_dcCab && _dcCab.key && cabRouteMode()!=="orto" && lastDown && lastDown.cab===_dcCab.key && Date.now()-lastDown.t<400
@@ -28026,7 +28028,7 @@ svg.addEventListener("pointerdown", function(e){
     drag={mode:"none"};   /* il rilascio che segue non deve essere letto come clic sul vuoto (deselezionava il cavo) */
     try{ svg.setPointerCapture(e.pointerId); }catch(_e){}
     cabSegToggle(_dcCab.fam, _dcCab.key);
-    var _segNow=cabSegOn(_dcCab.fam==="elec" ? (state.elec&&state.elec.manual) : (_dcCab.fam==="mond" ? (state.mond&&state.mond.manual) : (state.cab&&state.cab.manual)), _dcCab.key);
+    var _segNow=cabSegOn(_dcCab.fam==="feed" ? (state.elec&&state.elec.feeds) : _dcCab.fam==="elec" ? (state.elec&&state.elec.manual) : (_dcCab.fam==="mond" ? (state.mond&&state.mond.manual) : (state.cab&&state.cab.manual)), _dcCab.key);
     showToast(_segNow ? "Cavo segmentato \u2014 trascina i lati per modellarlo" : "Cavo diritto");
     return;
   }

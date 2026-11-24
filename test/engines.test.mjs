@@ -40453,6 +40453,7 @@ t("ingresso corrente: il documento in inglese lo traduce (nome, riga «Alimentaz
     eq(A.docTesto("Ingresso corrente"), "Power inlet", "personalizzato");
     eq(A.docTesto("Alimentazione: Ingresso corrente (rete)"), "Power supply: Power inlet (mains)", "riga del PDF");
     eq(A.docTesto("Ingresso corrente DX (indicata dal teatro)"), "Power inlet R (specified by venue)", "riga del rider");
+    eq(A.docTesto("Alimentazione: Ingresso corrente (rete) (indicata dal teatro)"), "Power supply: Power inlet (mains) (specified by venue)", "riga intera del rider: niente «(network)»");
   } finally { delete A.state.docLang; }
   reset();
 });
@@ -40611,5 +40612,27 @@ t("linea principale: «Segmenta» in stile Diretti scrive in feeds[id].seg, non 
   } finally { delete A.state.cab.route; A.selElec = null; reset(); }
 });
 
+t("linea principale: il doppio clic la segmenta (famiglia feed), il segno resta dopo salva-riapri; senza correzione la voce spariva", () => {
+  const { d } = scenaFeed();
+  A.state.cab.route = "dir"; A.__elecRes = null;
+  try {
+    ok(/\{fam:"feed", key:String\(_k2\)\.slice\(3\)\}/.test(appjs), "il gestore del doppio clic passa fam feed per fd:");
+    A.cabSegToggle("feed", d.id);
+    const json = A.docToJSON(); A.loadDoc(JSON.parse(json));
+    eq(A.state.elec.feeds[d.id].seg, 1, "dopo salva-riapri il segno c'è");
+    eq(A.elecStyleFor("fd:" + d.id), "orto", "e la linea è squadrata");
+    A.dropOrphanLinks(A.state); ok(A.state.elec.feeds && A.state.elec.feeds[d.id], "dropOrphanLinks non lo cancella");
+    // la via sbagliata (fam elec, chiave fd:) scriveva in elec.manual e veniva cancellata
+    A.cabSegToggle("elec", "fd:" + d.id); A.dropOrphanLinks(A.state);
+    ok(!A.state.elec.manual || !A.state.elec.manual["fd:" + d.id], "la voce elec.manual fd: viene pulita (è il difetto che il gestore ora evita)");
+  } finally { delete A.state.cab.route; reset(); }
+});
+t("ingresso corrente: legenda — la riga «Stagebox suggerito» solo se il layer audio è acceso", () => {
+  ok(/layerShown\("cabin"\)\) righeLg\.push\(\["lg-box"/.test(appjs), "la terza riga dipende dal layer cavi audio");
+  ok(/righeLg=\[\["lg-in","Ingresso corrente"\],\["lg-feed"/.test(appjs), "le prime due righe sono fisse");
+});
+t("linea principale: la firma della cache dei fasci include `feeds`", () => {
+  ok(/state\.elec\.uplinks\|\|null, state\.elec\.feeds\|\|null/.test(appjs), "firma di cabOccupancy con feeds");
+});
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
