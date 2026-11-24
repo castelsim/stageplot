@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.11.23";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.11.24";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -1454,6 +1454,16 @@
   .elec-supply text{fill:#fff;font-size:10px;font-weight:700;letter-spacing:.3px}
   .elec-warn{fill:none;stroke:#dc2626;stroke-width:2.5;stroke-dasharray:4 3;pointer-events:none}
   .elec-supplyhit{fill:transparent;pointer-events:all;cursor:grab}
+  #svg .elec-supply-scr{scale:var(--lblK,1)}   /* etichetta dell'ingresso a schermo: corpo minimo come i nomi (nell'export niente) */
+  .layer-legend{display:flex;flex-direction:column;align-items:stretch;gap:3px;font-size:11px;line-height:1.3;color:var(--n-500,#57534e);padding:4px 2px}
+  .layer-legend .lg-row{display:flex;align-items:center;gap:7px}
+  .layer-legend .lg-sw{flex:0 0 22px;height:10px;box-sizing:border-box;border-radius:3px}
+  .layer-legend .lg-in{background:#92400e;border:1.5px solid #7c2d12}
+  .layer-legend .lg-feed{height:0;border-top:3px dashed #d97706;border-radius:0}
+  .layer-legend .lg-box{background:rgba(13,148,136,.12);border:1.6px dashed #0d9488}
+  body.dark .layer-legend .lg-feed{border-top-color:#fbbf24}
+  body.dark .layer-legend .lg-in{background:#b45309;border-color:#fbbf24}
+  body.dark .layer-legend .lg-box{border-color:#5eead4}
   body.dark .elec-line{stroke:#f59e0b}
   body.dark .elec-feed,body.dark .elec-line.elec-cee{stroke:#fbbf24}
   /* monitoraggio digitale (fuchsia) */

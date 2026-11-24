@@ -40423,5 +40423,66 @@ t("Esporta: ricorda l'ultimo formato scelto (per progetto, poi l'ultimo, riserva
   ok(/sp_pdfFormato/.test(appjs) && /pdfFormatoApplica\(\)/.test(appjs), "la finestra lo applica all'apertura");
 });
 
+/* ====== CABLAGGI CHIARI (24/11/2026), lotto A: nomi, etichetta a schermo, tooltip, legenda ==========
+   «Allaccio rete / quadro gen.» e «Alimentazione DX/SX» non dicevano cosa fosse quel rettangolo marrone:
+   ora «Ingresso corrente». Il testo nuovo vale anche nei PDF; tooltip e legenda MAI nell'export. */
+console.log("\n— Cablaggi chiari: l'ingresso corrente —");
+function elecConIngresso(kind) {
+  reset();
+  const d = add("distro32", 700, 300); add("comboamp", 640, 360);
+  A.state.cab.on = false; A.state.elec.on = true; A.state.elec.mode = "auto";
+  A.state.elec.supply = kind === "custom" ? { kind: "custom", x: 100, y: 700 } : { kind };
+  A.__elecRes = null; A.layerSoloUI = {}; A.layerAccOpen = null;
+  return d;
+}
+t("ingresso corrente: i quattro nomi nuovi (rete, DX, SX, personalizzato)", () => {
+  const nomi = { rete: "Ingresso corrente (rete)", right: "Ingresso corrente DX", left: "Ingresso corrente SX", custom: "Ingresso corrente" };
+  Object.keys(nomi).forEach((k) => { elecConIngresso(k); eq(A.elecSupplyPoint().name, nomi[k], "nome di " + k); });
+  reset();
+});
+t("ingresso corrente: i nomi vecchi non esistono più", () => {
+  ["rete", "right", "left", "custom"].forEach((k) => { elecConIngresso(k); ok(!/Allaccio|Alimentazione/.test(A.elecSupplyPoint().name), k + ": " + A.elecSupplyPoint().name); });
+  reset();
+});
+t("ingresso corrente: il documento in inglese lo traduce (nome, riga «Alimentazione:», rider)", () => {
+  A.state.docLang = "en";
+  try {
+    eq(A.docTesto("Ingresso corrente (rete)"), "Power inlet (mains)", "rete");
+    eq(A.docTesto("Ingresso corrente DX"), "Power inlet R", "DX");
+    eq(A.docTesto("Ingresso corrente SX"), "Power inlet L", "SX");
+    eq(A.docTesto("Ingresso corrente"), "Power inlet", "personalizzato");
+    eq(A.docTesto("Alimentazione: Ingresso corrente (rete)"), "Power supply: Power inlet (mains)", "riga del PDF");
+    eq(A.docTesto("Ingresso corrente DX (indicata dal teatro)"), "Power inlet R (specified by venue)", "riga del rider");
+  } finally { delete A.state.docLang; }
+  reset();
+});
+t("ingresso corrente: nell'export niente tooltip e stessa geometria (92 x 26); a schermo tooltip e riquadro che cresce", () => {
+  elecConIngresso("rete");
+  const prima = A.__cabStatic;
+  try {
+    A.__cabStatic = true; A.__elecRes = null;
+    const ex = A.elecMarkup();
+    ok(ex.indexOf("elec-supply") >= 0, "l'ingresso c'è");
+    ok(ex.indexOf("<title>") < 0, "export: nessun <title>");
+    ok(ex.indexOf("elec-supply-scr") < 0, "export: nessuna classe di scala a schermo");
+    ok(/class="elec-supply"><rect [^>]*width="92" height="26"/.test(ex), "export: rettangolo 92 x 26 come prima");
+    ok(ex.indexOf("Ingresso corrente (rete)") >= 0, "export: la stringa nuova");
+    A.__cabStatic = false; A.__elecRes = null;
+    const sc = A.elecMarkup();
+    ok(/<title>Ingresso corrente: da qui parte/.test(sc), "schermo: tooltip dell'ingresso");
+    ok(sc.indexOf("elec-supply-scr") >= 0, "schermo: gruppo scalato col corpo minimo");
+    const w = +/class="elec-supply elec-supply-scr"[^>]*><rect [^>]*width="([\d.]+)"/.exec(sc)[1];
+    ok(w > 92, "schermo: il riquadro cresce col testo (" + w + ")");
+  } finally { A.__cabStatic = prima; }
+  reset();
+});
+t("ingresso corrente: legenda a 3 righe solo nel corpo del layer Elettrico, mai in un export", () => {
+  ok(/\.id="elecLegend"/.test(appjs), "la legenda esiste nel pannello layer");
+  ok(/if\(L\.id==="elec"\)\{ var lg=document\.createElement/.test(appjs), "solo per il layer elec");
+  ok(/Linea di alimentazione principale \(si sposta\)/.test(appjs) && /Stagebox suggerito \(cavi audio\)/.test(appjs), "testi delle righe");
+  const doc = A.docToJSON();
+  ok(doc.indexOf("elecLegend") < 0 && doc.indexOf("Linea di alimentazione principale (si sposta)") < 0, "la legenda non entra nel documento");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

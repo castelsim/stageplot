@@ -19483,8 +19483,9 @@ function elecSupplyPoint(){
   var gen=(state.items||[]).filter(elecIsGen)[0];
   if(gen) return {kind:"gen", name:"Generatore "+GEN_KVA[gen.type]+" kVA", x:gen.x, y:gen.y, kva:GEN_KVA[gen.type]};   /* generatore sul palco = sorgente (vince) */
   if(!sp) return null;
-  var nm={rete:"Allaccio rete / quadro gen.", right:"Alimentazione DX", left:"Alimentazione SX", custom:"Alimentazione", gen:"Generatore"};
-  var p={kind:sp.kind, name:nm[sp.kind]||"Alimentazione"};
+  /* CABLAGGI CHIARI (24/11/2026): «Ingresso corrente» = dove la corrente entra nel palco (era «Allaccio rete / quadro gen.», «Alimentazione DX/SX») */
+  var nm={rete:"Ingresso corrente (rete)", right:"Ingresso corrente DX", left:"Ingresso corrente SX", custom:"Ingresso corrente", gen:"Generatore"};
+  var p={kind:sp.kind, name:nm[sp.kind]||"Ingresso corrente"};
   if(sp.kind==="custom"){ p.x=sp.x; p.y=sp.y; }
   else if(sp.kind==="right"){ p.x=W-30; p.y=D-40; }
   else if(sp.kind==="left"){ p.x=30; p.y=D-40; }
@@ -19623,8 +19624,13 @@ function elecMarkup(){
     var bTop = d.auto ? 42 : Math.max(24, ((d.it && d.it.d) || 40)/2 + 22);
     s+='<g class="elec-badge"><rect x="'+(d.x-bw/2)+'" y="'+(d.y-bTop)+'" width="'+bw+'" height="15" rx="7"/><text x="'+d.x+'" y="'+(d.y-bTop+11)+'" text-anchor="middle">'+esc(bt)+'</text></g>';
   });
-  if(R.supply){ var h=R.supply; s+='<g class="elec-supply"><rect x="'+(h.x-46)+'" y="'+(h.y-13)+'" width="92" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>'
-    +'<rect class="elec-supplyhit" data-elecsupply="1" x="'+(h.x-48)+'" y="'+(h.y-15)+'" width="96" height="30" rx="6"/></g>'; }
+  if(R.supply){ var h=R.supply;
+    /* A SCHERMO (non nell'export: geometria identica a prima, cambia solo la stringa) l'etichetta cresce col testo
+       e col corpo minimo (--lblK, come i nomi): a zoom normale si legge; ha un tooltip che dice cos'è e che si sposta. */
+    var scrS=!window.__cabStatic, hwS=scrS?Math.max(92, 14+String(h.name).length*6.2):92;
+    var ttS=scrS?'<title>'+(h.kind==="gen"?'Generatore: sorgente di corrente del palco. Trascinalo dove sta davvero.':'Ingresso corrente: da qui parte l\u2019alimentazione del palco. Trascinalo dove c\u2019\u00e8 davvero la presa o il quadro del luogo.')+'</title>':'';
+    s+='<g class="elec-supply'+(scrS?' elec-supply-scr':'')+'"'+(scrS?' style="transform-origin:'+h.x+'px '+h.y+'px"':'')+'><rect x="'+(h.x-hwS/2)+'" y="'+(h.y-13)+'" width="'+hwS+'" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>'
+    +'<rect class="elec-supplyhit" data-elecsupply="1" x="'+(h.x-hwS/2-2)+'" y="'+(h.y-15)+'" width="'+(hwS+4)+'" height="30" rx="6">'+ttS+'</rect></g>'; }
   R.unassigned.forEach(function(u){ s+='<circle class="elec-warn" cx="'+u.it.x+'" cy="'+u.it.y+'" r="14"/>'; });
   s+='</g>';
   return s;
@@ -33821,6 +33827,13 @@ function renderLayerRow(L, container){
         bt.setAttribute("aria-pressed", cabRouteMode()===o[0]?"true":"false");
         bt.addEventListener("click", function(e){ e.stopPropagation(); cabSetRoute(o[0]); }); rt.appendChild(bt); });
       body.appendChild(rt); }
+    /* CABLAGGI CHIARI (24/11/2026): legenda a 3 righe nel layer Elettrico — solo interfaccia, mai nei PDF */
+    if(L.id==="elec"){ var lg=document.createElement("div"); lg.className="layer-adv layer-legend"; lg.id="elecLegend"; lg.setAttribute("role","note");
+      var righeLg=[["lg-in","Ingresso corrente"],["lg-feed","Linea di alimentazione principale (si sposta)"]];
+      if(typeof layerShown==="function" && layerShown("cabin")) righeLg.push(["lg-box","Stagebox suggerito (cavi audio)"]);
+      righeLg.forEach(function(r){ var row=document.createElement("div"); row.className="lg-row"; var sw=document.createElement("span"); sw.className="lg-sw "+r[0]; sw.setAttribute("aria-hidden","true");
+        var tx=document.createElement("span"); tx.textContent=r[1]; row.appendChild(sw); row.appendChild(tx); lg.appendChild(row); });
+      body.appendChild(lg); }
     var secEl=accKey?document.getElementById(accKey):null;
     if(secEl) body.appendChild(secEl);
     _mkReset();   /* l'azzeramento chiude il corpo: è l'ultima cosa, e chiede conferma */
