@@ -2725,6 +2725,40 @@ body.viewmode.consult-viewer.cl-view #props #chanlist{ display:block; max-width:
 #variantAll .mi small{opacity:.6;margin-left:auto}
 /* variante con contenuto uguale a un'altra (06/10): una nota piccola, non un allarme */
 .hdr-variants .vtab-eq{margin-left:6px;font-size:10px;font-weight:500;opacity:.6;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;display:inline-block}
+/* VERSIONI (24/11/2026, lotto 1): pallino e scritta dello stato nella scheda, ⚠ per i numeri doppi. Colori = quelli degli stati (PROJECT_STATUSES). */
+.hdr-variants .vtab-st{display:inline-flex;align-items:center;gap:4px;margin-left:7px;font-size:10px;font-weight:600;vertical-align:middle;color:var(--text-2)}
+.hdr-variants .vtab-dot{width:7px;height:7px;border-radius:50%;background:#6b7280;display:inline-block;flex:0 0 auto}
+.hdr-variants .vtab-st-revisione .vtab-dot{background:#d97706}
+.hdr-variants .vtab-st-approvato .vtab-dot{background:#0d9488}
+.hdr-variants .vtab-st-superato .vtab-dot{background:#94a3b8}
+.hdr-variants .vtab-dup{margin-left:5px;font-size:11px;color:#b45309}
+header.bar-compatta .hdr-variants .vtab-stt{display:none}
+header.bar-compatta .hdr-variants .vtab-st{margin-left:4px}
+#variantMenu .mi:disabled,#variantMenu .mi[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
+/* Versione chiusa (Inviata / Approvata / Superata): la scena si guarda e si ristampa, non si tocca. Il banner sta sopra il palco, senza spostare niente. */
+#verBanner{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:30;box-sizing:border-box;max-width:min(94%,760px);display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:7px 12px;border:1px solid #d97706;border-radius:10px;background:color-mix(in srgb,#d97706 13%,var(--surface));color:var(--text);font-size:13px;line-height:1.35;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+#verBanner[hidden]{display:none}
+#verBanner .vb-dot{width:9px;height:9px;border-radius:50%;background:#d97706;flex:0 0 auto}
+#verBanner .vb-testo{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1 1 220px}
+#verBanner .vb-testo span{font-size:12px;color:var(--text-2)}
+#verBanner .vb-az{display:flex;gap:6px;flex:0 0 auto}
+#verBanner button{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:7px;padding:5px 11px;font-weight:600;font-size:12px;cursor:pointer}
+#verBanner button:first-child{background:var(--accent);border-color:var(--accent);color:#fff}
+@media (max-width:600px){ #verBanner{top:6px;padding:6px 9px;gap:6px} #verBanner .vb-testo span{display:none} #verBanner button{padding:5px 8px} }
+body.ver-chiusa #catalog{pointer-events:none;opacity:.55}
+body.ver-chiusa #props input,body.ver-chiusa #props select,body.ver-chiusa #props textarea,body.ver-chiusa #props button,
+body.ver-chiusa #inRows input,body.ver-chiusa #inRows select,body.ver-chiusa #inRows textarea,body.ver-chiusa #inRows button,
+body.ver-chiusa #outRows input,body.ver-chiusa #outRows select,body.ver-chiusa #outRows textarea,body.ver-chiusa #outRows button,
+body.ver-chiusa #rdSedie,body.ver-chiusa #rdSistema,body.ver-chiusa #rdLuci,body.ver-chiusa #rdPersonale,body.ver-chiusa #rdNote,body.ver-chiusa #rdCamerini,body.ver-chiusa #rdParcheggi,
+body.ver-chiusa #rdMateriali,body.ver-chiusa #rdDistinta,body.ver-chiusa #rdLuciNoFumo,body.ver-chiusa #rdLuciSeparata,body.ver-chiusa #rdLuciLeggii,body.ver-chiusa #rdDotazioni input{pointer-events:none;opacity:.7}
+/* restano vivi: chiudere il pannello e l'area di stampa (è del documento, serve a ristampare) */
+body.ver-chiusa #props #propsGrab,body.ver-chiusa #props #areaEditPanel input,body.ver-chiusa #props #areaEditPanel button,body.ver-chiusa #props #areaEditPanel select{pointer-events:auto;opacity:1}
+body.ver-chiusa #bUndo,body.ver-chiusa #bRedo,body.ver-chiusa #mUndo,body.ver-chiusa #mRedo{pointer-events:none;opacity:.5}
+body.ver-chiusa .rot-handle,body.ver-chiusa .rs-handle,body.ver-chiusa .mz-vtx,body.ver-chiusa .mz-mid,body.ver-chiusa .cab-seg-hit,body.ver-chiusa .cab-endpt-hit,body.ver-chiusa .venue-img{pointer-events:none!important}
+.share-invito{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface-raised);font-size:12px;color:var(--text-2)}
+.share-invito[hidden]{display:none}
+.share-invito .btn{margin-left:auto;font-size:12px}
 .hdr-variants .vtab-add:hover{background:var(--accent-tint)}
 .hdr-variants .vtab:focus-visible,.hdr-variants .vtab-add:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
 .var-menu .mi-danger{color:var(--danger)}
@@ -4547,21 +4581,25 @@ body.dark .pdf-export .px-det-b{color:#6fd3c6}
     <label for="evLuogo" class="ev-l">Luogo</label><input type="text" id="evLuogo" class="ev-i" placeholder="Es. Teatro Comunale, Vicenza" maxlength="80">
     <div class="ev-hint">Facoltativi — se li scrivi, finiscono nell'intestazione del PDF e su ogni lista.</div>
   </div>
-  <!-- 14/09 — Le varianti come SCHEDE, sempre in vista. Segnalazione di Simone: la barra compariva
+  <!-- 14/09 — Le versioni (fino al 24/11/2026 «varianti») come SCHEDE, sempre in vista. Segnalazione di Simone: la barra compariva
        solo dalla seconda variante («secondo me dovrebbe essere sempre lì, magari in modo più
        elegante»); scelta la B fra tre proposte provate nell'intestazione vera. Una scheda per
        variante: toccare un'altra la apre, toccare quella attiva apre Rinomina/Duplica/Elimina, doppio
        clic rinomina, «+» ne crea una copia. Le schede le scrive `variantTabsHtml`. -->
-  <span class="hdr-variants" id="variantBar" role="tablist" aria-label="Varianti del progetto" hidden></span>
+  <span class="hdr-variants" id="variantBar" role="tablist" aria-label="Versioni del progetto" hidden></span>
   <div class="hdrmenu var-menu" id="variantMenu" role="menu" hidden>
     <button type="button" class="mi" data-vm="ren">Rinomina…</button>
-    <button type="button" class="mi" data-vm="new">Duplica in una nuova variante</button>
+    <button type="button" class="mi" data-vm="new">Nuova versione da questa</button>
     <button type="button" class="mi" data-vm="diff">Cosa cambia rispetto a…</button>
+    <button type="button" class="mi" data-vm="st-bozza">Segna come Bozza</button>
+    <button type="button" class="mi" data-vm="st-revisione">Segna come Inviata</button>
+    <button type="button" class="mi" data-vm="st-approvato">Segna come Approvata</button>
+    <button type="button" class="mi" data-vm="num" hidden>Numera 1, 2, 3…</button>
     <hr>
-    <button type="button" class="mi mi-danger" data-vm="del">Elimina variante</button>
+    <button type="button" class="mi mi-danger" data-vm="del">Elimina versione</button>
   </div>
-  <div class="hdrmenu var-menu var-all" id="variantAll" role="menu" aria-label="Tutte le varianti" hidden></div>
-  <select id="projStatus" class="hdr-status" title="Stato del progetto (bozza → in revisione → approvato)"></select>
+  <div class="hdrmenu var-menu var-all" id="variantAll" role="menu" aria-label="Tutte le versioni" hidden></div>
+  <select id="projStatus" class="hdr-status" title="Stato di questa versione (Bozza → Inviata → Approvata)" aria-label="Stato della versione"></select>
   <input type="text" id="projApprovedBy" class="hdr-approver" placeholder="firmato da…" title="Chi ha approvato il progetto" hidden>
   <input type="text" id="luogo" hidden>
   <span class="doc-chip" id="docState" role="status" hidden></span>
@@ -4646,7 +4684,7 @@ body.dark .pdf-export .px-det-b{color:#6fd3c6}
   <button class="mi" data-file="rubrica"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="15" height="18" rx="2"/><path d="M22 7h-3M22 12h-3M22 17h-3"/><circle cx="11.5" cy="10" r="2.2"/><path d="M7.8 17c.8-1.9 2.2-2.8 3.7-2.8s2.9.9 3.7 2.8"/></svg>La mia rubrica…</button>
   <hr>
   <button class="mi" data-file="save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salva<span class="kbd">⌘S</span></button>
-  <button class="mi" data-file="variant-new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="8.5" y="14" width="7" height="7" rx="1"/><path d="M6.5 10v2M17.5 10v2M12 12v2"/></svg>Nuova variante (scena)</button>
+  <button class="mi" data-file="variant-new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="8.5" y="14" width="7" height="7" rx="1"/><path d="M6.5 10v2M17.5 10v2M12 12v2"/></svg>Nuova versione</button>
   <hr>
   <div class="dsg-row"><span class="dsg-t" id="dsgTD">Disegno di tutto il progetto</span><div class="dsg-seg" role="radiogroup" aria-labelledby="dsgTD"><button type="button" role="radio" data-dsg="seduto">Seduto</button><button type="button" role="radio" data-dsg="piedi">In piedi</button><button type="button" role="radio" data-dsg="strumento">Strumento</button></div></div>
   <hr>
@@ -4666,6 +4704,8 @@ body.dark .pdf-export .px-det-b{color:#6fd3c6}
 <div id="a11yLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 <main><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="application" tabindex="0"
   aria-label="Area di lavoro del palco. Premi Tab per scorrere gli elementi, Invio per modificarne le proprietà, le frecce per spostare l'elemento selezionato (5 cm; con Maiusc 25 cm; con Opzione o Alt 1 cm), R per ruotare, D per duplicare, Canc per eliminare, Esc per deselezionare."></svg>
+<!-- Versione chiusa (24/11/2026): Inviata / Approvata / Superata = scena in sola lettura. Il banner sta SOPRA il palco, senza spostare niente. -->
+<div id="verBanner" role="status" hidden><span class="vb-dot" aria-hidden="true"></span><span class="vb-testo"><b id="verBannerTit"></b><span id="verBannerNota"></span></span><span class="vb-az"><button type="button" data-vb="nuova">Nuova versione</button><button type="button" data-vb="bozza">Rimetti in Bozza</button></span></div>
 <!-- «Adatta» sul palco, in basso a destra: stava nella barra alta, lontano dal pollice e dal disegno
      che rimette in vista. Solo col telefono; col mouse c'è #bFit nella barra degli strumenti. -->
 <button class="m-fit" id="mFit" type="button" aria-label="Adatta lo zoom al palco" title="Adatta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
@@ -6046,9 +6086,9 @@ body.dark .pdf-export .px-det-b{color:#6fd3c6}
   <div id="versPanel" hidden>
     <div id="versBox">
       <h3>Punti di ripristino</h3>
-      <p class="prop-hint" style="margin:0 0 8px">Tornare indietro nel tempo, nello stesso progetto. Non sono varianti (altre disposizioni) né copie (altri progetti).</p>
+      <p class="prop-hint" style="margin:0 0 8px">Tornare indietro nel tempo, nello stesso progetto. Non sono versioni (altre disposizioni della serata) né copie (altri progetti).</p>
       <div style="display:flex;gap:6px;margin-bottom:10px">
-        <input aria-label="Nome della versione" type="text" id="versName" placeholder="Nome (es. prova suono)…">
+        <input aria-label="Nome del punto di ripristino" type="text" id="versName" placeholder="Nome (es. prova suono)…">
         <button class="btn primary" id="versSave" style="white-space:nowrap;font-size:12px;flex-shrink:0">Salva</button>
       </div>
       <div id="versList"></div>
@@ -6244,14 +6284,16 @@ body.dark .pdf-export .px-det-b{color:#6fd3c6}
     <button class="mrow" data-act="cloud"><span class="mrow-t">I miei progetti</span></button>
     <!-- Varianti (13/09). Sul telefono l'header è nascosto per intero, e con lui la barra delle
          varianti e la voce «Nuova variante» del menu File. -->
-    <div class="mrow mrow-var" id="mVarRow" hidden><span class="mrow-t" id="mVarHead">Variante</span><select id="mVariantSel" aria-label="Variante attiva"></select></div>
+    <div class="mrow mrow-var" id="mVarRow" hidden><span class="mrow-t" id="mVarHead">Versione</span><select id="mVariantSel" aria-label="Versione attiva"></select></div>
     <div class="mrow-acts" id="mVarGrid">
       <button data-act="var-ren" id="mVarRen" hidden>Rinomina</button>
       <button data-act="var-diff" id="mVarDiff" hidden>Cosa cambia…</button>
       <button data-act="var-del" id="mVarDel" class="danger" hidden>Elimina</button>
-      <button data-act="var-new">+ Nuova variante</button>
+      <button data-act="var-new">+ Nuova versione</button>
+      <button data-act="var-num" id="mVarNum" hidden>Numera 1, 2, 3…</button>
     </div>
-    <p class="mrow-nota">Variante = la stessa serata con un'altra disposizione. Un altro progetto: «Duplica» in I miei progetti.</p>
+    <div class="mrow mrow-var" id="mVarStatoRow"><span class="mrow-t">Stato</span><select id="mVarStato" aria-label="Stato della versione"></select></div>
+    <p class="mrow-nota">Versione = la stessa serata con un'altra disposizione. Un altro progetto: «Duplica» in I miei progetti.</p>
     <button class="mrow" data-act="share"><span class="mrow-t">Condividi</span></button>
     <button class="mrow" data-act="new"><span class="mrow-t">Nuovo progetto</span></button>
     <div class="mrow mrow-col mrow-dsg"><span class="mrow-t" id="dsgTM">Disegno di tutto il progetto</span><div class="mseg dsg-seg" role="radiogroup" aria-labelledby="dsgTM"><button type="button" role="radio" data-dsg="seduto">Seduto</button><button type="button" role="radio" data-dsg="piedi">In piedi</button><button type="button" role="radio" data-dsg="strumento">Strumento</button></div></div>
@@ -6623,6 +6665,8 @@ body.dark .pdf-export .px-det-b{color:#6fd3c6}
              riga il pannello prometteva una cosa e il link ne faceva un'altra. -->
         <div id="sharePermLock" class="share-permnote" hidden>Il progetto è bloccato: finché resta bloccato i contatti <b>non</b> vengono pubblicati nel link, anche se la casella è spuntata.</div>
       </div>
+      <!-- Dopo Condividi (24/11/2026): «Inviata» scatta qui, a un clic e mai da sola. Compare solo per una Bozza. -->
+      <div id="shareInvitoInviata" class="share-invito" hidden><span>Hai mandato questa versione?</span><button type="button" class="btn" id="shareSegnaInviata">Segna come Inviata</button></div>
       <div id="shareStatus" style="font-size:12px;color:var(--accent);min-height:14px;margin-top:8px"></div>
     </div>
     <!-- elementi nascosti usati dal pannello laterale -->
@@ -6967,7 +7011,7 @@ body.dark .pdf-export .px-det-b{color:#6fd3c6}
              Nessuno = documento e nome del file identici a prima. In PRODUZIONE vanno solo i definitivi (regola di Diego, 23/01/2025). -->
         <label for="pdfStatoDoc">Stato del documento <span class="px-dove">nel piè e nel file</span></label>
         <select id="pdfStatoDoc"><option value="">Nessuno</option><option value="provvisorio">Provvisorio</option><option value="definitivo">Definitivo</option></select>
-        <div class="hdr-saved" id="pdfVersioneFrase">Versione = il numero (v1, v2…) scritto sul PDF. Per un'altra disposizione della stessa serata usa «+ Variante»; per un altro progetto, «Duplica» in I miei progetti.</div>
+        <div class="hdr-saved" id="pdfVersioneFrase">Versione = il numero (v1, v2…) scritto sul PDF. Per un'altra disposizione della stessa serata usa «+ Versione»; per un altro progetto, «Duplica» in I miei progetti.</div>
         <!-- FORMATO DELLA CHANNEL LIST (12/11/2026): Semplice (di sempre) o Service (pagine da 32/48, A4 orizzontale). Impostazione dell'export, non del progetto. -->
         <div id="pdfListaFmt" hidden>
           <label for="pdfListaFormato">Formato della channel list</label>

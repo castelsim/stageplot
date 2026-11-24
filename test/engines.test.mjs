@@ -6824,7 +6824,7 @@ t("ricerca: liste e varianti si trovano per nome", () => {
   for (const q of ["channel list", "input list", "lista canali", "channel"]) eq(primo(q), "Channel list", q);
   eq(primo("monitor list"), "Monitor list"); eq(primo("lista monitor"), "Monitor list");
   ok(primo("monitor") !== "Monitor list", "«monitor» resta dei wedge");
-  eq(primo("nuova variante"), "Nuova variante"); eq(primo("variante"), "Nuova variante");
+  eq(primo("nuova versione"), "Nuova versione"); eq(primo("versione"), "Nuova versione"); eq(primo("nuova variante"), "Nuova versione"); eq(primo("variante"), "Nuova versione");   /* «variante» resta come sinonimo (24/11/2026) */
   ok(!A.__qaSearch("channel list").length, "la finestrella del doppio clic resta per gli elementi");
   ok(!A.__spSearch("channel").some((e) => e.nome === "Esporta"), "«channel» non deve più dare Esporta");
   ok(/search\.addEventListener\("keydown", function\(ev\)\{ catCercaInvio\(ev, results\); \}\);/.test(appjs), "la ricerca passa Invio a catCercaInvio");
@@ -21337,7 +21337,7 @@ t("Versione: il campo vince sul titolo; valori non validi cadono sul titolo; sal
   A.state.titolo = "Bibione"; A.state.versione = undefined; eq(A.versioneNumero(), 0, "né campo né titolo: nessuna versione");
   const n = (x) => A.normalizeState({ _v: A.SCHEMA_VERSION, items: [], inputs: [], outputs: [], versione: x }).versione;
   eq([n(4), n("4"), n(0), n("abc"), n(1000), n(2.5), n(undefined)], [4, 4, undefined, undefined, undefined, undefined, undefined], "normalizzazione: intero da 1 a 999, altrimenti assente");
-  ok(A.CAMPI_DOCUMENTO.indexOf("versione") > -1, "vale per tutte le scene");
+  ok(A.CAMPI_DOCUMENTO.indexOf("versione") === -1, "Versioni L1 (24/11): il numero è della versione, non del documento");
   reset(); A.state.versione = 7;
   A.loadDoc(JSON.parse(A.docToJSON()));
   eq(A.state.versione, 7, "salva e riapri");
@@ -25425,7 +25425,7 @@ t("sul telefono il primo avvio e' una schermata sola", () => {
   ok(/\.wl-mob-setup,\.wl-vuoto\{display:none\}/.test(s), "col mouse le parti del telefono non si vedono");
 });
 
-t("le varianti sono schede sempre in vista, anche con una variante sola", () => {
+t("le versioni (ex varianti) sono schede sempre in vista, anche con una versione sola", () => {
   /* 14/09 — Simone: la barra delle varianti compariva solo dalla seconda, «dovrebbe essere sempre lì,
      magari in modo più elegante». Scelta la B (schede) fra tre proposte nell'intestazione vera. */
   const v0 = A.VARIANTS, a0 = A.activeVar;
@@ -25435,13 +25435,13 @@ t("le varianti sono schede sempre in vista, anche con una variante sola", () => 
     eq((una.match(/class="vtab[ "]/g) || []).length, 1, "una variante, una scheda");
     ok(/aria-selected="true" data-var="v1"/.test(una), "ed e' quella attiva");
     /* dal 18/09 la parola sta in un'etichetta che sui portatili stretti cede (resta «+» con l'aria-label) */
-    ok(/>\+<span class="hdr-lbl"> Variante<\/span><\/button>$/.test(una), "con una sola variante il «+» dice cosa fa");
+    ok(/>\+<span class="hdr-lbl"> Versione<\/span><\/button>$/.test(una), "con una sola versione il «+» dice cosa fa");
     A.VARIANTS = [{ id: "v1", name: "Piena" }, { id: "v2", name: "<Ridotta>" }, { id: "v3", name: "" }]; A.activeVar = "v2";
     const tre = A.variantTabsHtml();
     eq((tre.match(/role="tab"/g) || []).length, 3, "tre varianti, tre schede");
     ok(/class="vtab on" role="tab" aria-selected="true" data-var="v2"/.test(tre) && /class="vtab" role="tab" aria-selected="false" data-var="v1"/.test(tre), "attiva in rilievo, le altre no");
     ok(/&lt;Ridotta&gt;/.test(tre) && !/<Ridotta>/.test(tre), "il nome si scrive come testo, non come markup");
-    ok(/>Variante 3<\/button>/.test(tre), "senza nome si chiama col suo numero");
+    ok(/>Versione 3<span class="vtab-st vtab-st-bozza">/.test(tre), "senza nome si chiama «Versione N» col suo numero, e dice lo stato");
     ok(/>\+<\/button>$/.test(tre), "con piu' varianti il «+» e' solo un +");
   } finally { A.VARIANTS = v0; A.activeVar = a0; }
   const rvb = appjs.slice(appjs.indexOf("function renderVariantBar(){"), appjs.indexOf("function variantTabsHtml(){"));
@@ -29732,7 +29732,7 @@ t("variante identica: la variante appena creata con «Nuova variante» non si se
   A.state.items[0].x -= 50;
   eq(Object.keys(A.variantiUguali()).length, 2, "tornata uguale dopo aver divergito: ora e' un doppione vero");
   A.switchVariant(A.VARIANTS[0].id);
-  eq(A.variantiUguali()[idNuova], "Variante 1", "anche cambiando variante");
+  eq(A.variantiUguali()[idNuova], "Versione 1", "anche cambiando versione (la gemella si nomina con l'etichetta della scheda)");
 });
 t("variante identica: una sola variante o scene diverse, nessun avviso; firma economica (cache)", () => {
   reset();
@@ -31677,8 +31677,8 @@ t("confronto: varianti identiche (anche con id diversi) → «nessuna differenza
   eq([r.aggiunti, r.tolti, r.spostati, r.rinominati, r.misure, r.ruotati, r.palco], [[], [], [], [], [], [], []], "tutti gli elenchi vuoti");
   const h = A.confrontoHtml(r, "Piena", {}, false);
   ok(/Nessuna differenza negli elementi e nel palco\./.test(h) && !/cfr-sez/.test(h), "il testo dice che non cambia niente");
-  ok(!/non sono identici/.test(h), "senza altre differenze non aggiunge la nota");
-  ok(/non sono identici in altri dettagli/.test(A.confrontoHtml(r, "Piena", {}, true)), "con differenze minori lo dice");
+  ok(!/non sono identic/.test(h), "senza altre differenze non aggiunge la nota");
+  ok(/non sono identiche in altri dettagli/.test(A.confrontoHtml(r, "Piena", {}, true)), "con differenze minori lo dice");
   eq(A.confrontaVarianti(null, undefined).uguali, true, "stati vuoti o mancanti: nessun errore");
 });
 t("confronto: stesso id ma tipo diverso non è lo stesso elemento; con due candidati si prende il più vicino", () => {
@@ -31697,10 +31697,10 @@ t("confronto: finestra aperta su due varianti uguali negli elementi ma non ident
     A.document = { getElementById: (id) => (id === "varDiffModal" ? ov : null) };
     A.cfrDisegna();
     ok(/Nessuna differenza negli elementi e nel palco/.test(box.innerHTML), "nessuna differenza fra gli elementi");
-    ok(/non sono identici in altri dettagli/.test(box.innerHTML), "ma i due progetti non sono gemelli: lo dice");
+    ok(/non sono identiche in altri dettagli/.test(box.innerHTML), "ma le due versioni non sono gemelle: lo dice");
     docDueVarianti([itV("i1", { label: "Voce", x: 100 })], [itV("i1", { label: "Voce", x: 100 })]);
     A.cfrDisegna();
-    ok(!/non sono identici/.test(box.innerHTML), "gemelli veri: niente nota");
+    ok(!/non sono identic/.test(box.innerHTML), "gemelli veri: niente nota");
   } finally { A.document = oldDoc; }
 });
 t("confronto: palco con le stesse misure ma forma o altezze diverse", () => {
@@ -35614,12 +35614,13 @@ t("Lotto 6 (E-2/E-3): Nuovo, Apri copia e Apri progetto non sono rossi; i dialog
   ok(/document\.getElementById\("cfmOk"\)\.className = cl\.ok/.test(srcUX), "confirmDialog rimette la classe del pulsante a ogni apertura (non resta primario per il dialogo dopo)");
 });
 t("Lotto 6 (E-3): una frase spiega Variante / Versione / Copia / Punto di ripristino, e compare dove si sceglie", () => {
-  for (const w of ["Variante", "Versione", "Copia", "Punto di ripristino"]) ok(A.FRASE_COPIE.includes(w), "la frase nomina «" + w + "»");
-  ok(/<summary>Variante, versione, copia: che differenza c/.test(srcUX) && /esc\(FRASE_COPIE\)/.test(srcUX), "nell'elenco progetti");
-  ok(/id="pdfVersioneFrase">Versione = il numero/.test(srcUX) && /«\+ Variante»/.test(srcUX), "sotto il campo Versione dell'export");
+  for (const w of ["Versione", "Copia", "Punto di ripristino"]) ok(A.FRASE_COPIE.includes(w), "la frase nomina «" + w + "»");
+  ok(!A.FRASE_COPIE.includes("Variante"), "dal 24/11/2026 «Variante» non c'è più: la stessa serata con un'altra disposizione è una Versione");
+  ok(/<summary>Versione, copia, punto di ripristino: che differenza c/.test(srcUX) && /esc\(FRASE_COPIE\)/.test(srcUX), "nell'elenco progetti");
+  ok(/id="pdfVersioneFrase">Versione = il numero/.test(srcUX) && /«\+ Versione»/.test(srcUX), "sotto il campo Versione dell'export");
   ok(/<h3>Punti di ripristino<\/h3>\s*<p class="prop-hint"[^>]*>Tornare indietro nel tempo/.test(srcUX), "nel pannello Punti di ripristino");
-  ok(/title="Nuova variante: la stessa serata con un\\'altra disposizione/.test(srcUX), "sul «+ Variante»");
-  ok(/class="mrow-nota">Variante = la stessa serata/.test(srcUX), "nel menu del telefono");
+  ok(/title="Nuova versione: la stessa serata con un\\'altra disposizione/.test(srcUX), "sul «+ Versione»");
+  ok(/class="mrow-nota">Versione = la stessa serata/.test(srcUX), "nel menu del telefono");
 });
 t("Lotto 8 (C-3): l'invito «PDF in scala» non compare mentre c'è un banner sul palco (cavi, vista, stai riaprendo)", () => {
   const base = { altrui: false, mobile: false, stato: "0", elementi: 50, giaInSessione: false };
@@ -41055,6 +41056,268 @@ t("vista sola lettura 24/11 (iPhone): sul telefono la barra del viewer è l'unic
   ok(/body\.viewmode #mTop\{display:none!important\}/.test(mq), "l'intestazione mobile non copre più la barra");
   ok(/#viewBar\{[^}]*flex-wrap:nowrap/.test(mq) && /#viewRole\{[^}]*min-width:0;[^}]*text-overflow:ellipsis/.test(mq), "una riga sola, titolo che si accorcia");
   ok(/#viewCopy\{[^}]*min-height:32px/.test(mq), "pulsante cliccabile");
+});
+
+/* ───────── VERSIONI, lotto 1 (24/11/2026): «varianti» → «Versioni», numero e stato per versione, versione chiusa in sola lettura ───────── */
+console.log("\nVersioni L1 (24/11/2026):");
+const docVersioni = (stati) => {   /* un documento con una scena per ogni voce di `stati` = {name?, titolo?, versione?, status?, statusAt?, items?} */
+  A.loadDoc({ _doc: 1, active: "w0", variants: stati.map((x, i) => ({ id: "w" + i, name: x.name == null ? "Variante " + (i + 1) : x.name,
+    state: Object.assign({ titolo: x.titolo == null ? "Concerto" : x.titolo, items: x.items || [itV("i1")], inputs: [], outputs: [] },
+      x.versione != null ? { versione: x.versione } : {}, x.status ? { status: x.status } : {}, x.statusAt ? { statusAt: x.statusAt } : {}) })) });
+};
+const senzaForeign = (fn) => { const f = A.foreignDoc; A.foreignDoc = () => false; try { return fn(); } finally { A.foreignDoc = f; A.__verChiusa = false; } };
+t("Versioni L1 · etichetta della scheda: nome di serie → «Versione N» col numero vero; nome scritto → «vN · Nome»; senza numero solo «Nome»", () => {
+  const E = (v, i) => A.versioneEtichettaScheda(v, i);
+  eq(E({ name: "Variante 2", state: { versione: 7 } }, 1), "Versione 7", "il numero scritto vince sulla posizione e sul nome di serie");
+  eq(E({ name: "Versione 5", state: { versione: 2 } }, 4), "Versione 2", "il numero vince anche su un «Versione 5» scritto a mano");
+  eq(E({ name: "", state: { versione: 3 } }, 0), "Versione 3", "nome vuoto");
+  eq(E({ name: "Secondo tempo", state: { versione: 3 } }, 1), "v3 · Secondo tempo", "nome dell'utente + numero");
+  eq(E({ name: "Secondo tempo", state: { titolo: "Cena" } }, 1), "Secondo tempo", "nome dell'utente senza numero: solo il nome");
+  eq(E({ name: "Variante 1", state: { titolo: "Bibione v5" } }, 0), "Versione 5", "senza campo si legge il «vN» del titolo");
+  eq(E({ name: "Variante 1", state: { titolo: "Bibione" } }, 2), "Versione 3", "né campo né titolo: la posizione");
+  eq(E({ name: "Variante 1" }, 0), "Versione 1", "scena senza stato: la posizione");
+  eq(E({ name: "<b>x</b>", state: { versione: 9 } }, 0), "v9 · <b>x</b>", "il nome resta testo (lo scrive esc() chi lo disegna)");
+});
+t("Versioni L1 · la versione è PER VERSIONE: esce da CAMPI_DOCUMENTO, non si propaga, ogni scena esporta col suo numero", () => {
+  reset(); ok(A.CAMPI_DOCUMENTO.indexOf("versione") === -1, "versione non è un campo di documento");
+  ok(A.CAMPI_DOCUMENTO.indexOf("titolo") > -1 && A.CAMPI_DOCUMENTO.indexOf("statoDoc") > -1, "titolo e stato del foglio restano comuni");
+  docVersioni([{ versione: 2 }, { versione: 5 }]);
+  eq(A.versioneNumero(), 2, "la prima scena è la v2"); A.syncActiveVariant();
+  eq(A.VARIANTS[1].state.versione, 5, "la sincronizzazione non riscrive il numero dell'altra scena");
+  A.switchVariant("w1"); eq(A.versioneNumero(), 5, "la seconda scena è la v5");
+  A.versioneImposta("6"); A.syncActiveVariant();
+  eq([A.VARIANTS[0].state.versione, A.VARIANTS[1].state.versione], [2, 6], "cambiare il numero tocca solo la versione attiva");
+  const salvato = JSON.parse(A.docToJSON());
+  eq(salvato.variants.map((v) => v.state.versione), [2, 6], "salva: ognuna col suo");
+  A.loadDoc(salvato); A.switchVariant("w0"); eq(A.versioneNumero(), 2); A.switchVariant("w1"); eq(A.versioneNumero(), 6, "riapri: ognuna col suo");
+  /* l'export dei progetti esistenti resta quello di prima: stessa versione in tutte le scene → stesso piè e stesso nome file */
+  docVersioni([{ versione: 3 }, { versione: 3 }]);
+  const nome0 = A.nomeFilePdf("a4", 50, "landscape", new Date(2026, 10, 24)); A.switchVariant("w1");
+  eq(A.nomeFilePdf("a4", 50, "landscape", new Date(2026, 10, 24)), nome0, "stesso numero, stesso nome file");
+  ok(/- v3 del 24-11-2026 - /.test(nome0), "il nome file porta «v3 del …»: " + nome0);
+  eq(A.versioneEtichetta(new Date(2026, 10, 24)), "v3 · 24/11/2026", "e il piè anche");
+  reset();
+});
+t("Versioni L1 · due versioni con lo stesso disegno sono «uguali» anche se numero e stato sono diversi (la firma non li conta)", () => {
+  reset();
+  docVersioni([{ versione: 1 }, { versione: 2, status: "revisione", statusAt: "2026-11-20" }]);
+  eq(Object.keys(A.variantiUguali()).length, 2, "stesso contenuto: avviso su entrambe");
+  const firme = A.VARIANTS.map((v) => A.firmaScena(v.state)); eq(firme[0], firme[1], "la firma esclude versione, status, statusAt");
+  docVersioni([{ versione: 1 }, { versione: 1, items: [itV("i1", { x: 500 })] }]);
+  eq(Object.keys(A.variantiUguali()).length, 0, "disegno diverso: nessun avviso, anche col numero uguale");
+  reset();
+});
+t("Versioni L1 · stato per versione: etichette Bozza/Inviata/Approvata/Superata, data del cambio, valori salvati e rider PDF invariati", () => {
+  eq(["bozza", "revisione", "approvato", "superato"].map(A.versioneStatoEtichetta), ["Bozza", "Inviata", "Approvata", "Superata"], "le scritte nuove");
+  eq(A.PROJECT_STATUSES.map((s) => s.label), ["Bozza", "In revisione", "Approvato", "Superato"], "le etichette del rider PDF non cambiano (export identici)");
+  eq(["bozza", "revisione", "approvato", "superato", "x", undefined].map((k) => A.versioneChiusa({ status: k })), [false, true, true, true, false, false], "chiuse: Inviata, Approvata, Superata");
+  reset(); docVersioni([{ versione: 1 }, { versione: 2 }]);
+  A.setProjectStatus("revisione");
+  eq(A.state.status, "revisione"); ok(/^\d{4}-\d{2}-\d{2}$/.test(A.state.statusAt), "la data del cambio: " + A.state.statusAt);
+  A.syncActiveVariant(); eq(A.VARIANTS[1].state.status || "bozza", "bozza", "lo stato è della versione attiva: l'altra resta com'è");
+  eq(A.variantTabsHtml().match(/vtab-st-(\w+)/g), ["vtab-st-revisione", "vtab-st-bozza"], "ogni scheda dice il suo stato");
+  A.setProjectStatus("approvato"); eq(A.state.status, "approvato"); ok(A.state.statusAt, "anche Approvata scrive la data");
+  const n = (x) => A.normalizeState({ _v: A.SCHEMA_VERSION, items: [], inputs: [], outputs: [], status: x.status, statusAt: x.statusAt });
+  eq([n({ status: "revisione", statusAt: "2026-11-20" }).statusAt, n({ status: "bozza", statusAt: "2026-11-20" }).statusAt, n({ status: "revisione", statusAt: "20/11/2026" }).statusAt, n({ status: "revisione" }).statusAt],
+    ["2026-11-20", undefined, undefined, undefined], "normalizzazione: la data solo se valida e solo fuori da Bozza");
+  eq(A.versioneBannerTitolo({ name: "Variante 1", state: { versione: 2 } }, 0, { status: "revisione", statusAt: "2026-11-20", versione: 2 }), "Versione 2 · Inviata il 20/11/2026", "titolo del banner");
+  eq(A.versioneBannerTitolo({ name: "Variante 1", state: { versione: 2 } }, 0, { status: "revisione", versione: 2 }), "Versione 2 · Inviata", "stato vecchio senza data: niente «il …»");
+  reset();
+});
+t("Versioni L1 · tornare a Bozza chiede conferma e toglie la data; «Superata» si mostra solo se la versione lo è già", () => {
+  reset(); docVersioni([{ versione: 3, status: "revisione", statusAt: "2026-11-20" }]);
+  const cd = A.window.confirmDialog; let chiesto = null; A.window.confirmDialog = (o) => { chiesto = o; return { then: () => {} }; };
+  try {
+    A.setProjectStatus("bozza"); ok(chiesto, "chiede conferma"); eq(A.state.status, "revisione", "finché non conferma resta Inviata");
+    ok(/Chi ha ricevuto la v3 avrebbe un foglio diverso/.test(chiesto.message), "il motivo: " + chiesto.message);
+    A.setProjectStatus("bozza", true); eq(A.state.status, "bozza"); eq(A.state.statusAt, undefined, "la data si toglie");
+    chiesto = null; A.setProjectStatus("revisione"); eq(chiesto, null, "da Bozza a Inviata non chiede niente");
+  } finally { A.window.confirmDialog = cd; }
+  eq(A.statoVersioneOptions("bozza").match(/value="(\w+)"/g), ['value="bozza"', 'value="revisione"', 'value="approvato"'], "tre stati proposti");
+  ok(/value="superato"/.test(A.statoVersioneOptions("superato")), "Superata solo se già superata");
+  reset();
+});
+t("Versioni L1 · versione chiusa: la scena è in sola lettura, i campi del documento no; ultima rete che rimette la scena com'era", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1, status: "revisione", statusAt: "2026-11-20", items: [itV("i1"), itV("i2", { x: 400 })] }, { versione: 2 }]);
+  eq(A.scenaChiusaDecidi({ status: "revisione" }, false), true); eq(A.scenaChiusaDecidi({ status: "revisione" }, true), false, "nel viewer / consulenza non si applica");
+  eq(A.scenaChiusaDecidi({ status: "bozza" }, false), false);
+  A.applicaVersioneChiusa(); eq(A.__verChiusa, true, "versione Inviata: sola lettura");
+  eq(A.addItem("cantante"), null, "addItem non aggiunge");
+  eq(A.custPosaModello("x", 0, 0).length, 0, "nemmeno la posa di un modello");
+  /* modifica «dimenticata»: la scena cambia e poi si salva */
+  A.state.items[0].x = 999; A.state.titolo = "Concerto nuovo"; A.state.luogo = "Teatro";
+  eq(A.proteggiVersioneChiusa(), true, "la rete interviene");
+  eq(A.state.items[0].x, 100, "la scena è tornata com'era");
+  eq([A.state.titolo, A.state.luogo], ["Concerto nuovo", "Teatro"], "titolo e luogo (campi del documento) restano quelli nuovi");
+  eq(A.state.status, "revisione", "lo stato non si perde"); eq(A.state.statusAt, "2026-11-20");
+  eq(A.proteggiVersioneChiusa(), false, "scena uguale: niente da fare");
+  A.state.versione = 4;
+  eq(A.proteggiVersioneChiusa(), false, "cambiare il numero non è toccare la scena");
+  A.state.rider = Object.assign({}, A.state.rider, { sedie: "12 sedie nere" });
+  eq(A.proteggiVersioneChiusa(), true, "il rider è della versione: non si cambia"); eq(A.state.rider.sedie || "", "");
+  /* una versione in Bozza si modifica liberamente */
+  A.switchVariant("w1"); A.applicaVersioneChiusa(); eq(A.__verChiusa, false, "la versione 2 è una Bozza");
+  A.state.items[0].x = 777; eq(A.proteggiVersioneChiusa(), false, "Bozza: nessuna rete"); ok(A.addItem("cantante"), "e si aggiunge");
+  /* se ci si sposta o lo stato cambia, la scena da difendere non è più quella: nessun ripristino fuori posto */
+  A.switchVariant("w0"); A.applicaVersioneChiusa(); A.state.items[0].x = 5; A.switchVariant("w1");
+  eq(A.proteggiVersioneChiusa(), false, "un'altra versione non viene toccata dalla rete di questa");
+  /* scena da difendere ormai stantia (lo stato è cambiato: la versione è tornata Bozza, il flag non è ancora stato ricalcolato): la rete non rimette niente */
+  A.switchVariant("w0"); A.applicaVersioneChiusa(); eq(A.__verChiusa, true);
+  A.state.status = "bozza"; A.state.items[0].x = 321;
+  eq(A.proteggiVersioneChiusa(), false, "chiave diversa: nessun ripristino fuori posto"); eq(A.state.items[0].x, 321, "la modifica resta");
+  reset();
+}));
+t("Versioni L1 · versione chiusa: Annulla/Ripeti, tasti, trascinamenti e interfaccia sono fermi (stesso schema del blocco progetto)", () => {
+  senzaForeign(() => { reset(); docVersioni([{ versione: 1, status: "approvato" }]); A.applicaVersioneChiusa();
+    const u0 = A.undoStack.length; A.undo(); A.redo(); eq(A.undoStack.length, u0, "undo/redo non fanno niente"); reset(); });
+  ok(/function undo\(\)\{ if\(window\.__verChiusa\)\{ verChiusaAvviso\(\); return; \}/.test(appjs) && /function redo\(\)\{ if\(window\.__verChiusa\)\{ verChiusaAvviso\(\); return; \}/.test(appjs), "undo e redo guardano __verChiusa");
+  ok(/var _soloLettura = window\.__projLocked \|\| window\.__verChiusa \|\| document\.body\.classList\.contains\("viewmode"\)/.test(appjs), "i tasti (frecce, Canc, r, d, ⌘V…) come nel viewer");
+  ok(/if\(window\.__verChiusa && drag\.mode!=="pan" && drag\.mode!=="marquee" && drag\.mode!=="cabmarquee" && drag\.mode!=="none" && drag\.mode!=="calibnav"\)\{ drag\.moved=false;/.test(appjs), "il trascinamento: solo vista e selezione a riquadro");
+  ok(/if\(window\.__projLocked \|\| window\.__verChiusa\) return null;/.test(appjs) && /if\(window\.__projLocked \|\| window\.__verChiusa\) return \[\];/.test(appjs), "i punti d'ingresso (addItem, posa modello)");
+  ok(/if\(window\.__verChiusa\) proteggiVersioneChiusa\(\);/.test(appjs), "la rete scatta in syncActiveVariant, cioè prima di salvare, esportare, condividere");
+  const css = stylesCss.slice(stylesCss.indexOf("body.ver-chiusa #catalog"));
+  ok(/body\.ver-chiusa #catalog\{pointer-events:none/.test(css) && /body\.ver-chiusa #props input[\s\S]*#inRows input[\s\S]*#outRows input[\s\S]*#rdSedie[\s\S]*\{pointer-events:none/.test(css), "catalogo, proprietà, channel list e rider non si toccano");
+  ok(/body\.ver-chiusa \.rot-handle[\s\S]*\.cab-endpt-hit[\s\S]*\{pointer-events:none!important\}/.test(css), "le maniglie");
+  ok(/body\.ver-chiusa #props #propsGrab,body\.ver-chiusa #props #areaEditPanel input/.test(css), "restano vivi: chiudere il pannello e l'area di stampa");
+  ok(!/body\.ver-chiusa #titolo/.test(stylesCss), "il titolo (campo del documento) resta modificabile");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/<div id="verBanner" role="status" hidden>[\s\S]*data-vb="nuova"[\s\S]*data-vb="bozza"/.test(html), "il banner con «Nuova versione» e «Rimetti in Bozza»");
+  ok(/window\.__verChiusa=chiusa;/.test(appjs) && /cl\.toggle\("ver-chiusa", chiusa\)/.test(appjs), "la classe e il flag seguono lo stato");
+});
+t("Versioni L1 · nuova versione (il «+»): numero dopo l'ultimo, sempre Bozza; una sorgente senza numero lo riceve; la chiusa non si copia chiusa", () => {
+  reset(); A.loadDoc({ titolo: "Base", items: [], inputs: [], outputs: [] });
+  eq(A.versioneNumeroNuovo(), 2, "una sola scena senza numero: la nuova è la 2");
+  const id2 = A.createVariant();
+  eq(A.VARIANTS.map((v) => v.state.versione || A.state.versione), [1, 2], "la sorgente riceve 1, la nuova 2");
+  eq([A.VARIANTS[1].name, A.state.status, A.state.statusAt], ["Versione 2", "bozza", undefined], "nome di serie, Bozza");
+  A.setProjectStatus("revisione");
+  const id3 = A.createVariant();
+  eq([A.versioneNumero(), A.state.status, A.state.statusAt, A.state.approval.by], [3, "bozza", undefined, ""], "copiata da una versione Inviata: nasce Bozza, senza data né firma");
+  eq(A.VARIANTS.find((v) => v.id === id2).state.status, "revisione", "la precedente resta Inviata");
+  /* numeri non ordinati: il più alto +1 */
+  docVersioni([{ versione: 7 }, { versione: 2 }, {}]); eq(A.versioneNumeroNuovo(), 8, "massimo +1 (la posizione 3 non conta più del 7)");
+  docVersioni([{ titolo: "Cena v4" }, { titolo: "Cena v4" }]); eq(A.versioneNumeroNuovo(), 5, "anche il «vN» del titolo conta");
+  docVersioni([{ versione: 999 }]); const n0 = A.VARIANTS.length; eq(A.createVariant(), null, "a 999 non se ne crea"); eq(A.VARIANTS.length, n0);
+  reset();
+});
+t("Versioni L1 · numeri doppi (i progetti vecchi hanno lo stesso numero in tutte le scene): ⚠ sulla scheda e «Numera 1, 2, 3…» dopo un punto di ripristino", () => {
+  reset(); docVersioni([{ versione: 3 }, { versione: 3, name: "Secondo tempo" }, { versione: 5 }]);
+  eq(Object.keys(A.versioniNumeriDoppi()), ["w0", "w1"], "le due con lo stesso numero");
+  ok((A.variantTabsHtml().match(/vtab-dup/g) || []).length === 2, "il segno ⚠ solo su quelle due");
+  docVersioni([{ versione: 1 }, { versione: 2 }]); eq(Object.keys(A.versioniNumeriDoppi()), [], "numeri diversi: niente segno");
+  /* Numera */
+  docVersioni([{ versione: 3 }, { versione: 3, name: "Secondo tempo" }, { versione: 5 }]);
+  const sv = A.saveVersion; const punti = []; A.saveVersion = (nome) => { punti.push(nome); return true; };
+  try {
+    eq(A.numeraVersioni(), true); eq(punti, ["Prima di numerare le versioni"], "prima il punto di ripristino");
+    A.syncActiveVariant(); eq(A.VARIANTS.map((v) => v.state.versione), [1, 2, 3], "1, 2, 3 nell'ordine della barra");
+    eq(A.VARIANTS.map((v) => v.name), ["Variante 1", "Secondo tempo", "Variante 3"], "i nomi restano");
+    eq(Object.keys(A.versioniNumeriDoppi()), [], "niente più doppi");
+    docVersioni([{ versione: 3 }, { versione: 3 }]); A.saveVersion = () => false;
+    eq(A.numeraVersioni(), false, "senza punto di ripristino non numera"); eq(A.VARIANTS.map((v) => v.state.versione), [3, 3], "numeri intatti");
+  } finally { A.saveVersion = sv; }
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/data-vm="num" hidden>Numera 1, 2, 3…/.test(html) && /data-act="var-num" id="mVarNum" hidden>Numera 1, 2, 3…/.test(html), "la voce nel menu e sul telefono, nascosta finché non servono");
+  reset();
+});
+t("Versioni L1 · C1: il numero di una versione chiusa non cambia per nessuna via (box Esporta, Numera, Nuova versione)", () => senzaForeign(() => {
+  /* via 1: box «Versione» dell'Esporta */
+  reset(); docVersioni([{ versione: 3, status: "revisione" }]); A.applicaVersioneChiusa();
+  A.versioneImposta("9"); A.syncActiveVariant(); eq(A.state.versione, 3, "Inviata: versioneImposta non cambia il numero");
+  A.versioneImposta(""); eq(A.state.versione, 3, "né lo toglie");
+  ok(/_vc\.disabled=versioneNumeroBloccato\(\)/.test(appjs), "il campo #pdfVersione è disabilitato con versione chiusa");
+  docVersioni([{ versione: 3 }]); A.applicaVersioneChiusa(); A.versioneImposta("9"); eq(A.state.versione, 9, "Bozza: si cambia come sempre");
+  /* via 2: Numera */
+  docVersioni([{ versione: 3, status: "revisione" }, { versione: 3 }, { versione: 3 }]);
+  const sv = A.saveVersion; A.saveVersion = () => true;
+  try {
+    eq(A.numeraVersioni(), true); A.syncActiveVariant();
+    eq(A.VARIANTS.map((v) => v.state.versione), [3, 1, 2], "la Inviata resta v3, le Bozze prendono i numeri liberi in ordine");
+  } finally { A.saveVersion = sv; }
+  /* via 3: Nuova versione da sorgente chiusa senza numero */
+  docVersioni([{ titolo: "prova.pdf", status: "revisione" }]); A.syncActiveVariant();
+  ok(A.VARIANTS[0].state.versione == null, "premessa: la Inviata non ha numero");
+  A.createVariant(); const prima = A.VARIANTS.find((v) => v.id === "w0");
+  ok(prima.state.versione == null, "la sorgente chiusa non riceve un numero"); eq(prima.state.status, "revisione");
+  eq(A.VARIANTS.length, 2, "la nuova c'è"); ok(A.VARIANTS[1].state.versione >= 2, "la nuova ha il suo numero");
+  reset();
+}));
+t("Versioni L1 · eliminare: una versione chiusa non si elimina finché non torna Bozza", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1, status: "revisione" }, { versione: 2 }]);
+  A.syncActiveVariant(); const sv = A.saveVersion; A.saveVersion = () => true;
+  try {
+    eq(A.deleteVariant("w0"), false, "Inviata: no"); eq(A.VARIANTS.length, 2);
+    eq(A.deleteVariant("w1"), true, "Bozza: sì"); eq(A.VARIANTS.length, 1);
+  } finally { A.saveVersion = sv; }
+  ok(/del\.disabled=chiusa; del\.setAttribute\("aria-disabled"/.test(appjs), "la voce del menu è grigia");
+  reset();
+}));
+t("Versioni L1 · le scritte: Variante→Versione in barra, menu, telefono, ricerca, Esporta, pacchetto, finestre, aria-label", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="variantBar" role="tablist" aria-label="Versioni del progetto"/.test(html), "aria-label della barra");
+  ok(/data-vm="new">Nuova versione da questa<\/button>/.test(html) && /data-vm="del">Elimina versione<\/button>/.test(html) && /aria-label="Tutte le versioni"/.test(html), "menu della scheda");
+  ok(/data-vm="st-revisione">Segna come Inviata/.test(html) && /id="projStatus"[^>]*aria-label="Stato della versione"/.test(html), "stato nel menu e nella barra");
+  ok(/id="mVarHead">Versione<\/span><select id="mVariantSel" aria-label="Versione attiva"/.test(html) && />\+ Nuova versione<\/button>/.test(html) && /id="mVarStato"/.test(html), "telefono");
+  ok(/data-file="variant-new">[\s\S]{0,700}?Nuova versione<\/button>/.test(html), "menu File");
+  const vis = appjs.slice(appjs.indexOf("function variantTabsHtml(){"), appjs.indexOf("var VARIANTI_MENU_MIN=5;"));
+  ok(!/Variante/.test(vis) && /Passa alla versione/.test(vis) && /aria-label="Nuova versione"/.test(vis) && /title="Elenco di tutte le versioni"/.test(vis), "schede: nessuna «Variante» visibile");
+  ok(/Rinomina versione/.test(appjs) && /Nome della versione/.test(appjs) && /Eliminare la versione «/.test(appjs) && /È l'unica versione: non puoi eliminarla/.test(appjs), "rinomina ed elimina");
+  ok(/Questa versione rispetto a «/.test(appjs) && /Serve almeno un'altra versione da confrontare/.test(appjs), "confronto");
+  eq(A.__spSearch("variante").map((e) => e.nome).slice(0, 1), ["Nuova versione"], "la ricerca trova «variante» come sinonimo");
+  ok(/vr\.textContent=vn \? "Versione: "\+vn\+" \(la corrente\)/.test(appjs), "frase del pacchetto");
+  ok(/vtab-st vtab-st-/.test(appjs) && /V"\+\(VARIANTS\[i\] \? versioneNumeroDi\(VARIANTS\[i\], i\)\.n : i\+1\)/.test(appjs), "la barra compatta dice «V» + il numero vero");
+  ok(/\(vv\.length===1\?" versione":" versioni"\)/.test(appjs), "elenco progetti: «2 versioni»");
+});
+t("Versioni L1 · pacchetto: il nome di serie «Versione N» non si ripete nei file; «Variante N» dei progetti vecchi e i nomi scritti restano", () => {
+  reset(); const w = (name) => { A.VARIANTS = [{ id: "a", name: "Versione 1", state: A.state }, { id: "b", name, state: A.state }]; A.activeVar = "b"; return A.pacchettoVariante(); };
+  eq(w("Versione 2"), "", "nome di serie nuovo: omesso (il numero c'è già, «v2»)");
+  eq(w("  Versione 12 "), "", "con spazi");
+  eq(w("Variante 2"), "Variante 2", "i progetti esistenti: nomi dei file invariati");
+  eq(w("Secondo tempo"), "Secondo tempo", "nome dell'utente: resta");
+  reset();
+});
+t("Versioni L1 · un progetto nuovo nasce alla versione 1; un documento che arriva da fuori (con numero, a più scene o legacy) resta com'è", () => {
+  reset();
+  const vuoto = (extra) => Object.assign({ titolo: "", luogo: "", stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] }, items: [], inputs: [], outputs: [] }, extra || {});   /* come i punti d'ingresso di «Nuovo» */
+  A.loadDoc({ titolo: "pre", items: [], inputs: [], outputs: [] });   /* come il test del confine documento: con un documento caricato e il cloud finto il DOM finto non gira a vuoto */
+  const cloud0 = A.__cloud; A.__cloud = { setCurrentId: () => {}, currentId: () => null, currentRev: () => null };
+  try {
+    A.beginNewDocument(vuoto(), { skipRecovery: true }); eq(A.state.versione, 1, "nuovo progetto: v1");
+    A.beginNewDocument(vuoto({ titolo: "X", versione: 4 }), { skipRecovery: true }); eq(A.state.versione, 4, "il suo numero vince");
+    A.beginNewDocument(vuoto({ titolo: "Y" }), { skipRecovery: true }); eq(A.state.versione, 1, "senza numero: v1");
+  } finally { A.__cloud = cloud0; }
+  A.loadDoc({ titolo: "Vecchio", items: [], inputs: [], outputs: [] }); eq(A.state.versione, undefined, "un progetto vecchio aperto non riceve niente");
+  ok(/var state = \{ titolo:"", luogo:"", versione:1,/.test(appjs), "anche il primo foglio vuoto all'apertura");
+  reset();
+});
+t("Versioni L1 · invito dopo Condividi: «Segna come Inviata» solo per una Bozza del progetto proprio, mai in automatico", () => {
+  eq(A.invitoInviataTesto({ status: "bozza", versione: 3 }, false), "Segna la v3 come Inviata");
+  eq(A.invitoInviataTesto({ titolo: "Cena v2" }, false), "Segna la v2 come Inviata", "numero dal titolo");
+  eq(A.invitoInviataTesto({}, false), "Segna come Inviata", "senza numero");
+  eq(A.invitoInviataTesto({ status: "revisione", versione: 3 }, false), "", "già Inviata: niente");
+  eq(A.invitoInviataTesto({ status: "bozza", versione: 3 }, true), "", "documento altrui (viewer): niente");
+  ok(/invitoInviataAggiorna\(_shareIsCurrent\);/.test(appjs) && /b\.addEventListener\("click", function\(\)\{ setProjectStatus\("revisione"\); invitoInviataAggiorna\(true\); \}\)/.test(appjs), "compare quando il link è pronto; un clic, e solo quello, la segna");
+  ok(!/function openShare[\s\S]{0,900}setProjectStatus\("revisione"\)/.test(appjs), "Condividi da solo non cambia lo stato");
+  ok(/<div id="shareInvitoInviata" class="share-invito" hidden>/.test(readFileSync(join(root, "app/index.html"), "utf8")), "la riga nel pannello Condividi");
+});
+t("Versioni L1 · punti di ripristino: niente parola «versione» nelle scritte visibili; chiavi locali e dati invariati", () => {
+  const sv = appjs.slice(appjs.indexOf("function saveVersion(name,includeImages){"), appjs.indexOf("function toggleVersionEdit(){"));
+  const visibile = sv.replace(/\/\*[\s\S]*?\*\//g, "").replace(/saveVersion|loadVersions|deleteVersion|toggleVersionEdit|renderVersionPanel|VER_KEY|venueImageBundleSig|venueRefForVersion|versionPanel|ripristinare una versione|Versione non|versioni\.|\bversion\b/g, "");
+  ok(!/Versione\b|versione salvat|versioni salvat|Nessuna versione/.test(visibile.replace(/Versione non valida/g, "")), "il pannello e i messaggi non dicono più «versione»");
+  ok(/name:name\|\|'Punto di ripristino'/.test(sv) && /Nessun punto di ripristino\./.test(sv) && /aria-label="Elimina il punto di ripristino"/.test(sv) && /Punto di ripristino non salvato/.test(sv) && /Punto di ripristino non valido/.test(sv), "le scritte");
+  ok(/potate===1\?" punto di ripristino è stato eliminato":" punti di ripristino sono stati eliminati"/.test(sv), "il messaggio dei punti potati");
+  ok(/saveVersion\("Salvato il "\+d\.getDate\(\)/.test(appjs), "il nome del salvataggio automatico");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/var VER_KEY=/.test(appjs) && /id="versPanel"/.test(html) && /function saveVersion\(name,includeImages\)/.test(appjs), "chiavi, id e funzioni restano");
+  ok(/Non sono versioni \(altre disposizioni della serata\) né copie \(altri progetti\)\./.test(html), "la frase del pannello");
+  ok(/"Punti di ripristino", "tornare a un punto precedente"/.test(appjs), "la voce di ricerca");
+});
+t("Versioni L1 · invarianti: nessuna chiave dati rinominata, involucro del documento e link intatti", () => {
+  for (const k of ["VARIANTS", "variantBar", "data-var=", "INVALID_VARIANTS", '"revisione"', "activeVar"]) ok(appjs.includes(k), k + " ancora presente");
+  reset(); docVersioni([{ versione: 1 }, { versione: 2, status: "revisione" }]);
+  const d = JSON.parse(A.docToJSON()); eq([d._doc, Array.isArray(d.variants), d.variants[1].state.status], [1, true, "revisione"], "involucro `{_doc, active, variants[{id,name,state}]}` e valore salvato «revisione»");
+  ok(/linkVistaCondivisa/.test(appjs) && /"\?view="/.test(appjs), "link ?view= presenti");
+  reset();
 });
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
