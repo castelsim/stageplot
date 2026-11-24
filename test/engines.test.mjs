@@ -40772,6 +40772,23 @@ t("PA passiva: caso carro — numeri prima/dopo (sub e 2 teste passivi, 3 finali
   eq(A.paAvvisoServe(A.state.items), false, "con i finali l'avviso non c'è");
   reset();
 });
+t("PA passiva: i kVA si scrivono con virgola o punto («6,3» = 6.3, mai 63); vuoto = tipo; testo non valido = invariato", () => {
+  eq(["6,3", "6.3", " 6,3 kVA ", "5", "1,5", "20"].map(A.kvaParse), [6.3, 6.3, 6.3, 5, 1.5, 20], "virgola e punto");
+  eq(["", "  "].map(A.kvaParse), [null, null], "vuoto = valore del tipo");
+  eq(["abc", "0", "-5", "0,5", "1001", "1.000", "6,3,1", "63000", "NaN"].map(A.kvaParse), Array(9).fill(undefined), "non valido = invariato");
+});
+t("PA passiva: il nome automatico del generatore segue i kVA senza scrivere it.label, anche in inglese", () => {
+  reset();
+  const g = add("gen20", 100, 100), nome = A.TYPES.gen20.nome;
+  g.kva = 5; const lab0 = g.label;
+  eq(A.lblText(nome, g, true), "Generatore 5 kVA", "IT: derivato da it.kva (anche arrivato da JSON)");
+  eq(g.label, lab0, "it.label non viene toccata");
+  g.kva = 6.3; eq(A.lblText(nome, g, true), "Generatore 6,3 kVA", "decimali con la virgola");
+  A.state.docLang = "en"; eq(A.lblText(nome, g, true), "Generator 6.3 kVA", "EN: tradotto");
+  delete A.state.docLang; delete g.kva; eq(A.lblText(nome, g, true), nome, "senza kVA scritti: nome di serie");
+  g.kva = 5; eq(A.lblText("Gruppo del Bar", g, true), "Gruppo del Bar", "un nome scritto dall'utente non si tocca");
+  reset();
+});
 t("PA passiva: Mackie Thump15A nel catalogo dei diffusori attivi, con la fonte del manuale ufficiale", () => {
   const d = A.AMP_DB.mackie_thump15a;
   ok(d && d.per.includes("topattivo") && /Mackie_Thump12A_Thump15A_OM/.test(d.fonte), "scheda con fonte");

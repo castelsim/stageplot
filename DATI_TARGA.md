@@ -540,4 +540,4 @@ Ogni PDF in `CONOSCENZA/pdf/datasheet/` è stato scaricato dal sito del costrutt
 rivenditore. La cartella `CONOSCENZA/` sta fuori dal repo: vive sul Mac di Simone.
 
 ## Mackie Thump15A (24/11/2026)
-Manuale ufficiale Thump12A/Thump15A (mackie.com/img/file_resources/Thump12A_Thump15A_OM.pdf, Specifications, p.16 del PDF): Line Input Power 220–240 V, 75 W; classe D 1300 W picco; 686×442×356 mm; 15,8 kg. Voce `mackie_thump15a` in AMP_DB (peso 21 kg con treppiede, convenzione FBT).
+Manuale ufficiale Thump12A/Thump15A (mackie.com/img/file_resources/Thump12A_Thump15A_OM.pdf, Specifications, p.16 del PDF): Line Input Power 75 W (reti 100–240 V); classe D 1300 W picco; 686×442×356 mm; 15,8 kg. Voce `mackie_thump15a` in AMP_DB (peso 21 kg con treppiede, convenzione FBT).
