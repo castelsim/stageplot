@@ -40722,7 +40722,7 @@ t("PA passiva: kVA del generatore modificabili; il carico si confronta con kVA �
   const P = A.elecPotenza();
   eq(P.gen.kw, 4, "5 kVA × 0,8 = 4 kW");
   eq(Math.round(P.gen.pctTip * 100), 13, "tipico 500 W su 4000 W = 12,5 % ≈ 13");
-  ok(/5 kVA/.test(P.genTxt), "il testo dice 5 kVA");
+  ok(/5 kVA/.test(P.genTxt), "il testo dice 5 kVA"); g.kva = 6.3; A.__elecRes = null; ok(/6,3 kVA/.test(A.elecPotenza().genTxt), "decimali con la virgola"); g.kva = 5; A.__elecRes = null;
   g.kva = 6.3; A.__elecRes = null; eq(Math.round(A.elecPotenza().gen.kw * 100) / 100, 5.04, "6,3 kVA ≈ 5,04 kW");
   reset();
 });

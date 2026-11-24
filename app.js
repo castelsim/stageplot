@@ -3289,7 +3289,7 @@ function elecPotenza(R){
   if(gen && maxW>0){
     var genW=gen.kva*1000*ELEC_COSFI, pc=function(w){ return Math.round(w/genW*100)+" %"; };
     genInfo={kva:gen.kva, kw:genW/1000, pctTip:tipW/genW, pctMax:maxW/genW, sopra:maxW>genW};
-    genTxt="Generatore sul palco: "+gen.kva+" kVA (circa "+elecKW(genW)+" con fattore di potenza "+String(ELEC_COSFI).replace(".",",")+", ipotesi). "
+    genTxt="Generatore sul palco: "+String(gen.kva).replace(".",",")+" kVA (circa "+elecKW(genW)+" con fattore di potenza "+String(ELEC_COSFI).replace(".",",")+", ipotesi). "
       +(maxW>tipW ? "Carico tipico "+elecKW(tipW)+" = "+pc(tipW)+", massimo "+elecKW(maxW)+" = "+pc(maxW) : "Carico "+elecKW(tipW)+" = "+pc(tipW))+"."
       +(genInfo.sopra ? " Il massimo supera la potenza del generatore." : "");
   }
@@ -18457,7 +18457,7 @@ function elecPannelloRighe(R){
 function elecSupplyPoint(){
   var sp=state.elec&&state.elec.supply, W=state.stage.w, D=state.stage.d;
   var gen=(state.items||[]).filter(elecIsGen)[0];
-  if(gen) return {kind:"gen", name:"Generatore "+genKvaOf(gen)+" kVA", x:gen.x, y:gen.y, kva:genKvaOf(gen)};   /* generatore sul palco = sorgente (vince) */
+  if(gen) return {kind:"gen", name:"Generatore "+String(genKvaOf(gen)).replace(".",",")+" kVA", x:gen.x, y:gen.y, kva:genKvaOf(gen)};   /* generatore sul palco = sorgente (vince) */
   if(!sp) return null;
   /* CABLAGGI CHIARI (24/11/2026): «Ingresso corrente» = dove la corrente entra nel palco (era «Allaccio rete / quadro gen.», «Alimentazione DX/SX») */
   var nm={rete:"Ingresso corrente (rete)", right:"Ingresso corrente DX", left:"Ingresso corrente SX", custom:"Ingresso corrente", gen:"Generatore"};
@@ -18845,7 +18845,7 @@ function electricEngine(){
      ne chiede il doppio. */
   if(supply && supply.kva){
     var _maxW=loads.reduce(function(s,l){ return s+wattMaxOf(l.it); },0), _kvaNeed=_maxW/1000/0.8;
-    if(_kvaNeed>supply.kva) issues.push({lvl:"err", msg:"Generatore "+supply.kva+" kVA sottodimensionato: nel caso peggiore servono circa "+Math.ceil(_kvaNeed)+" kVA (massimo "+elecKW(_maxW)+")."});
+    if(_kvaNeed>supply.kva) issues.push({lvl:"err", msg:"Generatore "+String(supply.kva).replace(".",",")+" kVA sottodimensionato: nel caso peggiore servono circa "+Math.ceil(_kvaNeed)+" kVA (massimo "+elecKW(_maxW)+")."});
   }
   /* Stessa `rule` della regola gemella in auditEngine: una sola voce, non due formulazioni.
      In scala (audit 27/07): sotto AUDIT_MIN_W siamo nell'ordine dell'ampli attaccato alla Schuko che
@@ -21362,7 +21362,7 @@ function renderRxPanel(it){
   kv.innerHTML=lines.map(function(l){ return "<div>"+esc(l)+"</div>"; }).join("");
 }
 /* Riga di aiuto dei kVA: kVA × cosφ = kW utili (la stessa formula del motore dei carichi). */
-function kvaAiuto(kva){ return kva+" kVA ≈ "+elecKW(kva*1000*ELEC_COSFI)+" utili (fattore di potenza "+String(ELEC_COSFI).replace(".",",")+"). Per un generatore da 5 kW scrivi circa 6,3."; }
+function kvaAiuto(kva){ return String(kva).replace(".",",")+" kVA ≈ "+elecKW(kva*1000*ELEC_COSFI)+" utili (fattore di potenza "+String(ELEC_COSFI).replace(".",",")+"). Per un generatore da 5 kW scrivi circa 6,3."; }
 function paPassivaPannello(it){
   var pw=document.getElementById("pPassWrap"), fw=document.getElementById("pFinaleChWrap"), kw=document.getElementById("pKvaWrap"), wh=document.getElementById("pWattHint");
   if(!pw||!fw||!kw) return;
@@ -23189,7 +23189,11 @@ document.getElementById("pWatt").addEventListener("change", function(){
 document.getElementById("pPass").addEventListener("change", function(){ var p=this.value==="p"; mutSelAll(function(it){ if(!PASSIVABILE[it.type]) return; if(p) it.pass=true; else delete it.pass; }); if(typeof renderProps==="function") renderProps(); });
 document.getElementById("pFinaleCh").addEventListener("change", function(){ var v=+this.value; mutSelAll(function(it){ if(it.type==="finale") it.ch=v; }); });
 document.getElementById("pKva").addEventListener("change", function(){ var v=parseFloat(String(this.value).replace(",","."));
-  mutSelAll(function(it){ if(GEN_KVA[it.type]==null) return; if(isFinite(v) && v>=1 && v<=1000 && Math.round(v*10)/10!==GEN_KVA[it.type]) it.kva=Math.round(v*10)/10; else delete it.kva; });
+  mutSelAll(function(it){ if(GEN_KVA[it.type]==null) return; var antico=genKvaOf(it);
+    if(isFinite(v) && v>=1 && v<=1000 && Math.round(v*10)/10!==GEN_KVA[it.type]) it.kva=Math.round(v*10)/10; else delete it.kva;
+    /* il nome automatico segue i kVA («Generatore 6,3 kVA»); un nome scritto dall'utente non si tocca */
+    var auto=new RegExp("^Generatore "+String(antico).replace(".","[.,]")+" kVA$");
+    if(!it.label || auto.test(it.label)) { var nk=genKvaOf(it); if(nk===GEN_KVA[it.type]) it.label=TYPES[it.type].nome; else it.label="Generatore "+String(nk).replace(".",",")+" kVA"; } });
   if(typeof renderProps==="function") renderProps(); });
 /* DS v2.1 — chips che pilotano una select nascosta (value + change: la logica esistente non cambia) */
 document.querySelectorAll(".chips[data-chips]").forEach(function(box){
