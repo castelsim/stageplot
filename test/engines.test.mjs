@@ -40851,7 +40851,25 @@ t("linee desktop 24/11: in stile «dir» trascinare una linea non segmentata la 
     eq(A.elecStyleFor(key), "orto", "ora ha i lati");
     ok(before !== JSON.stringify(A.state.elec), "lo stato cambia solo dopo il trascinamento");
     ok(!A.elecPreDragSegmenta("up:inesistente", { x: 0, y: 0 }), "chiave sconosciuta: nessun drag");
+    ok(!A.state.elec.uplinks["inesistente"], "chiave sconosciuta: nessuna voce `seg` rimasta nello stato");
+    ok(!A.state.elec.manual || !A.state.elec.manual["x:inesistente"], "idem per le linee dei carichi");
+    A.elecPreDragSegmenta("zz:nulla", { x: 0, y: 0 }); ok(!A.state.elec.manual || !A.state.elec.manual["zz:nulla"], "nessuna voce vuota lasciata");
+    /* il lato scelto è il PIÙ VICINO al punto premuto: due punti diversi → lati diversi */
+    const pf = dr.fp0, vicino = (p) => { let b = -1, bd = 1e18; for (let i = 0; i < pf.length - 1; i++) { const q = pf[i], r = pf[i + 1]; if (q[0] === r[0] && q[1] === r[1]) continue; const dx = r[0] - q[0], dy = r[1] - q[1], u = Math.max(0, Math.min(1, ((p.x - q[0]) * dx + (p.y - q[1]) * dy) / (dx * dx + dy * dy))), d = Math.hypot(p.x - q[0] - u * dx, p.y - q[1] - u * dy); if (d < bd) { bd = d; b = i; } } return b; };
+    const sup = (i) => { const q = pf[i], r = pf[i + 1]; return { x: (q[0] + r[0]) / 2, y: (q[1] + r[1]) / 2 }; };
+    const primo = pf.findIndex((q, i) => i < pf.length - 1 && !(q[0] === pf[i + 1][0] && q[1] === pf[i + 1][1])), ultimo = pf.length - 2;
+    ok(ultimo > primo, "il percorso a lati ha almeno due lati distinti");
+    const d1 = A.elecPreDragSegmenta(key, sup(primo)), d2 = A.elecPreDragSegmenta(key, sup(ultimo));
+    eq(d1.si, vicino(sup(primo)), "punto sul primo lato → primo lato"); eq(d2.si, vicino(sup(ultimo)), "punto sull'ultimo lato → ultimo lato");
+    ok(d1.si !== d2.si, "punti diversi → lati diversi");
   } finally { delete A.state.cab.route; A.selElec = null; reset(); }
+});
+t("linee desktop 24/11: cablaggio del trascinamento diretto (pointerdown arma, pointermove ≥4 px, pointerup senza save, mai col dito)", () => {
+  ok(/drag = \(elecStyleFor\(selElec\)==="dir" && !window\.__projLocked && e\.pointerType!=="touch"\) \? \{mode:"elecpre", key:selElec/.test(appjs), "pointerdown arma `elecpre` solo in «dir», progetto non bloccato, mai col touch");
+  ok(/if\(drag\.mode==="elecpre"\)\{[^\n]*\n\s*if\(Math\.hypot\(e\.clientX-drag\.px, e\.clientY-drag\.py\)<4\) return;\n\s*drag=elecPreDragSegmenta\(drag\.key, drag\.p0\) \|\| \{mode:"none"\};/.test(appjs), "pointermove: soglia 4 px, poi segmenta");
+  ok(/if\(drag && drag\.mode==="elecpre"\)\{ drag=null; return; \}/.test(appjs), "pointerup: clic fermo = solo selezione, nessun save");
+  ok(!/elecpre[^\n]*save\(\)/.test(appjs), "il clic fermo non salva");
+  ok(/function elecPreDragSegmenta\(kP, p0\)/.test(appjs) && /if\(dd<bd\)\{ bd=dd; best=qi; \}/.test(appjs), "scelta del lato più vicino");
 });
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

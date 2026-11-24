@@ -19551,14 +19551,17 @@ function elecUpVoce(id){ state.elec.uplinks=state.elec.uplinks||{}; if(!state.el
 function elecPreDragSegmenta(kP, p0){
   var manP = kP.indexOf("fd:")===0 ? elecFeedVoce(kP.slice(3)) : kP.indexOf("up:")===0 ? elecUpVoce(kP.slice(3)) : elecManual(kP);
   manP.seg=1; __elecRes=null;
+  function annulla(){   /* nessun lato da prendere: nessuna traccia di `seg` (né voce vuota) nello stato */
+    delete manP.seg; if(!Object.keys(manP).length){ var st = kP.indexOf("fd:")===0 ? state.elec.feeds : kP.indexOf("up:")===0 ? state.elec.uplinks : state.elec.manual, id = kP.indexOf("fd:")===0||kP.indexOf("up:")===0 ? kP.slice(3) : kP; if(st) delete st[id]; }
+    __elecRes=null; return null; }
   var RP=elecResult(), lP=((RP.loadLinks||[]).concat(RP.uplinks||[]).concat(RP.feeds||[])).filter(function(k){ return k.key===kP; })[0];
-  if(!lP) return null;
+  if(!lP) return annulla();
   var exP={}; if(lP.load&&lP.load.it) exP[lP.load.it.id]=1; if(lP.distro&&lP.distro.it) exP[lP.distro.it.id]=1; if(lP.from&&lP.from.it) exP[lP.from.it.id]=1; if(lP.to&&lP.to.it) exP[lP.to.it.id]=1;
   var fpP=orthExpand(cabRoutePts(lP.pts, obstacleRects(), exP, "pwr")), best=-1, bd=1e18;
   for(var qi=0;qi<fpP.length-1;qi++){ var A=fpP[qi], B=fpP[qi+1]; if(A[0]===B[0] && A[1]===B[1]) continue;
     var dx=B[0]-A[0], dy=B[1]-A[1], tt=Math.max(0,Math.min(1,((p0.x-A[0])*dx+(p0.y-A[1])*dy)/(dx*dx+dy*dy))), dd=Math.hypot(p0.x-(A[0]+tt*dx), p0.y-(A[1]+tt*dy));
     if(dd<bd){ bd=dd; best=qi; } }
-  if(best<0) return null;
+  if(best<0) return annulla();
   return {mode:"elecseg", key:kP, si:best, ori:(fpP[best][1]===fpP[best+1][1])?"h":"v", fp0:fpP, moved:false};
 }
 function elecFeedPulisci(id){ var f=state.elec&&state.elec.feeds; if(!f) return; if(f[id] && !Object.keys(f[id]).length) delete f[id]; if(!Object.keys(f).length) delete state.elec.feeds; }
