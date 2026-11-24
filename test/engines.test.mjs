@@ -41161,6 +41161,10 @@ t("Versioni L1 · versione chiusa: la scena è in sola lettura, i campi del docu
   /* se ci si sposta o lo stato cambia, la scena da difendere non è più quella: nessun ripristino fuori posto */
   A.switchVariant("w0"); A.applicaVersioneChiusa(); A.state.items[0].x = 5; A.switchVariant("w1");
   eq(A.proteggiVersioneChiusa(), false, "un'altra versione non viene toccata dalla rete di questa");
+  /* scena da difendere ormai stantia (lo stato è cambiato: la versione è tornata Bozza, il flag non è ancora stato ricalcolato): la rete non rimette niente */
+  A.switchVariant("w0"); A.applicaVersioneChiusa(); eq(A.__verChiusa, true);
+  A.state.status = "bozza"; A.state.items[0].x = 321;
+  eq(A.proteggiVersioneChiusa(), false, "chiave diversa: nessun ripristino fuori posto"); eq(A.state.items[0].x, 321, "la modifica resta");
   reset();
 }));
 t("Versioni L1 · versione chiusa: Annulla/Ripeti, tasti, trascinamenti e interfaccia sono fermi (stesso schema del blocco progetto)", () => {
