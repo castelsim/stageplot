@@ -1454,6 +1454,9 @@
   .elec-supply text{fill:#fff;font-size:10px;font-weight:700;letter-spacing:.3px}
   .elec-warn{fill:none;stroke:#dc2626;stroke-width:2.5;stroke-dasharray:4 3;pointer-events:none}
   .elec-supplyhit{fill:transparent;pointer-events:all;cursor:grab}
+  .elec-supply .elec-supplyhit{fill:transparent;stroke:none}   /* il riquadro di aggancio prendeva il marrone di `.elec-supply rect` (più specifico) e copriva la scritta: restava un rettangolo vuoto (24/11) */
+  /* linea di alimentazione principale: al telefono (tocco) l'area utile è di 24 px sullo schermo a qualsiasi zoom (a 16 unità di scena, a palco intero, erano ~3 px) */
+  @media (pointer:coarse){ .elec-hit[data-el^="fd:"],.elec-seg-hit[data-el^="fd:"]{vector-effect:non-scaling-stroke;stroke-width:24px} }
   #svg .elec-supply-scr{scale:var(--lblK,1)}   /* etichetta dell'ingresso a schermo: corpo minimo come i nomi (nell'export niente) */
   .layer-legend{display:flex;flex-direction:column;align-items:stretch;gap:3px;font-size:11px;line-height:1.3;color:var(--n-500,#57534e);padding:4px 2px}
   .layer-legend .lg-row{display:flex;align-items:center;gap:7px}
