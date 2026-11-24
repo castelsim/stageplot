@@ -40704,12 +40704,13 @@ t("dorsale: «Ripristina percorso automatico» della scheda toglie waypoint E se
     ok(u && u.to === m.id && !u.pts && !u.seg, "via pts e seg, resta `to`");
   } finally { delete A.state.cab.route; A.selElec = null; reset(); }
 });
-t("dorsale: dropOrphanLinks non cancella `seg` di una dorsale con bersaglio", () => {
+t("dorsale: dropOrphanLinks tiene `seg` con bersaglio vivo e toglie tutta la voce (anche `seg`) se il bersaglio è sparito", () => {
   reset(); A.state.elec.on = true;
-  const m = add("ciabatta", 600, 600), c = add("ciabatta", 300, 300);
-  A.state.elec.uplinks = { [c.id]: { to: m.id, seg: 1 } };
+  const m = add("ciabatta", 600, 600), c = add("ciabatta", 300, 300), c2 = add("ciabatta", 100, 100);
+  A.state.elec.uplinks = { [c.id]: { to: m.id, seg: 1 }, [c2.id]: { to: "id-sparito", seg: 1, pts: [[5, 5]] } };
   A.dropOrphanLinks(A.state);
-  eq(A.state.elec.uplinks[c.id].seg, 1, "seg conservato");
+  eq(A.state.elec.uplinks[c.id].seg, 1, "seg conservato con bersaglio vivo");
+  ok(!A.state.elec.uplinks[c2.id], "bersaglio sparito: la voce cade intera, seg compreso");
   reset();
 });
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
