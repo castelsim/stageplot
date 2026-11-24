@@ -21175,7 +21175,7 @@ function selectedCableInfo(){
       var uid=ul.from.it?ul.from.it.id:null, uo=uid?((state.elec.uplinks||{})[uid]||null):null;
       return { title:"Dorsale elettrica", sub:(ul.from.letter||"Q?")+" → alimentazione", rows:rowsU,
         hasPts:!!(uo&&uo.pts&&uo.pts.length), from:ul.from.it||null, to:(ul.to&&ul.to.it)||null,
-        resetPts:function(){ if(uid && state.elec.uplinks && state.elec.uplinks[uid]){ delete state.elec.uplinks[uid].pts; if(!Object.keys(state.elec.uplinks[uid]).length) delete state.elec.uplinks[uid]; } __elecRes=null; },
+        resetPts:function(){ if(uid && state.elec.uplinks && state.elec.uplinks[uid]){ delete state.elec.uplinks[uid].pts; delete state.elec.uplinks[uid].seg; if(!Object.keys(state.elec.uplinks[uid]).length) delete state.elec.uplinks[uid]; } __elecRes=null; },
         unlink:null };
     }
   }

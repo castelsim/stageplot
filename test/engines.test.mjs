@@ -40686,5 +40686,29 @@ t("ingresso corrente: il riquadro è largo quanto la scritta, anche nell'export;
   });
   A.__cabStatic = false; reset();
 });
+t("dorsale: «Ripristina percorso automatico» della scheda toglie waypoint E segno `seg`, il collegamento resta", () => {
+  reset(); A.state.elec.on = true; A.state.elec.mode = "manual";
+  const m = add("ciabatta", 600, 600), c = add("ciabatta", 300, 300);
+  const r = add("amprack", 300, 200); r.watt = 800;
+  A.state.elec.manual = { [r.id]: { distro: c.id } };
+  A.state.elec.uplinks = { [c.id]: { to: m.id, pts: [[400, 400]], seg: 1 } };
+  A.state.cab.route = "dir"; A.__elecRes = null;
+  try {
+    A.selElec = "up:" + c.id;
+    const info = A.selectedCableInfo();
+    ok(info && typeof info.resetPts === "function", "la scheda della dorsale ha resetPts");
+    info.resetPts();
+    const u = A.state.elec.uplinks[c.id];
+    ok(u && u.to === m.id && !u.pts && !u.seg, "via pts e seg, resta `to`");
+  } finally { delete A.state.cab.route; A.selElec = null; reset(); }
+});
+t("dorsale: dropOrphanLinks non cancella `seg` di una dorsale con bersaglio", () => {
+  reset(); A.state.elec.on = true;
+  const m = add("ciabatta", 600, 600), c = add("ciabatta", 300, 300);
+  A.state.elec.uplinks = { [c.id]: { to: m.id, seg: 1 } };
+  A.dropOrphanLinks(A.state);
+  eq(A.state.elec.uplinks[c.id].seg, 1, "seg conservato");
+  reset();
+});
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
