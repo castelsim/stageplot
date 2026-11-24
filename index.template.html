@@ -19640,6 +19640,23 @@ function elecManual(key){ state.elec.manual=state.elec.manual||{}; if(!state.ele
 function elecFeedVoce(id){ state.elec.feeds=state.elec.feeds||{}; if(!state.elec.feeds[id] || typeof state.elec.feeds[id]!=="object") state.elec.feeds[id]={}; return state.elec.feeds[id]; }
 /* dorsale ciabatta/distro → quadro = `elec.uplinks[idDistro]` {to, pts, seg} (fam "up"; chiave del disegno «up:ID») */
 function elecUpVoce(id){ state.elec.uplinks=state.elec.uplinks||{}; if(!state.elec.uplinks[id] || typeof state.elec.uplinks[id]!=="object") state.elec.uplinks[id]={}; return state.elec.uplinks[id]; }
+/* Linea elettrica in stile «diretto» trascinata senza lati (24/11): la si segmenta e si restituisce il drag del lato più vicino al punto premuto. */
+function elecPreDragSegmenta(kP, p0){
+  var manP = kP.indexOf("fd:")===0 ? elecFeedVoce(kP.slice(3)) : kP.indexOf("up:")===0 ? elecUpVoce(kP.slice(3)) : elecManual(kP);
+  manP.seg=1; __elecRes=null;
+  function annulla(){   /* nessun lato da prendere: nessuna traccia di `seg` (né voce vuota) nello stato */
+    delete manP.seg; if(!Object.keys(manP).length){ var st = kP.indexOf("fd:")===0 ? state.elec.feeds : kP.indexOf("up:")===0 ? state.elec.uplinks : state.elec.manual, id = kP.indexOf("fd:")===0||kP.indexOf("up:")===0 ? kP.slice(3) : kP; if(st) delete st[id]; }
+    __elecRes=null; return null; }
+  var RP=elecResult(), lP=((RP.loadLinks||[]).concat(RP.uplinks||[]).concat(RP.feeds||[])).filter(function(k){ return k.key===kP; })[0];
+  if(!lP) return annulla();
+  var exP={}; if(lP.load&&lP.load.it) exP[lP.load.it.id]=1; if(lP.distro&&lP.distro.it) exP[lP.distro.it.id]=1; if(lP.from&&lP.from.it) exP[lP.from.it.id]=1; if(lP.to&&lP.to.it) exP[lP.to.it.id]=1;
+  var fpP=orthExpand(cabRoutePts(lP.pts, obstacleRects(), exP, "pwr")), best=-1, bd=1e18;
+  for(var qi=0;qi<fpP.length-1;qi++){ var A=fpP[qi], B=fpP[qi+1]; if(A[0]===B[0] && A[1]===B[1]) continue;
+    var dx=B[0]-A[0], dy=B[1]-A[1], tt=Math.max(0,Math.min(1,((p0.x-A[0])*dx+(p0.y-A[1])*dy)/(dx*dx+dy*dy))), dd=Math.hypot(p0.x-(A[0]+tt*dx), p0.y-(A[1]+tt*dy));
+    if(dd<bd){ bd=dd; best=qi; } }
+  if(best<0) return annulla();
+  return {mode:"elecseg", key:kP, si:best, ori:(fpP[best][1]===fpP[best+1][1])?"h":"v", fp0:fpP, moved:false};
+}
 function elecFeedPulisci(id){ var f=state.elec&&state.elec.feeds; if(!f) return; if(f[id] && !Object.keys(f[id]).length) delete f[id]; if(!Object.keys(f).length) delete state.elec.feeds; }
 /* La FASE PIÙ CARICA dell'impianto (29/07) — l'equivalente elettrico della capienza «10/16 su A»
    dell'Input. Non la somma dei kW dei quadri, che non fa saltare niente: quello che conta è la
@@ -22430,6 +22447,8 @@ function renderCablePanel(info){
   /* SEGMENTA (28/07): la forma del cavo si comanda da qui, non da una pillola sul canvas — quella
      copriva il cavo proprio dove si trascinano i lati per modellarlo (segnalazione di Simone). */
   var _seg=cabSelFam();
+  if(_seg && selElec && !selCab && !isMobile()){   /* come si sposta una linea elettrica: scoperta in chiaro (24/11) */
+    var hE=document.createElement("div"); hE.className="prop-hint"; hE.id="elecLineHint"; hE.textContent="Trascina un lato per spostare la linea; doppio clic per aggiungere un angolo."; host.appendChild(hE); }
   if(_seg && cabRouteMode()!=="orto"){
     var _on=cabSegOn(_seg.store, _seg.key);
     mkBtn(_on?"Torna diritto":"Segmenta", !_on, function(){ cabSegToggle(_seg.fam, _seg.key); }, false,
@@ -28166,7 +28185,7 @@ function cabHoverTip(e){
     var kE=ehit.getAttribute("data-el"), RlT=elecResult();
     var lE=((RlT.loadLinks||[]).concat(RlT.uplinks||[]).concat(RlT.feeds||[])).filter(function(x){ return x.key===kE; })[0];
     if(!lE){ if(__cabTip){ __cabTip.remove(); __cabTip=null; } return; }
-    txt = (lE.distro && !lE.load && !lE.from) ? "Linea di alimentazione principale: dall\u2019ingresso corrente al distro "+lE.distro.letter+" \u00b7 "+lE.a.toFixed(0)+" A \u00b7 "+lE.section+" \u00b7 "+lE.lenM.toFixed(0)+" m. Clic per selezionarla, trascina un lato per spostarla."
+    txt = (lE.distro && !lE.load && !lE.from) ? "Linea di alimentazione principale: dall\u2019ingresso corrente al distro "+lE.distro.letter+" \u00b7 "+lE.a.toFixed(0)+" A \u00b7 "+lE.section+" \u00b7 "+lE.lenM.toFixed(0)+" m. Clic per selezionarla; trascina un lato per spostarla, doppio clic per aggiungere un angolo."
       : lE.from ? (lE.from.letter+" → "+lE.to.letter+" · "+lE.a.toFixed(0)+" A · "+lE.section+" · "+lE.lenM.toFixed(0)+" m")
       : (lE.load.it.label||TYPES[lE.load.it.type].nome)+" → "+lE.distro.letter+" · L"+(lE.phase+1)+" · "+elecKW(lE.load.w)+" · "+(lE.cut?lE.cut+" m":"oltre 50 m")+(lE.cee?" · CEE":"");
   }
@@ -28333,7 +28352,9 @@ svg.addEventListener("pointerdown", function(e){
     var ehit=e.target.closest(".elec-hit");
     if(ehit){ selElec=ehit.getAttribute("data-el"); selCab=null; selCabSet={}; selMond=null;
       if(typeof clearSelection==="function") clearSelection(); render();
-      svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
+      svg.setPointerCapture(e.pointerId);
+      /* stile «diretto», linea non ancora segmentata: i lati non esistono. Se l'utente la trascina, la si segmenta al primo movimento (24/11) */
+      drag = (elecStyleFor(selElec)==="dir" && !window.__projLocked && e.pointerType!=="touch") ? {mode:"elecpre", key:selElec, px:e.clientX, py:e.clientY, p0:svgPoint(e)} : {mode:"none"}; return; }
   }
   if(state.mond && state.mond.on && !state.mond.locked && e.target.closest){
     /* ── monitoraggio digitale: parità Max (lati, estremi, selezione) ── */
@@ -28647,6 +28668,11 @@ svg.addEventListener("pointermove", function(e){
     sp=svgPoint(e); drag.moved=true;
     svg.querySelectorAll('.cab-endpt[data-end="'+drag.end+'"]').forEach(function(c){ c.setAttribute("cx",sp.x); c.setAttribute("cy",sp.y); });
     return;
+  }
+  if(drag.mode==="elecpre"){   /* linea diretta trascinata senza lati: si segmenta ora e si prende il lato più vicino al punto premuto */
+    if(Math.hypot(e.clientX-drag.px, e.clientY-drag.py)<4) return;
+    drag=elecPreDragSegmenta(drag.key, drag.p0) || {mode:"none"};
+    if(drag.mode==="none") return;
   }
   if(drag.mode==="elecseg"){   /* linea elettrica: trascina il LATO in perpendicolare (come l'audio) */
     sp=svgPoint(e);
@@ -29005,6 +29031,7 @@ svg.addEventListener("pointerup", function(e){
     }
     render(); renderAccessoriCount(); drag=null; return;
   }
+  if(drag && drag.mode==="elecpre"){ drag=null; return; }   /* clic senza movimento: solo selezione */
   if(drag && drag.mode==="elecseg"){ if(drag.moved){ save(); } __elecRes=null; render(); renderElecPanel(); drag=null; return; }
   if(drag && drag.mode==="mondseg"){ if(drag.moved) save(); __mondRes=null; render(); drag=null; return; }
   if(drag && drag.mode==="mondreconnect"){   /* estremo: su hub/mixerino = riconnetti, nel vuoto = scollega */
@@ -34102,7 +34129,7 @@ function renderLayerRow(L, container){
       body.appendChild(rt); }
     /* CABLAGGI CHIARI (24/11/2026): legenda a 3 righe nel layer Elettrico — solo interfaccia, mai nei PDF */
     if(L.id==="elec"){ var lg=document.createElement("div"); lg.className="layer-adv layer-legend"; lg.id="elecLegend"; lg.setAttribute("role","note");
-      var righeLg=[["lg-in","Ingresso corrente"],["lg-feed","Linea di alimentazione principale (si sposta)"]];
+      var righeLg=[["lg-in","Ingresso corrente"],["lg-feed","Linea di alimentazione principale (si sposta; compare con ingresso e quadro impostati)"]];
       if(typeof layerShown==="function" && layerShown("cabin")) righeLg.push(["lg-box","Stagebox suggerito (cavi audio)"]);
       righeLg.forEach(function(r){ var row=document.createElement("div"); row.className="lg-row"; var sw=document.createElement("span"); sw.className="lg-sw "+r[0]; sw.setAttribute("aria-hidden","true");
         var tx=document.createElement("span"); tx.textContent=r[1]; row.appendChild(sw); row.appendChild(tx); lg.appendChild(row); });
