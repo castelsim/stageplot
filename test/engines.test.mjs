@@ -20835,7 +20835,11 @@ t("la privacy racconta i conteggi, e la data lo dice", () => {
   ok(/aggregat/i.test(p) && /nessun cookie/i.test(p), "dice che sono aggregati e senza cookie");
   ok(/Do Not Track/.test(p), "dichiara il rispetto del Do Not Track");
   ok(/impronta \(hash\) non reversibile dell'indirizzo IP/.test(p) && !/impronta anonima/.test(p), "dichiara l'impronta dell'IP per il rate limit");
-  ok(/Ultimo aggiornamento: 23 novembre 2026/.test(p), "la data dell'ultimo aggiornamento è quella giusta (23/11: conteggi d'uso dell'editor)");
+  ok(/Ultimo aggiornamento: 24 novembre 2026/.test(p), "la data dell'ultimo aggiornamento è quella giusta (24/11: analisi aggregata delle modifiche)");
+  ok(/Miglioramento delle regole di disegno/.test(p) && /Puoi opporti scrivendoci: escluderemo i tuoi progetti/.test(p), "§ 2: paragrafo sull'analisi aggregata delle modifiche, con opposizione");
+  ok(/Statistiche aggregate sulle modifiche ai progetti salvati online<\/td><td>Legittimo interesse/.test(p), "tabella finalità: riga sulle statistiche delle modifiche");
+  ok(/copie di backup del database per un massimo di 8 settimane/.test(p), "§ 5: backup conservati al massimo 8 settimane");
+  ok(/Non effettuiamo profilazione/.test(p), "resta «Non effettuiamo profilazione»");
   ok(/Conteggi d'uso dell'editor/.test(p) && /lingua principale del browser/.test(p) && /sessionStorage/.test(p), "c'è la sezione sui conteggi d'uso dell'editor");
   ok(!/gli eventi d'uso non vengono inviati\./.test(p) && !/Gli eventi d'uso descritti sotto vengono inviati soltanto dopo l'accesso\./.test(p), "le frasi assolute sugli eventi d'uso sono riscritte (righe 56 e 65)");
   ok(/in questa versione lo strumento non registra eventi d'uso/.test(p), "la riga sulla voce (programma separato) resta com'è");
