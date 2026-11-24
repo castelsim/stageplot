@@ -25524,7 +25524,7 @@ t("Funzioni avanzate: si parte dall'essenziale e ogni funzione si accende da Fil
   ok(/renderVistaBanner\(\);[^\n]*\n\s*funzRenderAvviso\(\);/.test(appjs), "si ricalcola a ogni ridisegno, dopo quella della vista");
   const fa = appjs.slice(appjs.indexOf("function funzRenderAvviso(){"), appjs.indexOf("function funzApriFinestra(){"));
   ok(/isMobile\(\)/.test(fa) && /vista && !vista\.hidden/.test(fa), "non sul telefono, e mai insieme alla vista attiva");
-  ok(/window\.__funzAvvisoNo=\(window\.__docEpoch\|\|0\)/.test(fa), "«Non ora» vale per il documento aperto");
+  ok(/cavoInvitoRitira\(true\)/.test(appjs.slice(appjs.indexOf("function cavoInvitoMostra(){"), appjs.indexOf("(function(){\n  var segna"))) && /__funzAvvisoNo===epoch/.test(fa), "la ✕ lo ritira e lo ricorda per il progetto; il documento aperto resta zitto (24/11: chip discreto)");
 });
 
 t("in Base, col mouse, Esporta chiede poco e le liste non ci sono", () => {
@@ -28642,7 +28642,7 @@ t("invito cavi discreto: non compare subito, niente barra a tutta larghezza, ric
   const srcUX = readFileSync(join(root, "index.template.html"), "utf8");   /* (la costante globale più sotto non è ancora nata qui) */
   const i0 = srcUX.indexOf("function funzRenderAvviso(){"), i1 = srcUX.indexOf("function funzApriFinestra(){");
   const render = srcUX.slice(i0, i1);
-  const ramo = render.slice(render.indexOf("if(cavo){"), render.indexOf('var k=mancano.join(",")'));
+  const ramo = render.slice(render.indexOf("var zitto"));
   ok(/cavoInvitoArma\(\)/.test(ramo) && !/innerHTML\s*=\s*'/.test(ramo), "il ramo cavo arma l'attesa e non costruisce il chip da sé");
   ok(/cavoInvitoRicordato\(/.test(ramo), "il ramo cavo rispetta il ricordo per progetto");
   const mostra = srcUX.slice(srcUX.indexOf("function cavoInvitoMostra(){"), srcUX.indexOf("(function(){\n  var segna"));
@@ -28653,6 +28653,30 @@ t("invito cavi discreto: non compare subito, niente barra a tutta larghezza, ric
   ok(/\["pointerdown","keydown","wheel","touchstart"\]/.test(srcUX), "l'attesa guarda clic, tasti, rotella e tocco");
   ok(/#funzBanner\.funz-quieto\{left:12px;top:auto;bottom:12px;transform:none/.test(stylesCss), "chip in basso a sinistra, non sopra il disegno");
   ok(/@media \(prefers-reduced-motion:reduce\)\{ #funzBanner\.funz-quieto\{animation:none\}/.test(stylesCss), "senza animazioni se richiesto");
+});
+/* Avviso «che hai spento» discreto (24/11/2026, segnalazione di Simone con screenshot: «più elegante e discreto») */
+t("cavoInvitoDecidi: in sola lettura (chi guarda) nessun invito, né cavi né «spento»", () => {
+  const d = (o) => A.cavoInvitoDecidi(Object.assign({ cavo: true, mobile: false, vista: false, riapri: false, altrui: false, lettura: false, visto: false, ricordato: false }, o));
+  ok(d({}), "scrittura: sì");
+  ok(!d({ lettura: true }), "sola lettura (?view=, progetto bloccato): no");
+});
+t("cavoInvitoChiave/Elenco: ricordo separato per l'invito «spento», elenco dei nomi", () => {
+  eq(A.cavoInvitoChiave("cavo", "p1"), "p1", "cavi: chiave = id"); eq(A.cavoInvitoChiave("spento", "p1"), "s:p1", "spento: chiave a parte");
+  ok(A.cavoInvitoChiave("spento", null) == null, "bozza senza id: nessuna chiave");
+  eq(A.cavoInvitoElenco(["Connessioni", "Liste tecniche"]), "Connessioni e Liste tecniche");
+  eq(A.cavoInvitoElenco(["A", "B", "C"]), "A, B e C"); eq(A.cavoInvitoElenco(["Solo"]), "Solo"); eq(A.cavoInvitoElenco([]), "");
+});
+t("avviso «che hai spento» discreto: chip quieto, mai barra con due pulsanti pieni, mai in sola lettura (sorgente)", () => {
+  const srcUX = readFileSync(join(root, "index.template.html"), "utf8");
+  const render = srcUX.slice(srcUX.indexOf("function funzRenderAvviso(){"), srcUX.indexOf("function funzApriFinestra(){"));
+  ok(!/, che hai spento<\/span>/.test(srcUX) && !/vb-si" id="funzAccendi">Accendi/.test(srcUX), "via la barra «che hai spento» e il pulsante pieno");
+  ok(/soloLetturaProgetto\(\)/.test(render) && /foreignDoc\(\)/.test(render) && /lettura \|\|/.test(render), "in sola lettura e nei documenti altrui il render tace");
+  const mostra = srcUX.slice(srcUX.indexOf("function cavoInvitoMostra(){"), srcUX.indexOf("(function(){\n  var segna"));
+  ok(/lettura:soloLetturaProgetto\(\)/.test(mostra), "anche al momento di mostrare si ricontrolla la sola lettura");
+  ok(/\(spente\)<\/span>/.test(mostra) && /class="cq-si" id="funzAccendi"[^>]*>Accendi</.test(mostra), "testo breve «… (spente)» e «Accendi» come testo piccolo");
+  ok(/id="funzNonOra"[^>]*>✕/.test(mostra) && !/Non ora<\/button>/.test(mostra), "niente «Non ora» pieno: la ✕ lo ritira");
+  ok(/funzImposta\(c\)/.test(mostra), "«Accendi» accende le funzioni coinvolte, come prima");
+  ok(/cavoInvitoRicorda\(cavoInvitoChiave\(el\.__cavoTipo/.test(srcUX), "ritiro con ✕ o a tempo: ricordo per progetto");
 });
 t("exportNudgeAggiorna: compare una volta, «✕» e l'export lo spengono, mai senza i requisiti", () => {
   const old = { doc: A.document, ls: A.localStorage, st: A.state, inSess: A.exportNudgeInSessione, mm: A.matchMedia, cons: A.__consultMode };
@@ -32016,7 +32040,7 @@ t("Connessioni spenta: il filtro è uno solo, in overlayLayerMarkup (non sparso 
   ok(/overlayLayerMarkup\(!!\(opts && opts\.espandi\)\)/.test(appjs), "la scena d'esportazione passa esporta=true");
   ["cablingMarkup", "elecMarkup", "monDigMarkup", "cableLegendMarkup", "netMarkup"].forEach((f) =>
     ok(!new RegExp("function " + f + "\\(\\)\\{[^}]{0,200}funzOn\\(").test(appjs), f + " non guarda la funzione da sola"));
-  ok(/function funzRenderAvviso\(\)\{[\s\S]{0,2500}Accendi/.test(appjs), "l'avviso «Questo progetto usa… che hai spento» resta");
+  ok(/function funzRenderAvviso\(\)\{/.test(appjs) && /Questo progetto usa '\+cavoInvitoElenco\([^)]*\)\+' \(spente\)[\s\S]{0,400}Accendi/.test(appjs), "l'avviso «Questo progetto usa… (spente)» resta, ora come chip discreto");
 });
 
 /* ---- Consulenza: gratis · revisione 29 € · da 149 € su preventivo (23/10/2026, decisioni del proprietario) ---- */
@@ -35604,7 +35628,7 @@ t("Lotto 8 (C-3): l'invito «PDF in scala» non compare mentre c'è un banner su
   eq(A.exportNudgeDecidi({ ...base, bannerVisibile: true }), false, "con un banner: aspetta");
   eq(A.exportNudgeDecidi({ ...base, bannerVisibile: true, giaInSessione: true }), false, "anche se era già comparso");
   ok(/bannerVisibile:bannerCanvasVisibile\(\)/.test(srcUX) && /\["funzBanner","vistaBanner","riapriBanner"\]/.test(srcUX), "exportNudgeAggiorna guarda i tre banner");
-  ok(/exportNudgeAggiorna\(\); \}catch\(e\)\{\}\s*\/\* il banner è comparso/.test(srcUX), "quando il banner compare l'invito si ritira subito, senza aspettare il giro da 2,5 s");
+  ok(/el\.hidden=false;[\s\S]{0,260}exportNudgeAggiorna\(\); \}catch\(e\)\{\}/.test(srcUX.slice(srcUX.indexOf("function cavoInvitoMostra(){"))), "quando il banner compare l'invito si ritira subito, senza aspettare il giro da 2,5 s");
 });
 t("Lotto 8 (A-6, bersagli): a 390 px i controlli piccoli arrivano a 44 px e il toast con una finestra aperta sta in alto, senza coprire «Salva con Google»", () => {
   const blocco = stylesCss.slice(stylesCss.indexOf("UX8-BERSAGLI"));
