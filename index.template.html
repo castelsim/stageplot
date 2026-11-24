@@ -5605,9 +5605,9 @@ var WATT_BY_AREA = { schermo:500, ledwallmod:500 };   /* LED wall: W/m² media d
 var GEN_KVA = { gen60:60, gen20:20 };                 /* sorgenti, non carichi */
 /* RILASCIO IN DUE FASI della PA passiva (decisione di Simone, 24/11/2026). FASE 1 (merge, 24/11): i tipi `finale` e `dsp` si LEGGONO, si disegnano, si stampano e contano nel carico,
    ma NON si possono inserire (fuori dal catalogo, dalla ricerca e dal menu «Nuovo» dei rack): cosi' nelle prime 24-48 h le app vecchie rimaste in cache non incontrano progetti con tipi
-   che non conoscono (rifiuterebbero l'intero progetto, UNKNOWN_ITEM_TYPE). FASE 2 (giovedi' 26/11 sera circa, dopo 48 h dal merge): cambiare `false` in `true` (PR di una riga).
+   che non conoscono (rifiuterebbero l'intero progetto, UNKNOWN_ITEM_TYPE). FASE 2 (anticipata al 24/11 su richiesta di Simone): `true` = finale e DSP nel catalogo.
    Per spegnere: `false`, MAI un revert dell'app (i progetti che contengono finale/dsp devono restare leggibili). `it.pass` e `it.kva` non dipendono da questo interruttore. */
-function paFinaleDspAttivi(){ return false; }
+function paFinaleDspAttivi(){ return true; }
 /* I tipi che il menu «Nuovo» di un rack propone */
 function rackNuoviTipi(){ return Object.keys(RACK_ELIGIBLE).filter(function(tp){ return !((tp==="finale" || tp==="dsp") && !paFinaleDspAttivi()); }); }
 /* PA PASSIVA (24/11/2026): una cassa passiva non assorbe corrente — la potenza sta nel finale, che e' un apparecchio a parte.
