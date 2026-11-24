@@ -6730,7 +6730,7 @@ function dropOrphanLinks(s){
   }
   if(oggetto(s.elec)){
     pulisci(s.elec.manual, esiste, "distro", ["distro","pts","seg","auto","line"]);
-    pulisci(s.elec.uplinks, esiste, "to", ["to","pts"]);   /* senza bersaglio la voce non ha più niente da dire: resta vuota e cade */
+    pulisci(s.elec.uplinks, esiste, "to", ["to","pts","seg"]);   /* senza bersaglio la voce non ha più niente da dire: resta vuota e cade */
     /* CABLAGGI CHIARI (24/11): `feeds` è indicizzata per id del DISTRO: distro sparito → via la voce; il distro che riceve un uplink
        a mano non ha più la linea principale (la voce resterebbe dormiente: si pulisce) */
     if(oggetto(s.elec.feeds)){
@@ -9171,6 +9171,7 @@ function normalizeState(s){
   if(eb.uplinks && typeof eb.uplinks==="object"){ Object.keys(eb.uplinks).forEach(function(k){ var v=eb.uplinks[k]||{}; var o={};
     if(typeof v.to==="string" && v.to) o.to=v.to.slice(0,ITEM_ID_MAX);
     if(Array.isArray(v.pts)) o.pts=v.pts.filter(function(p){ return p&&isFinite(p[0])&&isFinite(p[1]); }).map(function(p){ return [Math.round(p[0]),Math.round(p[1])]; });
+    if(o.to && v.seg) o.seg=1;   /* «Segmenta» della dorsale: ha senso solo con un bersaglio */
     if(Object.keys(o).length) eups[String(k).slice(0,ITEM_ID_MAX)]=o; }); }
   var efeeds=Object.create(null);   /* CABLAGGI CHIARI (24/11): percorso della linea principale distro → ingresso; solo pts validi (≤50 coppie finite) */
   if(eb.feeds && typeof eb.feeds==="object"){ Object.keys(eb.feeds).forEach(function(k){ var v=eb.feeds[k]; if(!v || typeof v!=="object" || Array.isArray(v)) return; var o={};
@@ -16251,7 +16252,7 @@ function cabSetTaglia(n){ n=+n; if(CAB_TAGLIE.indexOf(n)<0) return; if(n===8) de
 function cabSetDigitale(v){ if(v==="auto") delete state.cab.digitale; else if(v==="si") state.cab.digitale=true; else if(v==="no") state.cab.digitale=false; else return; __cabRes=null; save(); render(); }
 function cabSegToggle(fam, key){
   if(cabRouteMode()==="orto") return false;   /* L3: «come sul palco» squadra già ogni cavo; «Segmenta» ha senso solo in «diretto» */
-  var man = fam==="feed" ? elecFeedVoce(key) : fam==="elec" ? elecManual(key) : (fam==="mond" ? mondManual(key) : cabManual(key));
+  var man = fam==="feed" ? elecFeedVoce(key) : fam==="up" ? elecUpVoce(key) : fam==="elec" ? elecManual(key) : (fam==="mond" ? mondManual(key) : cabManual(key));
   if(man.seg){
     delete man.seg;
     /* 28/07 (bug segnalato da Simone): «Torna diritto» diceva diritto e il cavo restava piegato. I
@@ -16259,7 +16260,7 @@ function cabSegToggle(fam, key){
        ci passa comunque attraverso. Un cavo diritto è una retta: via anche quelli. */
     delete man.pts;
   } else man.seg=1;
-  if(fam==="feed"){ elecFeedPulisci(key); __elecRes=null; } else if(fam==="elec") __elecRes=null; else if(fam==="mond") __mondRes=null; else __cabRes=null;
+  if(fam==="feed"){ elecFeedPulisci(key); __elecRes=null; } else if(fam==="up"||fam==="elec") __elecRes=null; else if(fam==="mond") __mondRes=null; else __cabRes=null;
   save(); render();
   return !!man.seg;
 }
@@ -16584,6 +16585,7 @@ function cabSegOn(man, key){ var m=man&&man[key]; return !!(m && m.seg); }
 function cabStyleFor(key){ return (cabRouteMode()==="orto" || cabSegOn(state.cab&&state.cab.manual, key)) ? "orto" : "dir"; }
 function elecStyleFor(key){
   if(String(key).indexOf("fd:")===0) return (cabRouteMode()==="orto" || cabSegOn(state.elec&&state.elec.feeds, String(key).slice(3))) ? "orto" : "dir";   /* linea principale: «Segmenta» sta in elec.feeds[id].seg */
+  if(String(key).indexOf("up:")===0) return (cabRouteMode()==="orto" || cabSegOn(state.elec&&state.elec.uplinks, String(key).slice(3))) ? "orto" : "dir";   /* dorsale ciabatta→quadro: «Segmenta» sta in elec.uplinks[id].seg */
   return (cabRouteMode()==="orto" || cabSegOn(state.elec&&state.elec.manual, key)) ? "orto" : "dir"; }
 function mondStyleFor(key){ return (cabRouteMode()==="orto" || cabSegOn(state.mond&&state.mond.manual, key)) ? "orto" : "dir"; }
 function roundedPathD(ep, r){
@@ -18449,6 +18451,8 @@ function elecManual(key){ state.elec.manual=state.elec.manual||{}; if(!state.ele
   if(!state.elec.manual[key] || typeof state.elec.manual[key]!=="object") state.elec.manual[key]={}; return state.elec.manual[key]; }
 /* CABLAGGI CHIARI (24/11/2026): voce della linea principale (distro → ingresso corrente) = `elec.feeds[idDistro]` {pts, seg}. */
 function elecFeedVoce(id){ state.elec.feeds=state.elec.feeds||{}; if(!state.elec.feeds[id] || typeof state.elec.feeds[id]!=="object") state.elec.feeds[id]={}; return state.elec.feeds[id]; }
+/* dorsale ciabatta/distro → quadro = `elec.uplinks[idDistro]` {to, pts, seg} (fam "up"; chiave del disegno «up:ID») */
+function elecUpVoce(id){ state.elec.uplinks=state.elec.uplinks||{}; if(!state.elec.uplinks[id] || typeof state.elec.uplinks[id]!=="object") state.elec.uplinks[id]={}; return state.elec.uplinks[id]; }
 function elecFeedPulisci(id){ var f=state.elec&&state.elec.feeds; if(!f) return; if(f[id] && !Object.keys(f[id]).length) delete f[id]; if(!Object.keys(f).length) delete state.elec.feeds; }
 /* La FASE PIÙ CARICA dell'impianto (29/07) — l'equivalente elettrico della capienza «10/16 su A»
    dell'Input. Non la somma dei kW dei quadri, che non fa saltare niente: quello che conta è la
@@ -18560,9 +18564,8 @@ function elecMarkup(){
     s+='<g class="elec-badge"><rect x="'+(d.x-bw/2)+'" y="'+(d.y-bTop)+'" width="'+bw+'" height="15" rx="7"/><text x="'+d.x+'" y="'+(d.y-bTop+11)+'" text-anchor="middle">'+esc(bt)+'</text></g>';
   });
   if(R.supply){ var h=R.supply;
-    /* A SCHERMO (non nell'export: geometria identica a prima, cambia solo la stringa) l'etichetta cresce col testo
-       e col corpo minimo (--lblK, come i nomi): a zoom normale si legge; ha un tooltip che dice cos'è e che si sposta. */
-    var scrS=!window.__cabStatic, hwS=scrS?Math.max(92, 14+String(h.name).length*6.2):92;
+    /* La larghezza segue il testo sia a schermo sia nell'export; A SCHERMO l'etichetta cresce anche col corpo minimo (--lblK, come i nomi): a zoom normale si legge; ha un tooltip che dice cos'è e che si sposta. */
+    var scrS=!window.__cabStatic, hwS=Math.max(92, 14+String(h.name).length*6.2);   /* larghezza dal testo ANCHE nell'export (24/11, D2: «Ingresso corrente (rete)» sbordava dai 92 e le lettere bianche sparivano sul fondo dei PNG) */
     var ttS=scrS?'<title>'+(h.kind==="gen"?'Generatore: sorgente di corrente del palco. Trascinalo dove sta davvero.':'Ingresso corrente: da qui parte l\u2019alimentazione del palco. Trascinalo dove c\u2019\u00e8 davvero la presa o il quadro del luogo.')+'</title>':'';
     s+='<g class="elec-supply'+(scrS?' elec-supply-scr':'')+'"'+(scrS?' style="transform-origin:'+h.x+'px '+h.y+'px"':'')+'><rect x="'+(h.x-hwS/2)+'" y="'+(h.y-13)+'" width="'+hwS+'" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>'
     +'<rect class="elec-supplyhit" data-elecsupply="1" x="'+(h.x-hwS/2-2)+'" y="'+(h.y-15)+'" width="'+(hwS+4)+'" height="30" rx="6">'+ttS+'</rect></g>'; }
@@ -26927,7 +26930,7 @@ svg.addEventListener("pointerdown", function(e){
     var _h1=e.target.closest(".cab-hit,.cab-seg-hit"), _h2=e.target.closest(".elec-hit,.elec-seg-hit"), _h3=e.target.closest(".mond-hit,.mond-seg-hit");
     if(_h1 && state.cab && state.cab.on) _dcCab={fam:"cab", key:_h1.getAttribute("data-cab")};
     else if(_h2 && state.elec && state.elec.on){ var _k2=_h2.getAttribute("data-el");
-      _dcCab=(String(_k2).indexOf("fd:")===0) ? {fam:"feed", key:String(_k2).slice(3)} : {fam:"elec", key:_k2};   /* linea principale: «Segmenta» sta in elec.feeds[id], non in elec.manual (che dropOrphanLinks pulisce) */
+      _dcCab=(String(_k2).indexOf("fd:")===0) ? {fam:"feed", key:String(_k2).slice(3)} : (String(_k2).indexOf("up:")===0) ? {fam:"up", key:String(_k2).slice(3)} : {fam:"elec", key:_k2};   /* linea principale: «Segmenta» sta in elec.feeds[id], non in elec.manual (che dropOrphanLinks pulisce) */
     }
     else if(_h3 && state.mond && state.mond.on) _dcCab={fam:"mond", key:_h3.getAttribute("data-mond")};
   }
@@ -26937,7 +26940,7 @@ svg.addEventListener("pointerdown", function(e){
     drag={mode:"none"};   /* il rilascio che segue non deve essere letto come clic sul vuoto (deselezionava il cavo) */
     try{ svg.setPointerCapture(e.pointerId); }catch(_e){}
     cabSegToggle(_dcCab.fam, _dcCab.key);
-    var _segNow=cabSegOn(_dcCab.fam==="feed" ? (state.elec&&state.elec.feeds) : _dcCab.fam==="elec" ? (state.elec&&state.elec.manual) : (_dcCab.fam==="mond" ? (state.mond&&state.mond.manual) : (state.cab&&state.cab.manual)), _dcCab.key);
+    var _segNow=cabSegOn(_dcCab.fam==="feed" ? (state.elec&&state.elec.feeds) : _dcCab.fam==="up" ? (state.elec&&state.elec.uplinks) : _dcCab.fam==="elec" ? (state.elec&&state.elec.manual) : (_dcCab.fam==="mond" ? (state.mond&&state.mond.manual) : (state.cab&&state.cab.manual)), _dcCab.key);
     showToast(_segNow ? "Cavo segmentato \u2014 trascina i lati per modellarlo" : "Cavo diritto");
     return;
   }
@@ -33217,6 +33220,7 @@ var cabOpen=false;   /* legacy: pannello tolto */
 function cabSelFam(){
   if(selCab) return {fam:"cab", key:selCab, store:(state.cab&&state.cab.manual)};
   if(selElec && String(selElec).indexOf("fd:")===0) return {fam:"feed", key:String(selElec).slice(3), store:(state.elec&&state.elec.feeds)};
+  if(selElec && String(selElec).indexOf("up:")===0) return {fam:"up", key:String(selElec).slice(3), store:(state.elec&&state.elec.uplinks)};
   if(selElec) return {fam:"elec", key:selElec, store:(state.elec&&state.elec.manual)};
   if(selMond) return {fam:"mond", key:selMond, store:(state.mond&&state.mond.manual)};
   return null;
@@ -36210,7 +36214,7 @@ function renderElecPanel(){
     elecDeleteKey(selElec); selElec=null; save(); render(); });
   document.getElementById("elecSelResetPath").addEventListener("click", function(){ if(!selElec) return;
     if(selElec.indexOf("fd:")===0){ var fv=state.elec.feeds&&state.elec.feeds[selElec.slice(3)]; if(fv){ delete fv.pts; delete fv.seg; elecFeedPulisci(selElec.slice(3)); } }
-    else if(selElec.indexOf("up:")===0){ var u=state.elec.uplinks&&state.elec.uplinks[selElec.slice(3)]; if(u) delete u.pts; }
+    else if(selElec.indexOf("up:")===0){ var u=state.elec.uplinks&&state.elec.uplinks[selElec.slice(3)]; if(u){ delete u.pts; delete u.seg; } }
     else { var m=state.elec.manual&&state.elec.manual[selElec]; if(m) delete m.pts; }
     __elecRes=null; save(); render(); });
 })();

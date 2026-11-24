@@ -40461,7 +40461,7 @@ t("ingresso corrente: il documento in inglese lo traduce (nome, riga «Alimentaz
   } finally { delete A.state.docLang; }
   reset();
 });
-t("ingresso corrente: nell'export niente tooltip e stessa geometria (92 x 26); a schermo tooltip e riquadro che cresce", () => {
+t("ingresso corrente: nell'export niente tooltip, scala a schermo e stessa larghezza del testo (dal 24/11 non più 92); a schermo tooltip e riquadro che cresce", () => {
   elecConIngresso("rete");
   const prima = A.__cabStatic;
   try {
@@ -40470,7 +40470,8 @@ t("ingresso corrente: nell'export niente tooltip e stessa geometria (92 x 26); a
     ok(ex.indexOf("elec-supply") >= 0, "l'ingresso c'è");
     ok(ex.indexOf("<title>") < 0, "export: nessun <title>");
     ok(ex.indexOf("elec-supply-scr") < 0, "export: nessuna classe di scala a schermo");
-    ok(/class="elec-supply"><rect [^>]*width="92" height="26"/.test(ex), "export: rettangolo 92 x 26 come prima");
+    const wEx = +/class="elec-supply"><rect [^>]*width="([\d.]+)" height="26"/.exec(ex)[1];
+    ok(wEx > 92 && wEx >= 14 + "Ingresso corrente (rete)".length * 6.2 - 0.01, "export: rettangolo largo quanto la scritta (" + wEx + ")");
     ok(ex.indexOf("Ingresso corrente (rete)") >= 0, "export: la stringa nuova");
     A.__cabStatic = false; A.__elecRes = null;
     const sc = A.elecMarkup();
@@ -40478,6 +40479,7 @@ t("ingresso corrente: nell'export niente tooltip e stessa geometria (92 x 26); a
     ok(sc.indexOf("elec-supply-scr") >= 0, "schermo: gruppo scalato col corpo minimo");
     const w = +/class="elec-supply elec-supply-scr"[^>]*><rect [^>]*width="([\d.]+)"/.exec(sc)[1];
     ok(w > 92, "schermo: il riquadro cresce col testo (" + w + ")");
+    eq(w, wEx, "stessa larghezza a schermo e nell'export");
   } finally { A.__cabStatic = prima; }
   reset();
 });
@@ -40637,6 +40639,52 @@ t("ingresso corrente: legenda — la riga «Stagebox suggerito» solo se il laye
 });
 t("linea principale: la firma della cache dei fasci include `feeds`", () => {
   ok(/state\.elec\.uplinks\|\|null, state\.elec\.feeds\|\|null/.test(appjs), "firma di cabOccupancy con feeds");
+});
+/* ───────── CABLAGGI RIFINITURE (24/11/2026) ───────── */
+t("dorsale ciabatta→quadro: «Segmenta» e doppio clic scrivono in uplinks[id].seg, resta dopo salva-riapri", () => {
+  reset(); A.state.elec.on = true; A.state.elec.mode = "manual";
+  const m = add("ciabatta", 600, 600), c = add("ciabatta", 300, 300);
+  const r = add("amprack", 300, 200); r.watt = 800;
+  A.state.elec.manual = { [r.id]: { distro: c.id } };
+  A.state.elec.uplinks = { [c.id]: { to: m.id, pts: [[400, 400]] } };
+  A.state.cab.route = "dir"; A.__elecRes = null;
+  try {
+    eq(A.elecStyleFor("up:" + c.id), "dir", "di serie diretta");
+    A.selElec = "up:" + c.id;
+    const fam = A.cabSelFam(); eq(fam.fam, "up", "famiglia up"); eq(fam.key, c.id, "chiave = id della ciabatta");
+    ok(/\{fam:"up", key:String\(_k2\)\.slice\(3\)\}/.test(appjs), "il gestore del doppio clic passa fam up per up:");
+    A.cabSegToggle("up", c.id);
+    eq(A.state.elec.uplinks[c.id].seg, 1, "segno scritto in uplinks");
+    eq(A.state.elec.uplinks[c.id].to, m.id, "il bersaglio resta");
+    ok(!Object.keys(A.state.elec.manual || {}).some((x) => x.indexOf("up:") === 0), "niente chiavi up: in elec.manual");
+    eq(A.elecStyleFor("up:" + c.id), "orto", "ora squadrata");
+    A.loadDoc(JSON.parse(A.docToJSON()));
+    eq(A.state.elec.uplinks[c.id].seg, 1, "dopo salva-riapri il segno c'è");
+    A.dropOrphanLinks(A.state); eq(A.state.elec.uplinks[c.id].seg, 1, "dropOrphanLinks non lo cancella");
+    A.cabSegToggle("up", c.id);
+    ok(!A.state.elec.uplinks[c.id].seg && A.state.elec.uplinks[c.id].to === m.id && !A.state.elec.uplinks[c.id].pts, "«Torna diritto»: via seg e waypoint, il collegamento resta");
+  } finally { delete A.state.cab.route; A.selElec = null; reset(); }
+});
+t("dorsale: `seg` senza bersaglio non sopravvive alla normalizzazione", () => {
+  reset(); A.state.elec.on = true;
+  A.state.elec.uplinks = { zz: { seg: 1 } };
+  A.loadDoc(JSON.parse(A.docToJSON()));
+  ok(!A.state.elec.uplinks || !A.state.elec.uplinks.zz, "voce senza `to` scartata");
+  reset();
+});
+t("ingresso corrente: il riquadro è largo quanto la scritta, anche nell'export; la scritta ci sta dentro", () => {
+  ["rete", "right", "left", "custom"].forEach((k) => {
+    elecConIngresso(k);
+    [false, true].forEach((stat) => {
+      A.__cabStatic = stat; A.__elecRes = null;
+      const mk = A.elecMarkup();
+      const g = mk.match(/<g class="elec-supply[^"]*"[^>]*><rect x="[^"]+" y="[^"]+" width="([\d.]+)" height="26"/);
+      ok(g, "riquadro presente (" + k + ", export=" + stat + ")");
+      const w = +g[1], nome = A.elecSupplyPoint().name;
+      ok(w >= 14 + nome.length * 6.2 - 0.01 && w >= 92, "larghezza " + w + " per «" + nome + "» (export=" + stat + ")");
+    });
+  });
+  A.__cabStatic = false; reset();
 });
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
