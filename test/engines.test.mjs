@@ -40808,6 +40808,16 @@ t("PA passiva: rilascio in due fasi — interruttore spento: finale e DSP fuori 
     ok(A.rackNuoviTipi().includes("finale") && A.rackNuoviTipi().includes("dsp"), "fase 2: nel menu del rack");
   } finally { A.paFinaleDspAttivi = orig; reset(); }
 });
+t("HOTFIX generatore: il campo Etichetta del pannello mostra il nome derivato dai kVA (come il disegno); un nome scritto resta suo", () => {
+  reset(); const g = add("gen20", 100, 100), nome = A.TYPES.gen20.nome;
+  eq(A.etichettaPannello(g), nome, "senza kVA scritti: nome di serie");
+  g.kva = 6.3; eq(A.etichettaPannello(g), "Generatore 6,3 kVA", "con kVA scritti: derivato");
+  eq(g.label, nome, "it.label non si tocca");
+  g.label = "Gruppo del Bar"; eq(A.etichettaPannello(g), "Gruppo del Bar", "nome dell'utente intatto");
+  const t2 = add("topattivo", 300, 300); eq(A.etichettaPannello(t2), t2.label, "gli altri elementi invariati");
+  eq(A.etichettaPannello({ type: "gen20" }), "", "senza etichetta: vuoto");
+  reset();
+});
 t("PA passiva: Mackie Thump15A nel catalogo dei diffusori attivi, con la fonte del manuale ufficiale", () => {
   const d = A.AMP_DB.mackie_thump15a;
   ok(d && d.per.includes("topattivo") && /Mackie_Thump12A_Thump15A_OM/.test(d.fonte), "scheda con fonte");

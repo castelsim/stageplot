@@ -3008,6 +3008,8 @@ function genNomeAuto(it, raw, en){
   var k=genKvaOf(it); if(k===GEN_KVA[it.type]) return raw;
   var n=String(k); return en ? "Generator "+n+" kVA" : "Generatore "+n.replace(".",",")+" kVA";
 }
+/* Il testo che il campo «Etichetta» del pannello mostra: quello salvato, salvo il nome automatico di un generatore con kVA scritti (derivato, come nel disegno). */
+function etichettaPannello(it){ var l=(it && it.label) || ""; return l ? genNomeAuto(it, l, false) : l; }
 /* kVA del generatore: it.kva se scritto (1-1000), altrimenti quello del tipo (20 o 60) */
 function genKvaOf(it){ if(!it || GEN_KVA[it.type]==null) return 0;
   var k=+it.kva; return (it.kva!=null && isFinite(k) && k>=1 && k<=1000) ? k : GEN_KVA[it.type]; }
@@ -21837,7 +21839,7 @@ function renderProps(){
     var hint=document.getElementById("pPmFeedHint");
     hint.textContent = feed==="console" ? pmFeedChOf(it)+" uscite console occupate (vedi «Uscite console»)." : "Canali dalla rete: nessuna uscita console fisica.";
   })();
-  document.getElementById("pLabel").value = it.label||"";
+  document.getElementById("pLabel").value = etichettaPannello(it);   /* generatore con kVA scritti: il campo mostra il nome che si vede nel disegno (HOTFIX 24/11) */
   (function(){   /* «Per chi» (A1, 03/11): sulle spie e sui PM il canale prende il nome della persona, non «MIX 2» */
     var w=document.getElementById("pPerChiWrap"), inp=document.getElementById("pPerChi"); if(!w||!inp) return;
     w.style.display = PER_CHI[it.type] ? "" : "none";
