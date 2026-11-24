@@ -8860,6 +8860,13 @@ function dropOrphanLinks(s){
   if(oggetto(s.elec)){
     pulisci(s.elec.manual, esiste, "distro", ["distro","pts","seg","auto","line"]);
     pulisci(s.elec.uplinks, esiste, "to", ["to","pts"]);   /* senza bersaglio la voce non ha più niente da dire: resta vuota e cade */
+    /* CABLAGGI CHIARI (24/11): `feeds` è indicizzata per id del DISTRO: distro sparito → via la voce; il distro che riceve un uplink
+       a mano non ha più la linea principale (la voce resterebbe dormiente: si pulisce) */
+    if(oggetto(s.elec.feeds)){
+      pulisci(s.elec.feeds, esiste, "distro", []);
+      Object.keys(s.elec.feeds).forEach(function(k){ var u=oggetto(s.elec.uplinks)?s.elec.uplinks[k]:null; if(u && u.to!=null && u.to!==""){ delete s.elec.feeds[k]; n++; } });
+      if(vuota(s.elec.feeds)) delete s.elec.feeds;
+    }
   }
   if(oggetto(s.mond)) pulisci(s.mond.manual, esiste, "to", ["to","pts","seg","auto"]);
   if(oggetto(s.cab)){
@@ -11294,11 +11301,20 @@ function normalizeState(s){
     if(typeof v.to==="string" && v.to) o.to=v.to.slice(0,ITEM_ID_MAX);
     if(Array.isArray(v.pts)) o.pts=v.pts.filter(function(p){ return p&&isFinite(p[0])&&isFinite(p[1]); }).map(function(p){ return [Math.round(p[0]),Math.round(p[1])]; });
     if(Object.keys(o).length) eups[String(k).slice(0,ITEM_ID_MAX)]=o; }); }
+  var efeeds=Object.create(null);   /* CABLAGGI CHIARI (24/11): percorso della linea principale distro → ingresso; solo pts validi (≤50 coppie finite) */
+  if(eb.feeds && typeof eb.feeds==="object"){ Object.keys(eb.feeds).forEach(function(k){ var v=eb.feeds[k]; if(!v || typeof v!=="object" || Array.isArray(v)) return; var o={};
+    if(v.pts!==undefined){
+      if(!Array.isArray(v.pts) || v.pts.length>50 || !v.pts.every(function(p){ return Array.isArray(p) && p.length>=2 && typeof p[0]==="number" && typeof p[1]==="number" && isFinite(p[0]) && isFinite(p[1]); })) return;   /* pts malformati: voce scartata */
+      if(v.pts.length) o.pts=v.pts.map(function(p){ return [Math.round(p[0]),Math.round(p[1])]; });
+    }
+    if(v.seg) o.seg=1;
+    if(Object.keys(o).length) efeeds[String(k).slice(0,ITEM_ID_MAX)]=o; }); }
   s.elec={ on:!!eb.on, visible:eb.visible!==false, opacity:Math.min(100,Math.max(15,Math.round((eb.opacity==null||eb.opacity===70)?100:eb.opacity))), auto:eb.auto!==false,
     mode:(eb.mode==="auto"||eb.mode==="manual")?eb.mode:(eb.on?"auto":"manual"),
     labelMode:(eb.labelMode==="always")?"always":"hover",   /* parità con l'audio: canvas pulito, info in hover */
     supply:(eb.supply&&typeof eb.supply==="object")?{kind:String(eb.supply.kind||"rete").slice(0,20), x:Math.round(eb.supply.x||0), y:Math.round(eb.supply.y||0)}:null,
     phase3:eb.phase3!==false, showLabels:eb.showLabels!==false, showLengths:eb.showLengths!==false, style:normCabStyle(eb.style), manual:eman, uplinks:eups };
+  if(Object.keys(efeeds).length) s.elec.feeds=efeeds;
   var mb=s.mond||{};   /* monitoraggio digitale: catene mixerino→hub (manual[id]={to,pts,deleted}) */
   var mman=Object.create(null);
   if(mb.manual && typeof mb.manual==="object"){ Object.keys(mb.manual).forEach(function(k){ var v=mb.manual[k]||{}, o={};
@@ -17326,7 +17342,7 @@ function cabSetTaglia(n){ n=+n; if(CAB_TAGLIE.indexOf(n)<0) return; if(n===8) de
 function cabSetDigitale(v){ if(v==="auto") delete state.cab.digitale; else if(v==="si") state.cab.digitale=true; else if(v==="no") state.cab.digitale=false; else return; __cabRes=null; save(); render(); }
 function cabSegToggle(fam, key){
   if(cabRouteMode()==="orto") return false;   /* L3: «come sul palco» squadra già ogni cavo; «Segmenta» ha senso solo in «diretto» */
-  var man = fam==="elec" ? elecManual(key) : (fam==="mond" ? mondManual(key) : cabManual(key));
+  var man = fam==="feed" ? elecFeedVoce(key) : fam==="elec" ? elecManual(key) : (fam==="mond" ? mondManual(key) : cabManual(key));
   if(man.seg){
     delete man.seg;
     /* 28/07 (bug segnalato da Simone): «Torna diritto» diceva diritto e il cavo restava piegato. I
@@ -17334,7 +17350,7 @@ function cabSegToggle(fam, key){
        ci passa comunque attraverso. Un cavo diritto è una retta: via anche quelli. */
     delete man.pts;
   } else man.seg=1;
-  if(fam==="elec") __elecRes=null; else if(fam==="mond") __mondRes=null; else __cabRes=null;
+  if(fam==="feed"){ elecFeedPulisci(key); __elecRes=null; } else if(fam==="elec") __elecRes=null; else if(fam==="mond") __mondRes=null; else __cabRes=null;
   save(); render();
   return !!man.seg;
 }
@@ -17657,7 +17673,9 @@ function elecStyle(){ return cabStyle(); }
 /* stile del SINGOLO cavo: ortogonale di serie; in «diretto», segmentato solo se l'utente l'ha chiesto */
 function cabSegOn(man, key){ var m=man&&man[key]; return !!(m && m.seg); }
 function cabStyleFor(key){ return (cabRouteMode()==="orto" || cabSegOn(state.cab&&state.cab.manual, key)) ? "orto" : "dir"; }
-function elecStyleFor(key){ return (cabRouteMode()==="orto" || cabSegOn(state.elec&&state.elec.manual, key)) ? "orto" : "dir"; }
+function elecStyleFor(key){
+  if(String(key).indexOf("fd:")===0) return (cabRouteMode()==="orto" || cabSegOn(state.elec&&state.elec.feeds, String(key).slice(3))) ? "orto" : "dir";   /* linea principale: «Segmenta» sta in elec.feeds[id].seg */
+  return (cabRouteMode()==="orto" || cabSegOn(state.elec&&state.elec.manual, key)) ? "orto" : "dir"; }
 function mondStyleFor(key){ return (cabRouteMode()==="orto" || cabSegOn(state.mond&&state.mond.manual, key)) ? "orto" : "dir"; }
 function roundedPathD(ep, r){
   if(ep.length<2) return '';
@@ -17924,14 +17942,14 @@ function cabRoutePts(pts, allObs, exclude, kind){   /* route ogni segmento conse
 var _orthOcc={sig:"", id:0, o:null};
 function elecRouteList(E){
   var L=[]; if(!E) return L;
-  (E.feeds||[]).forEach(function(f){ var ex={}; if(f.distro&&f.distro.it) ex[f.distro.it.id]=1; L.push({key:"f:"+f.distro.letter, pts:[[f.x1,f.y1],[f.x2,f.y2]], ex:ex, nome:"alimentazione "+f.distro.letter}); });
+  (E.feeds||[]).forEach(function(f){ var ex={}; if(f.distro&&f.distro.it) ex[f.distro.it.id]=1; L.push({key:"f:"+f.distro.letter, pts:f.pts||[[f.x1,f.y1],[f.x2,f.y2]], ex:ex, nome:"alimentazione "+f.distro.letter}); });
   (E.uplinks||[]).forEach(function(u){ var ex={}; if(u.from&&u.from.it) ex[u.from.it.id]=1; if(u.to&&u.to.it) ex[u.to.it.id]=1; L.push({key:"p:"+u.key, pts:u.pts, ex:ex, nome:"linea "+u.from.letter+" → "+u.to.letter}); });
   (E.loadLinks||[]).forEach(function(l){ var ex={}; if(l.load&&l.load.it) ex[l.load.it.id]=1; if(l.distro&&l.distro.it) ex[l.distro.it.id]=1; L.push({key:"p:"+l.key, pts:l.pts, ex:ex, nome:(l.load&&l.load.it&&(l.load.it.label||(TYPES[l.load.it.type]&&TYPES[l.load.it.type].nome)))||"carico"}); });
   return L;
 }
 function cabOccupancy(OBS){
   if(!state.elec || !state.elec.on || cabRouteMode()!=="orto") return null;
-  var sig=(state.items||[]).map(function(it){ return it.id+":"+it.x+","+it.y+","+(it.rot||0)+","+(it.w||"")+","+(it.d||""); }).join(";")+"|"+orthStageSig()+"|"+JSON.stringify([state.elec.manual||null, state.elec.uplinks||null, state.elec.supply||null, state.elec.mode||null, state.elec.phase3, state.cab&&state.cab.home]);
+  var sig=(state.items||[]).map(function(it){ return it.id+":"+it.x+","+it.y+","+(it.rot||0)+","+(it.w||"")+","+(it.d||""); }).join(";")+"|"+orthStageSig()+"|"+JSON.stringify([state.elec.manual||null, state.elec.uplinks||null, state.elec.feeds||null, state.elec.supply||null, state.elec.mode||null, state.elec.phase3, state.cab&&state.cab.home]);
   if(_orthOcc.sig===sig) return _orthOcc.o;
   var saved=_orthCtx; _orthCtx={occ:null, band:null, corr:null};
   var m={}, n=0;
@@ -17980,7 +17998,7 @@ function elecAllineaLunghezze(loadLinks, uplinks, feeds){
   (uplinks||[]).forEach(function(u){ var ex={}; if(u.from&&u.from.it) ex[u.from.it.id]=1; if(u.to&&u.to.it) ex[u.to.it.id]=1;
     var cm=_cabDisegnata(u.pts, OBS, ex, "pwr"); u.pathM=cm/100; u.lenM=cabLenFinale(cm); u.cut=cabCut(u.lenM); });
   (feeds||[]).forEach(function(f){ var ex={}; if(f.distro&&f.distro.it) ex[f.distro.it.id]=1;
-    var cm=_cabDisegnata([[f.x1,f.y1],[f.x2,f.y2]], OBS, ex, "pwr"); f.pathM=cm/100; f.lenM=cabLenFinale(cm); f.cut=cabCut(f.lenM); });
+    var cm=_cabDisegnata(f.pts||[[f.x1,f.y1],[f.x2,f.y2]], OBS, ex, "pwr"); f.pathM=cm/100; f.lenM=cabLenFinale(cm); f.cut=cabCut(f.lenM); });
 }
 /* L6 — «cavi per taglio»: quanti XLR da 5 m, da 10 m…, i multicore/le reti, i cavi di corrente. Una fonte sola per il pannello Stato e per il PDF del cablaggio
    (la stessa che ha già i tagli dell'audit): si legge da cabResult()/elecResult(), che si riusano se lo stato non cambia → nessun ricalcolo a ogni ridisegno. */
@@ -19416,6 +19434,7 @@ function elettricoIniziato(){
     if(e.supply) return true;
     if(e.manual && Object.keys(e.manual).length) return true;
     if(e.uplinks && Object.keys(e.uplinks).length) return true;
+    if(e.feeds && Object.keys(e.feeds).length) return true;
     return (state.items||[]).some(function(it){
       return (typeof elecIsDistro==="function" && elecIsDistro(it)) || (typeof elecIsGen==="function" && elecIsGen(it));
     });
@@ -19483,8 +19502,9 @@ function elecSupplyPoint(){
   var gen=(state.items||[]).filter(elecIsGen)[0];
   if(gen) return {kind:"gen", name:"Generatore "+GEN_KVA[gen.type]+" kVA", x:gen.x, y:gen.y, kva:GEN_KVA[gen.type]};   /* generatore sul palco = sorgente (vince) */
   if(!sp) return null;
-  var nm={rete:"Allaccio rete / quadro gen.", right:"Alimentazione DX", left:"Alimentazione SX", custom:"Alimentazione", gen:"Generatore"};
-  var p={kind:sp.kind, name:nm[sp.kind]||"Alimentazione"};
+  /* CABLAGGI CHIARI (24/11/2026): «Ingresso corrente» = dove la corrente entra nel palco (era «Allaccio rete / quadro gen.», «Alimentazione DX/SX») */
+  var nm={rete:"Ingresso corrente (rete)", right:"Ingresso corrente DX", left:"Ingresso corrente SX", custom:"Ingresso corrente", gen:"Generatore"};
+  var p={kind:sp.kind, name:nm[sp.kind]||"Ingresso corrente"};
   if(sp.kind==="custom"){ p.x=sp.x; p.y=sp.y; }
   else if(sp.kind==="right"){ p.x=W-30; p.y=D-40; }
   else if(sp.kind==="left"){ p.x=30; p.y=D-40; }
@@ -19518,6 +19538,9 @@ function elecQuadroBordo(){
 var selElec=null;   /* linea elettrica selezionata (key = id del carico) — parità con selCab */
 function elecManual(key){ state.elec.manual=state.elec.manual||{}; if(!state.elec.on) state.elec.on=true;
   if(!state.elec.manual[key] || typeof state.elec.manual[key]!=="object") state.elec.manual[key]={}; return state.elec.manual[key]; }
+/* CABLAGGI CHIARI (24/11/2026): voce della linea principale (distro → ingresso corrente) = `elec.feeds[idDistro]` {pts, seg}. */
+function elecFeedVoce(id){ state.elec.feeds=state.elec.feeds||{}; if(!state.elec.feeds[id] || typeof state.elec.feeds[id]!=="object") state.elec.feeds[id]={}; return state.elec.feeds[id]; }
+function elecFeedPulisci(id){ var f=state.elec&&state.elec.feeds; if(!f) return; if(f[id] && !Object.keys(f[id]).length) delete f[id]; if(!Object.keys(f).length) delete state.elec.feeds; }
 /* La FASE PIÙ CARICA dell'impianto (29/07) — l'equivalente elettrico della capienza «10/16 su A»
    dell'Input. Non la somma dei kW dei quadri, che non fa saltare niente: quello che conta è la
    singola fase più carica, la stessa grandezza con cui electricEngine alza «quasi al limite»
@@ -19539,6 +19562,7 @@ function elecWorstPhase(R){
    fulmine. Una sola funzione per i due punti d'ingresso: due formulazioni divergerebbero. */
 function elecDeleteKey(key){
   if(!key || !state.elec) return false;
+  if(String(key).indexOf("fd:")===0) return false;   /* la linea principale non si elimina: si toglie togliendo il distro; «Ripristina percorso» la riporta com'era */
   if(String(key).indexOf("up:")===0){ if(state.elec.uplinks) delete state.elec.uplinks[String(key).slice(3)]; }
   else if(state.elec.mode!=="auto"){ if(state.elec.manual) delete state.elec.manual[key]; }
   else { state.elec.manual=state.elec.manual||{}; state.elec.manual[key]={deleted:true}; }
@@ -19560,9 +19584,12 @@ function elecMarkup(){
   var FME=cabFasciMap();   /* L4: fasci scostati di 4 cm */
   R.feeds.forEach(function(f){
     var ex={}; if(f.distro&&f.distro.it) ex[f.distro.it.id]=1;
-    var dpts=cabRoutePts([[f.x1,f.y1],[f.x2,f.y2]], OBS, ex, "pwr"); if(elecStyle()==="orto") dpts=FME["f:"+f.distro.letter]||dpts;
-    var fi='<path class="elec-feed" d="'+cabDrawD([[f.x1,f.y1],[f.x2,f.y2]], dpts, elecStyle())+'"/>';
-    if(LBLE && sl){ var mid=cabMidpoint(orthExpand(dpts));
+    var fsty=f.key?elecStyleFor(f.key):elecStyle(), fsel=!!(f.key && selElec===f.key && !window.__cabStatic);
+    var dpts=cabRoutePts(f.pts, OBS, ex, "pwr"); if(fsty==="orto") dpts=FME["f:"+f.distro.letter]||dpts;
+    var fd=cabDrawD(f.pts, dpts, fsty);
+    var fi='<path class="elec-feed'+(fsel?' sel':'')+'" d="'+fd+'"/>';
+    if(editE && f.key) fi+='<path class="elec-hit" data-el="'+esc(f.key)+'" d="'+fd+'"/>';   /* selezionabile e spostabile come gli uplink (24/11) */
+    if((LBLE && sl) || fsel){ var mid=cabMidpoint(orthExpand(dpts));
       fi+='<text class="elec-lbl elec-lbl-feed" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(f.distro.a+'A · '+f.section+(sg?' · '+f.lenM.toFixed(0)+' m':''))+'</text>'; }
     s+='<g class="cabgrp" data-own="'+esc(f.distro&&f.distro.it&&f.distro.it.id||'')+'">'+fi+'</g>';
   });
@@ -19591,7 +19618,7 @@ function elecMarkup(){
      già corretto sull'audio il 21/07: qui restano i due estremi, per riattaccare il cavo altrove.
      I lati si trascinano quando la linea è segmentata, che è quando esistono davvero. */
   if(editE && selElec){
-    var slk=(R.loadLinks||[]).concat(R.uplinks||[]).filter(function(l){ return l.key===selElec; })[0];
+    var slk=(R.loadLinks||[]).concat(R.uplinks||[]).concat(R.feeds||[]).filter(function(l){ return l.key===selElec; })[0];
     if(slk){
       var exs={}; if(slk.load&&slk.load.it) exs[slk.load.it.id]=1; if(slk.distro&&slk.distro.it) exs[slk.distro.it.id]=1;
       if(slk.from&&slk.from.it) exs[slk.from.it.id]=1; if(slk.to&&slk.to.it) exs[slk.to.it.id]=1;
@@ -19603,7 +19630,7 @@ function elecMarkup(){
         s+='<line class="elec-seg" x1="'+A[0]+'" y1="'+A[1]+'" x2="'+B[0]+'" y2="'+B[1]+'"/>';
         s+='<line class="elec-seg-hit" data-el="'+esc(selElec)+'" data-seg="'+pi+'" data-ori="'+ori+'" x1="'+A[0]+'" y1="'+A[1]+'" x2="'+B[0]+'" y2="'+B[1]+'"/>';
       }
-      [["distro", polyE[0]], ["load", polyE[polyE.length-1]]].forEach(function(ec){
+      if(String(selElec).indexOf("fd:")!==0) [["distro", polyE[0]], ["load", polyE[polyE.length-1]]].forEach(function(ec){   /* la linea principale non ha maniglie ai capi: si spostano distro e ingresso */
         s+='<circle class="elec-endpt" data-el="'+esc(selElec)+'" data-eend="'+ec[0]+'" cx="'+ec[1][0].toFixed(1)+'" cy="'+ec[1][1].toFixed(1)+'" r="8"/>'
           +'<circle class="elec-endpt elec-endpt-hit" data-el="'+esc(selElec)+'" data-eend="'+ec[0]+'" cx="'+ec[1][0].toFixed(1)+'" cy="'+ec[1][1].toFixed(1)+'" r="17"/>';
       });
@@ -19623,8 +19650,13 @@ function elecMarkup(){
     var bTop = d.auto ? 42 : Math.max(24, ((d.it && d.it.d) || 40)/2 + 22);
     s+='<g class="elec-badge"><rect x="'+(d.x-bw/2)+'" y="'+(d.y-bTop)+'" width="'+bw+'" height="15" rx="7"/><text x="'+d.x+'" y="'+(d.y-bTop+11)+'" text-anchor="middle">'+esc(bt)+'</text></g>';
   });
-  if(R.supply){ var h=R.supply; s+='<g class="elec-supply"><rect x="'+(h.x-46)+'" y="'+(h.y-13)+'" width="92" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>'
-    +'<rect class="elec-supplyhit" data-elecsupply="1" x="'+(h.x-48)+'" y="'+(h.y-15)+'" width="96" height="30" rx="6"/></g>'; }
+  if(R.supply){ var h=R.supply;
+    /* A SCHERMO (non nell'export: geometria identica a prima, cambia solo la stringa) l'etichetta cresce col testo
+       e col corpo minimo (--lblK, come i nomi): a zoom normale si legge; ha un tooltip che dice cos'è e che si sposta. */
+    var scrS=!window.__cabStatic, hwS=scrS?Math.max(92, 14+String(h.name).length*6.2):92;
+    var ttS=scrS?'<title>'+(h.kind==="gen"?'Generatore: sorgente di corrente del palco. Trascinalo dove sta davvero.':'Ingresso corrente: da qui parte l\u2019alimentazione del palco. Trascinalo dove c\u2019\u00e8 davvero la presa o il quadro del luogo.')+'</title>':'';
+    s+='<g class="elec-supply'+(scrS?' elec-supply-scr':'')+'"'+(scrS?' style="transform-origin:'+h.x+'px '+h.y+'px"':'')+'><rect x="'+(h.x-hwS/2)+'" y="'+(h.y-13)+'" width="'+hwS+'" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>'
+    +'<rect class="elec-supplyhit" data-elecsupply="1" x="'+(h.x-hwS/2-2)+'" y="'+(h.y-15)+'" width="'+(hwS+4)+'" height="30" rx="6">'+ttS+'</rect></g>'; }
   R.unassigned.forEach(function(u){ s+='<circle class="elec-warn" cx="'+u.it.x+'" cy="'+u.it.y+'" r="14"/>'; });
   s+='</g>';
   return s;
@@ -19816,7 +19848,11 @@ function electricEngine(){
   var feeds=[];
   if(!manualModeE && supply) distros.forEach(function(d){ if(d.loadW<=0) return;
     if(d.it && ups[d.it.id] && ups[d.it.id].to) return;   /* ha già un uplink disegnato dall'utente */
-    feeds.push({distro:d, x1:d.x, y1:d.y, x2:supply.x, y2:supply.y, a:d.a, section:elecSection(d.a), lenM:cabLenFinale(orthLen([[d.x,d.y],[supply.x,supply.y]]))}); });
+    /* CABLAGGI CHIARI (24/11/2026): la linea principale distro → ingresso si può spostare. `elec.feeds[idDistro].pts` = waypoint
+       intermedi (come gli uplink); assente = percorso automatico di sempre. Solo per distro veri (con elemento): il proposto non ha id. */
+    var fo=(d.it && state.elec && state.elec.feeds) ? state.elec.feeds[d.it.id] : null, manF=!!(fo && Array.isArray(fo.pts) && fo.pts.length);
+    var ptsF=manF ? [[d.x,d.y]].concat(fo.pts).concat([[supply.x,supply.y]]) : [[d.x,d.y],[supply.x,supply.y]];
+    feeds.push({distro:d, x1:d.x, y1:d.y, x2:supply.x, y2:supply.y, a:d.a, section:elecSection(d.a), key:d.it?"fd:"+d.it.id:null, pts:ptsF, manual:manF, lenM:cabLenFinale(orthLen(ptsF))}); });
   /* F4: numero di linea per distro (progressivo, pin via elecManual.line) + connettore per ogni carico */
   distros.forEach(function(d){
     var mine=loadLinks.filter(function(l){ return l.distro===d; });
@@ -22204,6 +22240,20 @@ function selectedCableInfo(){
         resetPts:function(){ var m=(state.elec.manual||{})[selElec]; if(m){ delete m.pts; if(!Object.keys(m).length) delete state.elec.manual[selElec]; } __elecRes=null; },
         unlink:function(){ state.elec.manual=state.elec.manual||{}; var m=state.elec.manual[selElec]=state.elec.manual[selElec]||{}; m.deleted=true; delete m.pts; selElec=null; __elecRes=null; } };
     }
+    var fl=(Re.feeds||[]).filter(function(k){ return k.key===selElec; })[0];
+    if(fl){
+      var fid=fl.distro.it.id, fo2=(state.elec.feeds||{})[fid]||null;
+      return { title:"Linea di alimentazione principale", sub:(fl.distro.letter||"Quadro")+" \u2192 "+((Re.supply&&Re.supply.name)||"Ingresso corrente"),
+        rows:[["Distro", (fl.distro.letter||"")+(fl.distro.name?" \u00b7 "+fl.distro.name:"")],
+              ["Ingresso corrente", (Re.supply&&Re.supply.name)||"\u2014"],
+              ["Corrente", Math.round(fl.a)+" A"],
+              ["Sezione", fl.section||"\u2014"],
+              ["Lunghezza", _cpLen(fl.lenM, null)]],
+        hasPts:!!(fo2&&fo2.pts&&fo2.pts.length), from:fl.distro.it||null, to:null,
+        resetPtsLabel:"Ripristina percorso automatico",
+        resetPts:function(){ var v=(state.elec.feeds||{})[fid]; if(v){ delete v.pts; delete v.seg; elecFeedPulisci(fid); } __elecRes=null; },
+        unlink:null };
+    }
     var ul=(Re.uplinks||[]).filter(function(k){ return k.key===selElec; })[0];
     if(ul){
       var rowsU=[["Dorsale", (ul.from.letter||"quadro")+" → "+(ul.to&&ul.to.letter?ul.to.letter:"alimentazione")],
@@ -22276,7 +22326,7 @@ function renderCablePanel(info){
       (_on ? "Rimetti il cavo in linea retta" : "Squadra il percorso ad angoli retti: poi puoi trascinare i lati per modellarlo")
       + " \u00b7 doppio click sul cavo");
   }
-  mkBtn("Ripristina percorso", false, info.resetPts, !info.hasPts,
+  mkBtn(info.resetPtsLabel||"Ripristina percorso", false, info.resetPts, !info.hasPts,
     info.hasPts ? "Cancella i segmenti disegnati a mano: torna il percorso automatico" : "Nessun segmento fatto a mano su questo cavo");
   if(info.unlink) mkBtn(info.unlinkLabel||"Scollega", false, info.unlink);
   [info.from, info.to].forEach(function(itx){
@@ -27893,9 +27943,10 @@ function cabHoverTip(e){
       (l.label||"")+" · "+(l.s.name||"")+(l.s.mic?" · "+l.s.mic:"")+" · "+(l.cut?("XLR "+l.cut+" m"):"oltre 50 m");
   } else {
     var kE=ehit.getAttribute("data-el"), RlT=elecResult();
-    var lE=((RlT.loadLinks||[]).concat(RlT.uplinks||[])).filter(function(x){ return x.key===kE; })[0];
+    var lE=((RlT.loadLinks||[]).concat(RlT.uplinks||[]).concat(RlT.feeds||[])).filter(function(x){ return x.key===kE; })[0];
     if(!lE){ if(__cabTip){ __cabTip.remove(); __cabTip=null; } return; }
-    txt = lE.from ? (lE.from.letter+" → "+lE.to.letter+" · "+lE.a.toFixed(0)+" A · "+lE.section+" · "+lE.lenM.toFixed(0)+" m")
+    txt = (lE.distro && !lE.load && !lE.from) ? "Linea di alimentazione principale: dall\u2019ingresso corrente al distro "+lE.distro.letter+" \u00b7 "+lE.a.toFixed(0)+" A \u00b7 "+lE.section+" \u00b7 "+lE.lenM.toFixed(0)+" m. Clic per selezionarla, trascina un lato per spostarla."
+      : lE.from ? (lE.from.letter+" → "+lE.to.letter+" · "+lE.a.toFixed(0)+" A · "+lE.section+" · "+lE.lenM.toFixed(0)+" m")
       : (lE.load.it.label||TYPES[lE.load.it.type].nome)+" → "+lE.distro.letter+" · L"+(lE.phase+1)+" · "+elecKW(lE.load.w)+" · "+(lE.cut?lE.cut+" m":"oltre 50 m")+(lE.cee?" · CEE":"");
   }
   if(!__cabTip){ __cabTip=document.createElement("div"); __cabTip.className="cab-tip"; document.body.appendChild(__cabTip); }
@@ -27966,7 +28017,9 @@ svg.addEventListener("pointerdown", function(e){
        vale come doppio click. */
     var _h1=e.target.closest(".cab-hit,.cab-seg-hit"), _h2=e.target.closest(".elec-hit,.elec-seg-hit"), _h3=e.target.closest(".mond-hit,.mond-seg-hit");
     if(_h1 && state.cab && state.cab.on) _dcCab={fam:"cab", key:_h1.getAttribute("data-cab")};
-    else if(_h2 && state.elec && state.elec.on) _dcCab={fam:"elec", key:_h2.getAttribute("data-el")};
+    else if(_h2 && state.elec && state.elec.on){ var _k2=_h2.getAttribute("data-el");
+      _dcCab=(String(_k2).indexOf("fd:")===0) ? {fam:"feed", key:String(_k2).slice(3)} : {fam:"elec", key:_k2};   /* linea principale: «Segmenta» sta in elec.feeds[id], non in elec.manual (che dropOrphanLinks pulisce) */
+    }
     else if(_h3 && state.mond && state.mond.on) _dcCab={fam:"mond", key:_h3.getAttribute("data-mond")};
   }
   if(_dcCab && _dcCab.key && cabRouteMode()!=="orto" && lastDown && lastDown.cab===_dcCab.key && Date.now()-lastDown.t<400
@@ -27975,7 +28028,7 @@ svg.addEventListener("pointerdown", function(e){
     drag={mode:"none"};   /* il rilascio che segue non deve essere letto come clic sul vuoto (deselezionava il cavo) */
     try{ svg.setPointerCapture(e.pointerId); }catch(_e){}
     cabSegToggle(_dcCab.fam, _dcCab.key);
-    var _segNow=cabSegOn(_dcCab.fam==="elec" ? (state.elec&&state.elec.manual) : (_dcCab.fam==="mond" ? (state.mond&&state.mond.manual) : (state.cab&&state.cab.manual)), _dcCab.key);
+    var _segNow=cabSegOn(_dcCab.fam==="feed" ? (state.elec&&state.elec.feeds) : _dcCab.fam==="elec" ? (state.elec&&state.elec.manual) : (_dcCab.fam==="mond" ? (state.mond&&state.mond.manual) : (state.cab&&state.cab.manual)), _dcCab.key);
     showToast(_segNow ? "Cavo segmentato \u2014 trascina i lati per modellarlo" : "Cavo diritto");
     return;
   }
@@ -28046,7 +28099,7 @@ svg.addEventListener("pointerdown", function(e){
     var eseg=e.target.closest(".elec-seg-hit");
     if(eseg){ e.preventDefault(); var ekey=eseg.getAttribute("data-el"), esi=+eseg.getAttribute("data-seg"), eori=eseg.getAttribute("data-ori");
       selElec=ekey;
-      var Rl=elecResult(); var le=((Rl.loadLinks||[]).concat(Rl.uplinks||[])).filter(function(k){ return k.key===ekey; })[0];
+      var Rl=elecResult(); var le=((Rl.loadLinks||[]).concat(Rl.uplinks||[]).concat(Rl.feeds||[])).filter(function(k){ return k.key===ekey; })[0];
       if(le){ var exe={}; if(le.load&&le.load.it) exe[le.load.it.id]=1; if(le.distro&&le.distro.it) exe[le.distro.it.id]=1;
         if(le.from&&le.from.it) exe[le.from.it.id]=1; if(le.to&&le.to.it) exe[le.to.it.id]=1;
         var fp0e=orthExpand(cabRoutePts(le.pts, obstacleRects(), exe, "pwr"));
@@ -28380,6 +28433,7 @@ svg.addEventListener("pointermove", function(e){
     var gstepE=snapVal(); if(gstepE>0) valE=snapQ(valE, gstepE);
     var WPE=cabCleanPoly(cabMoveSeg(drag.fp0, drag.si, drag.ori, valE));
     if(drag.key.indexOf("up:")===0){ state.elec.uplinks=state.elec.uplinks||{}; var ue=state.elec.uplinks[drag.key.slice(3)]||(state.elec.uplinks[drag.key.slice(3)]={}); ue.pts=WPE.slice(1,-1); }
+    else if(drag.key.indexOf("fd:")===0){ var feE=elecFeedVoce(drag.key.slice(3)); feE.pts=WPE.slice(1,-1); }
     else { var msE=elecManual(drag.key); msE.pts=WPE.slice(1,-1); }
     drag.moved=true; __elecRes=null; redrawStageLayers();
     return;
@@ -29700,6 +29754,7 @@ document.addEventListener("keydown", function(e){
   }
   if(selElec && (e.key==="Backspace"||e.key==="Delete")){   /* linea elettrica: scollega (parità con l'audio) */
     e.preventDefault();
+    if(selElec.indexOf("fd:")===0) return;   /* linea principale: Backspace non fa niente (si ripristina dal pannello) */
     if(selElec.indexOf("up:")===0){ if(state.elec.uplinks) delete state.elec.uplinks[selElec.slice(3)]; }
     else if(state.elec.mode!=="auto"){ if(state.elec.manual) delete state.elec.manual[selElec]; }
     else { state.elec.manual=state.elec.manual||{}; state.elec.manual[selElec]={deleted:true}; }
@@ -30971,7 +31026,7 @@ function stateHasMeaningfulWork(s, ignoraPalco){
   if(s.status&&s.status!=="bozza") return true;
   if(s.approval&&(s.approval.by||s.approval.at)) return true;
   if(s.cab&&s.cab.manual&&Object.keys(s.cab.manual).length) return true;
-  if(s.elec&&((s.elec.manual&&Object.keys(s.elec.manual).length)||(s.elec.uplinks&&Object.keys(s.elec.uplinks).length))) return true;
+  if(s.elec&&((s.elec.manual&&Object.keys(s.elec.manual).length)||(s.elec.uplinks&&Object.keys(s.elec.uplinks).length)||(s.elec.feeds&&Object.keys(s.elec.feeds).length))) return true;
   if(s.mond&&s.mond.manual&&Object.keys(s.mond.manual).length) return true;
   if(ignoraPalco) return false;
   var st=s.stage||{}, blocks=Array.isArray(st.blocks)?st.blocks:[];
@@ -33234,7 +33289,7 @@ function layerRegistry(){
       activate:function(){ state.elec.on=true; state.elec.visible=true; if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; __elecRes=null; save(); render(); },
       visible:state.elec.visible!==false, setVisible:function(v){ state.elec.visible=v; save(); render(); },
       lockable:true, locked:!!state.elec.locked, setLocked:function(v){ state.elec.locked=v; if(v) selElec=null; save(); render(); },
-      removable:true, removeLabel:"Azzera elettrico", remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); } },   /* cestino = da zero */
+      removable:true, removeLabel:"Azzera elettrico", remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; delete state.elec.feeds; selElec=null; __elecRes=null; save(); render(); } },   /* cestino = da zero */
     /* Luci (blocco A): il reparto che prima non esisteva. Core come Power — sempre in lista,
        con la riga-invito quando il progetto non dice nulla (D-L1A): un rider senza luci è
        un rider muto su metà dello spettacolo, e l'invito è l'unico modo di dirlo senza urlare. */
@@ -33821,6 +33876,13 @@ function renderLayerRow(L, container){
         bt.setAttribute("aria-pressed", cabRouteMode()===o[0]?"true":"false");
         bt.addEventListener("click", function(e){ e.stopPropagation(); cabSetRoute(o[0]); }); rt.appendChild(bt); });
       body.appendChild(rt); }
+    /* CABLAGGI CHIARI (24/11/2026): legenda a 3 righe nel layer Elettrico — solo interfaccia, mai nei PDF */
+    if(L.id==="elec"){ var lg=document.createElement("div"); lg.className="layer-adv layer-legend"; lg.id="elecLegend"; lg.setAttribute("role","note");
+      var righeLg=[["lg-in","Ingresso corrente"],["lg-feed","Linea di alimentazione principale (si sposta)"]];
+      if(typeof layerShown==="function" && layerShown("cabin")) righeLg.push(["lg-box","Stagebox suggerito (cavi audio)"]);
+      righeLg.forEach(function(r){ var row=document.createElement("div"); row.className="lg-row"; var sw=document.createElement("span"); sw.className="lg-sw "+r[0]; sw.setAttribute("aria-hidden","true");
+        var tx=document.createElement("span"); tx.textContent=r[1]; row.appendChild(sw); row.appendChild(tx); lg.appendChild(row); });
+      body.appendChild(lg); }
     var secEl=accKey?document.getElementById(accKey):null;
     if(secEl) body.appendChild(secEl);
     _mkReset();   /* l'azzeramento chiude il corpo: è l'ultima cosa, e chiede conferma */
@@ -34245,6 +34307,7 @@ var cabOpen=false;   /* legacy: pannello tolto */
 /* famiglia del cavo selezionato: serve al comando «Segmenta», che vale per tutte e tre */
 function cabSelFam(){
   if(selCab) return {fam:"cab", key:selCab, store:(state.cab&&state.cab.manual)};
+  if(selElec && String(selElec).indexOf("fd:")===0) return {fam:"feed", key:String(selElec).slice(3), store:(state.elec&&state.elec.feeds)};
   if(selElec) return {fam:"elec", key:selElec, store:(state.elec&&state.elec.manual)};
   if(selMond) return {fam:"mond", key:selMond, store:(state.mond&&state.mond.manual)};
   return null;
@@ -37237,7 +37300,8 @@ function renderElecPanel(){
   document.getElementById("elecSelDelete").addEventListener("click", function(){ if(!selElec) return;
     elecDeleteKey(selElec); selElec=null; save(); render(); });
   document.getElementById("elecSelResetPath").addEventListener("click", function(){ if(!selElec) return;
-    if(selElec.indexOf("up:")===0){ var u=state.elec.uplinks&&state.elec.uplinks[selElec.slice(3)]; if(u) delete u.pts; }
+    if(selElec.indexOf("fd:")===0){ var fv=state.elec.feeds&&state.elec.feeds[selElec.slice(3)]; if(fv){ delete fv.pts; delete fv.seg; elecFeedPulisci(selElec.slice(3)); } }
+    else if(selElec.indexOf("up:")===0){ var u=state.elec.uplinks&&state.elec.uplinks[selElec.slice(3)]; if(u) delete u.pts; }
     else { var m=state.elec.manual&&state.elec.manual[selElec]; if(m) delete m.pts; }
     __elecRes=null; save(); render(); });
 })();
