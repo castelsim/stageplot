@@ -2905,7 +2905,13 @@ var AMP_DB = {
   "fbt_evomaxx6a": {brand:"FBT", model:"EvoMaxX 6A", per:["topattivo"], watt:450, out:500, kg:26, v:true,
                     note:"15\u2033+1\u2033 biamplificato, 400+100 W RMS, 757\u00d7482\u00d7399 mm, 450 VA. Il diffusore pesa 21 kg: qui 26 col treppiede"},
   "fbt_evo2maxx6a":{brand:"FBT", model:"Evo2MaxX 6A", per:["topattivo"], watt:450, out:500, kg:29, v:true,
-                    note:"la seconda serie: stesse misure e stessa richiesta di rete, ma il diffusore pesa 24,4 kg (qui 29 col treppiede)"}
+                    note:"la seconda serie: stesse misure e stessa richiesta di rete, ma il diffusore pesa 24,4 kg (qui 29 col treppiede)"},
+  /* Mackie Thump15A (24/11/2026): dati letti il 24/11/2026 sul manuale ufficiale del costruttore (mackie.com/img/file_resources/Thump12A_Thump15A_OM.pdf,
+     pagina «Thump12A / Thump15A Loudspeakers Specifications», p.16 del PDF): «Line Input Power 220V–240V~, 50–60 Hz, 75 W»; amplificatore classe D 1300 W picco
+     (LF 1000 + HF 300); Thump15A 686 × 442 × 356 mm, 15,8 kg. La scheda online del prodotto non era raggiungibile: vale il manuale. */
+  "mackie_thump15a":{brand:"Mackie", model:"Thump15A", per:["topattivo"], watt:75, out:1300, kg:21, mm:[686,442,356], v:true,
+                    fonte:"Mackie_Thump12A_Thump15A_OM.pdf, Loudspeakers Specifications (p.16 del PDF)",
+                    note:"15\u2033 classe D, 1300 W di picco; 75 W è la «Line Input Power» dichiarata dal costruttore (non il massimo in uscita). Il diffusore pesa 15,8 kg: qui 21 col treppiede"}
 };
 /* Su quali elementi si puo' scegliere un modello di backline: quelli che AMP_DB dichiara di coprire.
    Niente elenco di tipi scritto a parte, che invecchierebbe da solo appena si aggiunge una riga. */

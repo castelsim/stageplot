@@ -40769,5 +40769,14 @@ t("PA passiva: caso carro — numeri prima/dopo (sub e 2 teste passivi, 3 finali
   eq(A.paAvvisoServe(A.state.items), false, "con i finali l'avviso non c'è");
   reset();
 });
+t("PA passiva: Mackie Thump15A nel catalogo dei diffusori attivi, con la fonte del manuale ufficiale", () => {
+  const d = A.AMP_DB.mackie_thump15a;
+  ok(d && d.per.includes("topattivo") && /Mackie_Thump12A_Thump15A_OM/.test(d.fonte), "scheda con fonte");
+  eq([d.watt, d.out, d.mm], [75, 1300, [686, 442, 356]], "dati di targa del manuale");
+  reset(); const it = add("topattivo", 300, 300, { bm: "mackie_thump15a" });
+  eq([A.wattOf(it), A.wattFonte(it)], [75, "targa"], "col modello vale la targa");
+  it.pass = true; eq(A.wattOf(it), 0, "e passivo resta 0");
+  reset();
+});
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
