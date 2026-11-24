@@ -2920,6 +2920,19 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 #viewBar .vb-badge{font-size:11px;color:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:2px 9px;white-space:nowrap}
 #viewBar #viewCopy{background:var(--accent);color:#fff;border:none;border-radius:var(--r-md);padding:8px 15px;font-weight:700;font-size:13px;cursor:pointer}
 #viewBar #viewCopy:hover{background:var(--accent-strong)}
+/* VISTA SOLA LETTURA su telefono (24/11): la barra del viewer era coperta dall'intestazione mobile (#mTop, z-index pari e dopo
+   nel DOM) e, con tutti i pezzi su una riga, «Crea una copia» finiva fuori schermo (x 442 su 390). In sola lettura #mTop
+   (titolo + annulla/ripeti, inutili a chi guarda) non serve: la barra scura è l'unica intestazione, su una riga sola, col
+   titolo che si accorcia e il pulsante sempre dentro lo schermo. Desktop invariato. */
+@media(max-width:880px){
+  body.viewmode #mTop{display:none!important}
+  body.viewmode #viewBar{gap:8px;padding:0 10px;height:44px;box-sizing:border-box;flex-wrap:nowrap;overflow:hidden}
+  body.viewmode #viewBar>*{flex:none}
+  body.viewmode #viewBar #viewRole{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+  body.viewmode #viewBar .vb-badge,body.viewmode #viewBar #viewStatus,body.viewmode #viewBar #viewPresence,body.viewmode #viewBar #viewMeta{display:none}
+  body.viewmode #viewBar #viewCopy{padding:6px 11px;min-height:32px;white-space:nowrap;font-size:12px}
+  body.viewmode #viewBar .vb-brand{gap:6px}
+}
 
   /* ═══════ DS v2.1 — componenti stile configuratore (03/07/2026) ═══════ */
   /* Switch: tutti i checkbox diventano interruttori (CSS-only, il JS legge sempre .checked) */

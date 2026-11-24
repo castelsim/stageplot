@@ -28140,7 +28140,7 @@ function contentBounds(){
     if(it.type==="pedanaarco"){ var _ab=arcoAabb(it,0); ax0=_ab.x0; ax1=_ab.x1; ay0=_ab.y0; ay1=_ab.y1; }   /* pedana ad arco: la figura vera, la fascia sporge dal rettangolo */
     /* tieni dentro anche l'etichetta (sotto l'elemento), così non viene tagliata ai bordi */
     var fs=(it.lblSize==null)?14:it.lblSize;
-    var lab=(it.label||it.label2) && fs>0;       /* etichetta nascosta (size 0) non occupa spazio */
+    var lab=(it.label||it.label2) && fs>0 && it.type!=="forma";       /* etichetta nascosta (size 0) non occupa spazio. La FORMA scrive il testo DENTRO di sé, a capo (24/11): una nota di 500 caratteri contata come riga unica gonfiava il fit di 15× (link del carro: disegno 1/6 dello schermo su iPhone) */
     if(lab){ ay1 += fs+10;
       var halfTxt=Math.max(String(it.label||"").length, String(it.label2||"").length)*fs*0.28;
       ax0=Math.min(ax0, it.x-halfTxt); ax1=Math.max(ax1, it.x+halfTxt); }
@@ -32897,6 +32897,7 @@ function renderLayerRow(L, container){
   var focus=(layerAccOpen===L.id), accKey=LAYER_ACC[L.id]||null;
   /* D-L1A: motore spento → riga-invito. Il clic ATTIVA il motore e mette il layer a fuoco. */
   if(L.engineOn===false){
+    if(soloLetturaProgetto()) return;   /* sola lettura: nessun invito ad attivare */
     var offRow=document.createElement("div"); offRow.className="layer-row layer-clickable layer-offrow";
     offRow.innerHTML='<span class="layer-chev">▸</span><span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span><span class="layer-actbadge">attiva</span>';
     offRow.title="Attiva: "+L.name;
@@ -33043,6 +33044,9 @@ function renderLayerManager(){
   /* le liste sono attive SOLO come corpo del layer aperto (via la voce catalogo "Liste tecniche") */
   patchActive=(layerAccOpen==="cabin"); monActive=(layerAccOpen==="cabout"); loadActive=(layerAccOpen==="elec");   /* Layer v3: ogni layer la sua lista */
   var LS=layerRegistry().filter(function(L){ return L.active; });
+  /* VISTA SOLA LETTURA (24/11): le righe-invito «attiva» (motore spento) non fanno nulla a chi guarda
+     (#props non riceve clic) e dicono solo che quella lista è vuota: via. Senza avanzate vuote sparisce anche «Impianti tecnici». */
+  if(soloLetturaProgetto()) LS=LS.filter(function(L){ return L.engineOn!==false; });
   /* il layer Palco resta sempre in cima alla lista (richiesta Simone) */
   LS=LS.filter(function(L){ return L.id==="stage"; }).concat(LS.filter(function(L){ return L.id!=="stage"; }));
   sec.style.display = LS.length ? "block" : "none";

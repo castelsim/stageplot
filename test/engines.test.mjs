@@ -41011,5 +41011,25 @@ t("linee desktop 24/11: cablaggio del trascinamento diretto (pointerdown arma, p
   ok(!/elecpre[^\n]*save\(\)/.test(appjs), "il clic fermo non salva");
   ok(/function elecPreDragSegmenta\(kP, p0\)/.test(appjs) && /if\(dd<bd\)\{ bd=dd; best=qi; \}/.test(appjs), "scelta del lato più vicino");
 });
+t("vista sola lettura 24/11: nessuna riga-invito «attiva» né «Impianti tecnici» vuoto a chi guarda", () => {
+  const fn = appjs.slice(appjs.indexOf("function renderLayerRow"), appjs.indexOf("function renderLayerManager"));
+  ok(/if\(L\.engineOn===false\)\{\s*if\(soloLetturaProgetto\(\)\) return;[^\n]*\n\s*var offRow=/.test(fn), "renderLayerRow: in sola lettura la riga-invito non si disegna");
+  const mg = appjs.slice(appjs.indexOf("function renderLayerManager"), appjs.indexOf("function lightsRows"));
+  ok(/if\(soloLetturaProgetto\(\)\) LS=LS\.filter\(function\(L\)\{ return L\.engineOn!==false; \}\);/.test(mg), "renderLayerManager: le liste spente escono prima del calcolo di base/avanzate");
+  ok(mg.indexOf("soloLetturaProgetto()") < mg.indexOf("var AVANZATE"), "il filtro viene prima di «Impianti tecnici»");
+});
+t("vista sola lettura 24/11: il fit non conta il testo di una FORMA come riga unica (nota lunga = disegno minuscolo su iPhone)", () => {
+  const fn = appjs.slice(appjs.indexOf("function contentBounds"), appjs.indexOf("function fitMargin"));
+  ok(/var lab=\(it\.label\|\|it\.label2\) && fs>0 && it\.type!=="forma";/.test(fn), "contentBounds: la forma scrive il testo dentro di sé, niente estensione per halfTxt");
+  ok(/halfTxt=Math\.max\(String\(it\.label/.test(fn), "gli altri elementi mantengono l'ingombro dell'etichetta");
+});
+t("vista sola lettura 24/11 (iPhone): sul telefono la barra del viewer è l'unica intestazione e il pulsante «Crea una copia» resta dentro lo schermo", () => {
+  const blk = stylesCss.slice(stylesCss.indexOf("VISTA SOLA LETTURA su telefono (24/11)"));
+  const mq = blk.slice(0, blk.indexOf("}\n}") + 3);
+  ok(/@media\(max-width:880px\)\{/.test(mq), "solo mobile: il desktop non cambia");
+  ok(/body\.viewmode #mTop\{display:none!important\}/.test(mq), "l'intestazione mobile non copre più la barra");
+  ok(/#viewBar\{[^}]*flex-wrap:nowrap/.test(mq) && /#viewRole\{[^}]*min-width:0;[^}]*text-overflow:ellipsis/.test(mq), "una riga sola, titolo che si accorcia");
+  ok(/#viewCopy\{[^}]*min-height:32px/.test(mq), "pulsante cliccabile");
+});
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
