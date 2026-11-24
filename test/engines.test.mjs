@@ -40789,6 +40789,25 @@ t("PA passiva: il nome automatico del generatore segue i kVA senza scrivere it.l
   g.kva = 5; eq(A.lblText("Gruppo del Bar", g, true), "Gruppo del Bar", "un nome scritto dall'utente non si tocca");
   reset();
 });
+t("PA passiva: rilascio in due fasi — interruttore spento: finale e DSP fuori da catalogo e menu rack ma i progetti che li contengono si aprono, contano e si disegnano; acceso: catalogo completo", () => {
+  reset();
+  const orig = A.paFinaleDspAttivi;
+  try {
+    eq(A.paFinaleDspAttivi(), false, "fase 1: spento di serie");
+    eq([A.TYPES.finale.catalog, A.TYPES.dsp.catalog], [false, false], "fuori dal catalogo (e quindi dalla ricerca)");
+    ok(!A.rackNuoviTipi().includes("finale") && !A.rackNuoviTipi().includes("dsp"), "fuori dal menu «Nuovo» del rack");
+    ok(A.rackNuoviTipi().includes("stagebox"), "gli altri apparecchi restano");
+    ok(A.RACK_ELIGIBLE.finale && A.RACK_ELIGIBLE.dsp, "ma sono ammessi nei rack se già presenti");
+    const rk = add("rack", 300, 300), f = add("finale", 600, 300), d = add("dsp", 800, 300); f.rackId = rk.id; d.rackId = rk.id; f.ch = 4;
+    const back = A.normalizeState(JSON.parse(A.stateToJSON()));
+    eq(back.items.filter((x) => x.type === "finale" || x.type === "dsp").length, 2, "il progetto con finale e DSP si apre");
+    eq([A.wattOf(f), A.wattOf(d)], [1000, 30], "e i watt contano");
+    ok(typeof A.TYPES.finale.draw === "function" && String(A.TYPES.finale.draw({})).length > 20, "e si disegna");
+    A.paFinaleDspAttivi = () => true;
+    eq([A.TYPES.finale.catalog, A.TYPES.dsp.catalog], [true, true], "fase 2: nel catalogo");
+    ok(A.rackNuoviTipi().includes("finale") && A.rackNuoviTipi().includes("dsp"), "fase 2: nel menu del rack");
+  } finally { A.paFinaleDspAttivi = orig; reset(); }
+});
 t("PA passiva: Mackie Thump15A nel catalogo dei diffusori attivi, con la fonte del manuale ufficiale", () => {
   const d = A.AMP_DB.mackie_thump15a;
   ok(d && d.per.includes("topattivo") && /Mackie_Thump12A_Thump15A_OM/.test(d.fonte), "scheda con fonte");

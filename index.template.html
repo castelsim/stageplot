@@ -5089,9 +5089,9 @@ var TYPES = {
     draw:function(it){ return drawLibFit("amprack",it,60,80); }},
   /* PA PASSIVA (24/11/2026): le casse passive non assorbono corrente, la potenza sta nel FINALE. Due apparecchi da rack, senza catalogo di
      modelli: il finale (2U, 2 o 4 canali, potenza assorbita stimata e modificabile) e il DSP/crossover (1U). */
-  finale: {nome:"Finale di potenza", dim:"rack 2U", cat:"PA e diffusione", sub:"Fill e rack", w:48,d:36, defLabel:"FINALE",
+  finale: {nome:"Finale di potenza", dim:"rack 2U", cat:"PA e diffusione", sub:"Fill e rack", w:48,d:36, defLabel:"FINALE", get catalog(){ return paFinaleDspAttivi(); },
     draw:function(){ return bar(0,0,48,36,'ic fBlack',2)+bar(0,-8,40,6,'ic fGrey',1)+bar(0,3,40,6,'ic fGrey',1)+circ(-15,13,2,'ic thin')+circ(-9,13,2,'ic thin')+bar(9,13,16,3,'ic thin',1); }},
-  dsp: {nome:"DSP / crossover", dim:"rack 1U", cat:"PA e diffusione", sub:"Fill e rack", w:48,d:24, defLabel:"DSP",
+  dsp: {nome:"DSP / crossover", dim:"rack 1U", cat:"PA e diffusione", sub:"Fill e rack", w:48,d:24, defLabel:"DSP", get catalog(){ return paFinaleDspAttivi(); },
     draw:function(){ return bar(0,0,48,24,'ic fBlack',2)+bar(0,-3,40,7,'ic fGrey',1)+circ(-15,8,1.6,'ic thin')+bar(6,8,22,3,'ic thin',1); }},
   delaytower: {nome:"Delay tower", dim:"220×220", cat:"PA e diffusione", sub:"Torri", w:220,d:220,
     draw:function(it){ return drawLibFit("delaytower",it,220,220); }},
@@ -5603,6 +5603,13 @@ var SUPERFICIE_CON_MOTORE = {
 var MON_DIG_NODE = { hearback:1, mixhub:1 };   /* nodi del cablaggio digitale monitoraggio (mixerini + hub) */
 var WATT_BY_AREA = { schermo:500, ledwallmod:500 };   /* LED wall: W/m² media di dimensionamento (picco 1200) */
 var GEN_KVA = { gen60:60, gen20:20 };                 /* sorgenti, non carichi */
+/* RILASCIO IN DUE FASI della PA passiva (decisione di Simone, 24/11/2026). FASE 1 (merge, 24/11): i tipi `finale` e `dsp` si LEGGONO, si disegnano, si stampano e contano nel carico,
+   ma NON si possono inserire (fuori dal catalogo, dalla ricerca e dal menu «Nuovo» dei rack): cosi' nelle prime 24-48 h le app vecchie rimaste in cache non incontrano progetti con tipi
+   che non conoscono (rifiuterebbero l'intero progetto, UNKNOWN_ITEM_TYPE). FASE 2 (giovedi' 26/11 sera circa, dopo 48 h dal merge): cambiare `false` in `true` (PR di una riga).
+   Per spegnere: `false`, MAI un revert dell'app (i progetti che contengono finale/dsp devono restare leggibili). `it.pass` e `it.kva` non dipendono da questo interruttore. */
+function paFinaleDspAttivi(){ return false; }
+/* I tipi che il menu «Nuovo» di un rack propone */
+function rackNuoviTipi(){ return Object.keys(RACK_ELIGIBLE).filter(function(tp){ return !((tp==="finale" || tp==="dsp") && !paFinaleDspAttivi()); }); }
 /* PA PASSIVA (24/11/2026): una cassa passiva non assorbe corrente — la potenza sta nel finale, che e' un apparecchio a parte.
    it.pass===true solo sui tipi che possono essere passivi; assente = attivo (mai scritto a false: i progetti vecchi restano identici). */
 var PASSIVABILE = { sub218:1, sub18:1, topattivo:1, wedge:1, frontfill:1, sidefill:1, drumfill:1, arraymid:1, arraylarge:1 };
@@ -22567,7 +22574,7 @@ function renderRackPanel(it){
     free.forEach(function(x){ var e=document.createElement("option"); e.value="it:"+x.id; e.textContent=rackDevName(x); g1.appendChild(e); });
     add.appendChild(g1); }
   var g2=document.createElement("optgroup"); g2.label="Nuovo";
-  Object.keys(RACK_ELIGIBLE).forEach(function(tp){ var e=document.createElement("option"); e.value="new:"+tp; e.textContent=(TYPES[tp]&&TYPES[tp].nome)||tp; g2.appendChild(e); });
+  rackNuoviTipi().forEach(function(tp){ var e=document.createElement("option"); e.value="new:"+tp; e.textContent=(TYPES[tp]&&TYPES[tp].nome)||tp; g2.appendChild(e); });
   add.appendChild(g2);
   document.getElementById("pRackAddBtn").onclick=function(){
     var v=add.value; if(!v) return;
