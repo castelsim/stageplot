@@ -20297,6 +20297,7 @@ function zonaGapCm(){ var g=Math.round(+(state && state.zonaGap)); return g>0 ? 
 function zonaGapImposta(m){
   var cm=Math.round((+String(m).replace(",","."))*100);
   if(cm>0) state.zonaGap=Math.min(cm,200); else delete state.zonaGap;
+  var _i=document.getElementById("zonaGap"); if(_i) _i.value=String(zonaGapCm()/100);   /* «3» → 2, «-1» → 0: il campo dice quello che vale */
   save(); render();
 }
 /* GIARDINO E CORTE (10/11/2026, proposta di un tecnico di teatro, decisa da Simone). Su stageplot.it destra e
@@ -38796,9 +38797,9 @@ function cartHForHeader(header, titleW){
    → {A, F, R, dentro, esclusi}: chi sta fuori ed entra nel riquadro, e chi ne resta fuori. */
 var __printSoloPalco=false;
 function printScene(k, opz){
-  var A=printArea(), DM=printDM(k);
+  var A=printArea(), DM=printDM(k), DMy=DM+zonaGapCm();   /* sopra FONDO PALCO e sotto PUBBLICO la distanza scelta si aggiunge; ai lati no */
   if(!A.custom){
-    var F0={x:A.x-DM, y:A.y-DM, w:A.w+2*DM, h:A.h+2*DM};
+    var F0={x:A.x-DM, y:A.y-DMy, w:A.w+2*DM, h:A.h+2*DMy};
     if(__printSoloPalco) return {A:A, F:F0, R:F0, dentro:[], esclusi:[]};
     opz=opz||{};
     var lim=opz.lim, entra = opz.tutti ? null : lim ? function(G){ return G.w<=lim.w+1e-6 && G.h<=lim.h+1e-6; } : entraSenzaScala(F0);
@@ -38807,8 +38808,8 @@ function printScene(k, opz){
   }
   var W=state.stage.w||0, D=state.stage.d||0, e=1, x0=A.x, y0=A.y, x1=A.x+A.w, y1=A.y+A.h;
   var traX=x0<W && x1>0, traY=y0<D && y1>0;   /* l'area incrocia il palco in orizzontale / in verticale */
-  if(traX && y0<=e && y1>0)  y0=Math.min(y0, -DM);      /* contiene il bordo di fondo → FONDO PALCO e la quota sopra */
-  if(traX && y1>=D-e && y0<D) y1=Math.max(y1, D+DM);   /* il bordo verso il pubblico → PUBBLICO */
+  if(traX && y0<=e && y1>0)  y0=Math.min(y0, -DMy);      /* contiene il bordo di fondo → FONDO PALCO e la quota sopra */
+  if(traX && y1>=D-e && y0<D) y1=Math.max(y1, D+DMy);   /* il bordo verso il pubblico → PUBBLICO */
   if(traY && x0<=e && x1>0)  x0=Math.min(x0, -DM);      /* il lato sinistro → profondità e altezza */
   if(traY && x1>=W-e && x0<W) x1=Math.max(x1, W+DM);   /* il lato destro (e il disegno resta centrato sul palco) */
   return {A:A, F:{x:x0, y:y0, w:x1-x0, h:y1-y0}, R:{x:A.x, y:A.y, w:A.w, h:A.h}, dentro:[], esclusi:[]};
@@ -39254,7 +39255,7 @@ function stageSceneSvgDisegna(cropVb, opts){
   /* Con l'area scelta a mano le quote prima non c'erano (non avevano posto): ora il riquadro gliene fa
      (printScene), e la misura del palco va sul foglio anche lì (14/10). */
   var dims = opts.noBlockDims ? '' : stageDimsMarkup();
-  var W=state.stage.w, D=state.stage.d, zy=zoneLblY(dims, window.__sceneTextK, D);
+  var W=state.stage.w, D=state.stage.d, zy=zoneLblYVb(dims, window.__sceneTextK, D, cropVb);   /* cropVb: col ritaglio la distanza non spinge fuori le scritte */
   var zones='<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="'+zy.f+'">'+docZona("FONDO PALCO")+'</text>'+
             '<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="'+zy.p+'">'+docZona("PUBBLICO")+'</text>'+
             latiTeatroMarkup(zy.f, window.__sceneTextK, 'fill="#1f2937" font-size="11"');   /* giardino e corte, solo in teatro */
@@ -39304,9 +39305,9 @@ function stageSceneSvgDisegna(cropVb, opts){
    no: col palco a blocchi la larghezza del blocco in basso va SOTTO il bordo, e già a 1:100 «6,6 m» toccava
    PUBBLICO; a 1:200 la quota in alto sale fino a FONDO PALCO. Di base restano a -42 e D+38 (come a schermo); se
    sullo stesso bordo c'è una quota, la scritta si scosta quanto basta: altezza delle cifre 0,75 em, 4 cm d'aria. */
-function zoneLblY(dims, k, D){
+function zoneLblY(dims, k, D, zgOv){
   k=k>0 ? k : 1;
-  var zg=zonaGapCm(), f=-42-zg, p=D+38+zg, aria=4;
+  var zg=(zgOv==null ? zonaGapCm() : zgOv), f=-42-zg, p=D+38+zg, aria=4;
   String(dims||"").replace(/<text class="dim-(?:edge|h)" x="[-\d.]+" y="([-\d.]+)"[^>]*>/g, function(tag, y){
     if(/transform=/.test(tag)) return tag;   /* le quote ruotate stanno sui lati */
     y=+y;
@@ -39316,11 +39317,23 @@ function zoneLblY(dims, k, D){
   });
   return {f:Math.round(f*10)/10, p:Math.round(p*10)/10};
 }
+/* Come zoneLblY, ma in STAMPA la distanza scelta non porta mai le scritte fuori dal ritaglio del foglio (vb): se il disegno
+   non entra e pdfStageBox ne prende la parte centrale, FONDO PALCO e PUBBLICO sparivano (palco pieno fino al bordo, A4 1:100).
+   Si limita solo l'effetto della distanza: mai più vicino del -42 / D+38 di sempre, e senza distanza è identico a prima. */
+function zoneLblYVb(dims, k, D, vb){
+  var zy=zoneLblY(dims, k, D), zg=zonaGapCm();
+  if(zg>0 && vb){
+    var z0=zoneLblY(dims, k, D, 0), kk=k>0 ? k : 1, aria=4;
+    zy.f=Math.round(Math.min(z0.f, Math.max(zy.f, vb.y+0.8*16*kk+aria))*10)/10;
+    zy.p=Math.round(Math.max(z0.p, Math.min(zy.p, vb.y+vb.h-0.25*16*kk-aria))*10)/10;
+  }
+  return zy;
+}
 /* Margine del riquadro per le scritte del palco (cm per lato): 80 come sempre, di più solo dove il testo
    ingrandito (k oltre ~2, da 1:200) e FONDO PALCO scostato sopra la quota non ci starebbero più. */
 function printDM(k){
   k=k>0 ? k : 1;
-  return Math.max(80, Math.ceil(16+0.75*14*k+4+0.8*16*k+4))+zonaGapCm();
+  return Math.max(80, Math.ceil(16+0.75*14*k+4+0.8*16*k+4));   /* la distanza delle scritte (zonaGap) si somma solo in verticale: printScene */
 }
 /* TESTO A DIMENSIONE FISSA SUL FOGLIO (11/08). Le scritte del disegno — nomi, quote, FONDO PALCO —
    sono espresse nelle unità dell'SVG, che sono CENTIMETRI REALI: un corpo 14 diventa 14 cm di palco,
@@ -41502,7 +41515,7 @@ function scalaBarOstacoli(box, N, opz){
     var r={x0:Math.max(dx0, box.ix+(x0-vb.x)*mpc), y0:Math.max(dy0, box.iy+(y0-vb.y)*mpc), x1:Math.min(dx1, box.ix+(x1-vb.x)*mpc), y1:Math.min(dy1, box.iy+(y1-vb.y)*mpc)};
     if(r.x1>r.x0 && r.y1>r.y0) out.push(r);
   }
-  var dims=opz.blockDims ? stageDimsMarkup() : "", zy=zoneLblY(dims, k, D), fp=16*k, wp=lblTextW("PUBBLICO", fp)+8*2*k;
+  var dims=opz.blockDims ? stageDimsMarkup() : "", zy=zoneLblYVb(dims, k, D, vb), fp=16*k, wp=lblTextW("PUBBLICO", fp)+8*2*k;
   mondo(W/2-wp/2, zy.p-0.75*fp, W/2+wp/2, zy.p+0.25*fp);
   String(dims).replace(/<text class="(dim-edge|dim-h)" x="([-\d.]+)" y="([-\d.]+)"([^>]*)>([^<]*)</g, function(m, cls, x, y, resto, t){
     var fs=(cls==="dim-h" ? 13 : 14)*k, w=lblTextW(t, fs); x=+x; y=+y;
