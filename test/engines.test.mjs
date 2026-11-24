@@ -20835,7 +20835,9 @@ t("la privacy racconta i conteggi, e la data lo dice", () => {
   ok(/aggregat/i.test(p) && /nessun cookie/i.test(p), "dice che sono aggregati e senza cookie");
   ok(/Do Not Track/.test(p), "dichiara il rispetto del Do Not Track");
   ok(/impronta \(hash\) non reversibile dell'indirizzo IP/.test(p) && !/impronta anonima/.test(p), "dichiara l'impronta dell'IP per il rate limit");
-  ok(/Ultimo aggiornamento: 24 novembre 2026/.test(p), "la data dell'ultimo aggiornamento è quella giusta (24/11: analisi aggregata delle modifiche)");
+  ok(/Ultimo aggiornamento: 24 novembre 2026/.test(p), "la data dell'ultimo aggiornamento è quella giusta (24/11: registro pseudonimo temporaneo)");
+  ok(/registro tecnico temporaneo dei cambiamenti/.test(p) && /codice pseudonimo al posto del tuo account/.test(p) && /mai testi, nomi, titoli o contatti; il registro viene cancellato dopo 8 settimane/.test(p), "§ 2: il registro pseudonimo temporaneo è dichiarato (8 settimane, niente testi)");
+  ok(/registro tecnico pseudonimo[^<]*conservato per un massimo di 8 settimane/.test(p), "§ 5: registro pseudonimo conservato al massimo 8 settimane");
   ok(/Miglioramento delle regole di disegno/.test(p) && /Puoi opporti scrivendoci: escluderemo i tuoi progetti/.test(p), "§ 2: paragrafo sull'analisi aggregata delle modifiche, con opposizione");
   ok(/Statistiche aggregate sulle modifiche ai progetti salvati online<\/td><td>Legittimo interesse/.test(p), "tabella finalità: riga sulle statistiche delle modifiche");
   ok(/copie di backup del database per un massimo di 8 settimane/.test(p), "§ 5: backup conservati al massimo 8 settimane");
