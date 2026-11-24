@@ -25076,7 +25076,7 @@ function riapriMostra(){
 var CAVO_QUIETE_MS=8000, CAVO_DURATA_MS=12000, CAVO_LS="sp_cavoInvito", CAVO_LS_MAX=60;
 function cavoInvitoDecidi(o){
   if(!o || !o.cavo) return false;
-  if(o.mobile || o.vista || o.riapri || o.altrui) return false;
+  if(o.mobile || o.vista || o.riapri || o.altrui || o.lettura) return false;   /* lettura: chi guarda non ha spento né deve accendere niente */
   if(o.visto || o.ricordato) return false;   /* già mostrato in questo documento, o già ignorato per questo progetto */
   return true;
 }
@@ -25090,6 +25090,10 @@ function cavoInvitoLeggi(){ try{ var l=JSON.parse(localStorage.getItem(CAVO_LS)|
 function cavoInvitoId(){ try{ var C=window.__cloud; var i=(C && C.currentId && C.currentId()) || window.__bootCloudId; return (typeof i==="string" && i) ? i : null; }catch(e){ return null; } }
 function cavoInvitoRicorda(id){ if(!id) return; try{ localStorage.setItem(CAVO_LS, JSON.stringify(cavoInvitoListaAggiungi(cavoInvitoLeggi(), id))); }catch(e){} }
 function cavoInvitoRicordato(id){ return !!id && cavoInvitoLeggi().indexOf(id)>=0; }
+/* Stesso chip per due inviti: «cavi» (suggerimento) e «spento» (il progetto usa funzioni che hai spento, 24/11). Ognuno ha il suo
+   «già mostrato» nel documento e il suo ricordo per progetto (la chiave dello spento è «s:» + id). Mai insieme: uno esclude l'altro. */
+function cavoInvitoChiave(tipo, id){ return !id ? id : (tipo==="spento" ? "s:"+id : id); }
+function cavoInvitoElenco(nomi){ return nomi.length>1 ? nomi.slice(0,-1).join(", ")+" e "+nomi[nomi.length-1] : (nomi[0]||""); }
 var __cavoUltima=Date.now();
 function cavoInvitoFerma(el){
   if(!el) return;
@@ -25099,7 +25103,7 @@ function cavoInvitoFerma(el){
 function cavoInvitoRitira(ricorda){
   var el=document.getElementById("funzBanner"); if(!el) return;
   cavoInvitoFerma(el);
-  if(el.__cavoVis){ el.__cavoVis=false; if(ricorda) cavoInvitoRicorda(el.__cavoId); }
+  if(el.__cavoVis){ el.__cavoVis=false; if(ricorda) cavoInvitoRicorda(cavoInvitoChiave(el.__cavoTipo, el.__cavoId)); }
   el.hidden=true; el.innerHTML=""; el.__k=""; el.className="";
   try{ exportNudgeAggiorna(); }catch(e){}
 }
@@ -25116,17 +25120,31 @@ function cavoInvitoArma(){
 function cavoInvitoMostra(){
   var el=document.getElementById("funzBanner"); if(!el || el.__cavoVis) return;
   var vista=document.getElementById("vistaBanner"), riapri=document.getElementById("riapriBanner");
-  var cavo=cavoSuggerimento(), epoch=window.__docEpoch||0, id=cavoInvitoId();
-  if(!cavoInvitoDecidi({ cavo:!!cavo, mobile:isMobile(), vista:!!(vista && !vista.hidden), riapri:!!(riapri && !riapri.hidden),
-      altrui:foreignDoc(), visto:window.__cavoVisto===epoch, ricordato:cavoInvitoRicordato(id) })) return;
-  window.__cavoVisto=epoch; el.__cavoVis=true; el.__cavoEpoch=epoch; el.__cavoId=id;
-  var cosa=(cavo.box&&cavo.distro)?"una stage box e un quadro":(cavo.box?"una stage box":"un quadro");
+  var mancano=funzUsateDalProgetto(state).filter(function(id){ return !funzOn(id); });
+  var tipo=mancano.length ? "spento" : "cavo";
+  var cavo=mancano.length ? null : cavoSuggerimento(), epoch=window.__docEpoch||0, id=cavoInvitoId();
+  if(!cavoInvitoDecidi({ cavo:tipo==="spento" || !!cavo, mobile:isMobile(), vista:!!(vista && !vista.hidden), riapri:!!(riapri && !riapri.hidden),
+      altrui:foreignDoc(), lettura:soloLetturaProgetto(), visto:window["__"+tipo+"Visto"]===epoch, ricordato:cavoInvitoRicordato(cavoInvitoChiave(tipo, id)) })) return;
+  window["__"+tipo+"Visto"]=epoch; el.__cavoVis=true; el.__cavoEpoch=epoch; el.__cavoId=id; el.__cavoTipo=tipo;
   el.className="funz-quieto";
-  el.innerHTML='<span class="vb-txt">Vuoi vedere cavi e corrente?</span>'
-    + '<button type="button" class="cq-si" id="funzAccendi" title="Aggiungo io '+cosa+' e traccio i collegamenti">Mostra</button>'
-    + '<button type="button" class="cq-x" id="funzNonOra" aria-label="Non ora" title="Non ora">✕</button>';
-  el.__k="cavo-quieto";
-  el.querySelector("#funzAccendi").addEventListener("click", function(e){ e.stopPropagation(); cavoInvitoRitira(false); cavoCorrenteAccendi(); funzRenderAvviso(); });
+  if(tipo==="spento"){
+    var nomi=mancano.map(function(m){ var n=""; FUNZIONI.forEach(function(f){ if(f.id===m) n=esc(f.nome); }); return n; });
+    el.__mancano=mancano.join(",");
+    el.innerHTML='<span class="vb-txt">Questo progetto usa '+cavoInvitoElenco(nomi)+' (spente)</span>'
+      + '<button type="button" class="cq-si" id="funzAccendi" title="Accendo le funzioni che il progetto usa">Accendi</button>'
+      + '<button type="button" class="cq-x" id="funzNonOra" aria-label="Non ora" title="Non ora">✕</button>';
+    el.__k="spento-quieto";
+    el.querySelector("#funzAccendi").addEventListener("click", function(e){
+      e.stopPropagation(); var c={}; (el.__mancano||"").split(",").forEach(function(m){ if(m) c[m]=true; }); cavoInvitoRitira(false); funzImposta(c);
+    });
+  } else {
+    var cosa=(cavo.box&&cavo.distro)?"una stage box e un quadro":(cavo.box?"una stage box":"un quadro");
+    el.innerHTML='<span class="vb-txt">Vuoi vedere cavi e corrente?</span>'
+      + '<button type="button" class="cq-si" id="funzAccendi" title="Aggiungo io '+cosa+' e traccio i collegamenti">Mostra</button>'
+      + '<button type="button" class="cq-x" id="funzNonOra" aria-label="Non ora" title="Non ora">✕</button>';
+    el.__k="cavo-quieto";
+    el.querySelector("#funzAccendi").addEventListener("click", function(e){ e.stopPropagation(); cavoInvitoRitira(false); cavoCorrenteAccendi(); funzRenderAvviso(); });
+  }
   el.querySelector("#funzNonOra").addEventListener("click", function(e){ e.stopPropagation(); cavoInvitoRitira(true); });
   el.hidden=false;
   el.__cavoDurata=setTimeout(function(){ cavoInvitoRitira(true); }, CAVO_DURATA_MS);   /* non blocca niente: se la si ignora, se ne va e non torna */
@@ -25152,38 +25170,22 @@ function funzRenderAvviso(){
      vista attiva si sta dichiarando, parla lei. */
   var cavo = mancano.length ? null : cavoSuggerimento();
   var epoch=window.__docEpoch||0;
-  /* invito discreto già a schermo: resta finché serve (suggerimento valido, stesso documento, nessuna vista né «riapri») */
+  var tipo = mancano.length ? "spento" : "cavo";
+  var lettura = foreignDoc() || soloLetturaProgetto();   /* chi guarda un progetto altrui o bloccato non ha spento niente: nessun invito */
+  /* invito discreto già a schermo: resta finché serve (stesso invito, stesso documento, nessuna vista né «riapri») */
   if(el.__cavoVis){
-    if(!cavo || el.__cavoEpoch!==epoch || isMobile() || (vista && !vista.hidden) || (riapri && !riapri.hidden)){ cavoInvitoRitira(false); }
+    var ancora = el.__cavoTipo===tipo && (tipo==="spento" ? el.__mancano===mancano.join(",") : !!cavo);
+    if(!ancora || el.__cavoEpoch!==epoch || lettura || isMobile() || (vista && !vista.hidden) || (riapri && !riapri.hidden)){ cavoInvitoRitira(false); }
     else { el.hidden=false; return; }
   }
-  var zitto = (!mancano.length && !cavo) || isMobile() || (vista && !vista.hidden) || (riapri && !riapri.hidden) || window.__funzAvvisoNo===epoch;
+  var zitto = (!mancano.length && !cavo) || lettura || isMobile() || (vista && !vista.hidden) || (riapri && !riapri.hidden) || window.__funzAvvisoNo===epoch;
   if(zitto){ cavoInvitoFerma(el); el.hidden=true; el.innerHTML=""; el.__k=""; el.className=""; return; }
-  if(cavo){
-    /* l'invito non compare subito: si arma l'attesa di quiete (una volta per documento, e mai se già ignorato per questo progetto) */
-    el.hidden=true; el.innerHTML=""; el.__k=""; el.className="";
-    if(window.__cavoVisto===epoch || cavoInvitoRicordato(cavoInvitoId())) return;
-    if(el.__cavoArmEpoch!==epoch){ el.__cavoArmEpoch=epoch; __cavoUltima=Date.now(); }
-    if(!el.__cavoAttesa) cavoInvitoArma();
-    return;
-  }
-  var k=mancano.join(",");
-  if(el.__k!==k){
-    var nomi=mancano.map(function(id){ var n=""; FUNZIONI.forEach(function(f){ if(f.id===id) n="<b>"+esc(f.nome)+"</b>"; }); return n; });
-    el.className="";
-    el.innerHTML='<span class="vb-txt">Questo progetto usa '+nomi.join(" e ")+', che hai spento</span>'
-      + '<button type="button" class="vb-esci vb-si" id="funzAccendi">Accendi</button>'
-      + '<button type="button" class="vb-esci" id="funzNonOra">Non ora</button>';
-    el.__k=k;
-    el.querySelector("#funzAccendi").addEventListener("click", function(e){
-      e.stopPropagation(); var c={}; el.__k.split(",").forEach(function(id){ c[id]=true; }); funzImposta(c);
-    });
-    el.querySelector("#funzNonOra").addEventListener("click", function(e){
-      e.stopPropagation(); window.__funzAvvisoNo=(window.__docEpoch||0); funzRenderAvviso();   /* vale per il documento aperto */
-    });
-  }
-  el.hidden=false;
-  try{ exportNudgeAggiorna(); }catch(e){}   /* il banner è comparso: l'invito «PDF in scala» si ritira (C-3) */
+  /* l'invito non compare subito: si arma l'attesa di quiete (una volta per documento, e mai se già ignorato per questo progetto) */
+  el.hidden=true; el.innerHTML=""; el.__k=""; el.className="";
+  if(window["__"+tipo+"Visto"]===epoch || cavoInvitoRicordato(cavoInvitoChiave(tipo, cavoInvitoId()))) return;
+  if(el.__cavoArmEpoch!==epoch){ el.__cavoArmEpoch=epoch; __cavoUltima=Date.now(); }
+  if(!el.__cavoAttesa) cavoInvitoArma();
+  return;
 }
 function funzApriFinestra(){
   var ov=document.getElementById("funzModal");
