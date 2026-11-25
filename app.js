@@ -43095,7 +43095,7 @@ function cambiFoglioA(doc, D){
       /* nessun testo tagliato in silenzio: ESCE e ENTRA vanno in una frase, si accorcia con «+N altri» finché stanno in 3 righe; SI SPOSTA una voce per riga (al massimo 6, poi «+N altri») */
       var righe;
       if(c[2]) righe=cambiVociMax(c[1], 6).reduce(function(a, v){ return a.concat(pdfTxtRighe(v, W-34, 14, false)); }, []);
-      else { var nn=c[1].length, altri=function(k){ return c[1].slice(0,k).join(", ")+(k<nn ? ", +"+(nn-k)+" "+(en ? "more" : "altri") : ""); };
+      else { var tot=c[1].length, nn=tot, altri=function(k){ return c[1].slice(0,k).join(", ")+(k<tot ? ", +"+(tot-k)+" "+(en ? "more" : "altri") : ""); };
         righe=pdfTxtRighe(altri(nn), W-34, 14, false); while(righe.length>3 && nn>1){ nn--; righe=pdfTxtRighe(altri(nn), W-34, 14, false); } }
       doc.setFont("helvetica","bold"); doc.setFontSize(14); doc.text(c[0], M, y);
       doc.setFont("helvetica","normal"); righe.forEach(function(q, k){ doc.text(q, M+34, y+k*6.2); }); y+=righe.length*6.2+1.8;

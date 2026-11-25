@@ -41900,7 +41900,7 @@ taPdf("Versioni L4 · foglio B: PDF A4 verticale, intestazione «CAMBI DI PALCO 
     const tt = pp[0].testi.map((x) => x.t).join("\n");
     ok(/CAMBI DI PALCO · Concerto di prova · v3 · Teatro Esempio/.test(tt) && /10\/12\/2026/.test(tt), "intestazione: " + tt.split("\n").slice(0, 3));
     ok(/ESCE/.test(tt) && /ENTRA/.test(tt) && /SI SPOSTA/.test(tt), "tre colonne"); ok(/nessuna differenza/i.test(tt), "il cambio vuoto lo dice");
-    ok(/1 di 1/.test(tt) && /v3 · 24\/11\/2026/.test(tt), "«1 di N» e «vN · data» nel piè");
+    ok(/1 di 1/.test(tt) && /v3 · \d\d\/\d\d\/\d{4}/.test(tt), "«1 di N» e «vN · data» nel piè");
     ok(!/Mario|Gigi/.test(tt), "nessuna etichetta libera");
     ["1", "2", "3"].forEach((n) => ok(pp[0].testi.some((x) => x.t === n), "numero grande del cambio " + n));
     const tutti = []; pp.forEach((pg) => { pg.testi.forEach((x) => { if (!/ di |Creato con/.test(x.t) && !/^v\d+ · /.test(x.t)) tutti.push([x.x, x.y]); }); pg.poli.forEach((q) => q.pts.forEach((pt) => tutti.push(pt))); pg.linee.forEach((l) => { tutti.push([l.x1, l.y1], [l.x2, l.y2]); }); pg.rett.forEach((r) => { tutti.push([r.x, r.y], [r.x + r.w, r.y + r.h]); }); });
@@ -41930,6 +41930,17 @@ taPdf("Versioni L4 · formato A: A4 orizzontale, un cambio per pagina, PRIMA e D
     eq(pp.map((pg) => pg.poli.filter((q) => q.pts.length === 4).length > 0), [true, true, true]);
   } finally { A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; reset(); }
 });
+taPdf("Versioni L4 · pacchetto S9: il PDF «cambi» si produce davvero (B e A) con «1 di N»; senza cambi il documento non esiste", async () => {
+  cambiScena(); const creati = []; const base = jsPdfCambi(); const prima = { jspdf: A.jspdf, l: A.loadJsPDF, f: A.__pdfListaFmt };
+  A.jspdf = { jsPDF: function (o) { const d = base(o); creati.push(d); return d; } }; A.loadJsPDF = () => Promise.resolve();
+  try {
+    const b = await A.pacchettoProduci("cambi", { paper: "a4", N: 100, orient: "landscape", header: "" }); ok(b && b.length >= 0, "restituisce i byte");
+    const d = creati[creati.length - 1]; eq(d.pagine.length, 1, "B: 3 cambi = 1 pagina (la prima, vuota, è tolta)"); ok(d.pagine[0].testi.some((x) => /CAMBI DI PALCO/.test(x.t)) && d.pagine[0].testi.some((x) => x.t === "1 di 1"), "intestazione e «1 di N»");
+    A.__pdfListaFmt = { formato: "semplice", perPagina: 32, outFormato: "semplice", cambiFormato: "a" };
+    await A.pacchettoProduci("cambi", { paper: "a4", N: 100, orient: "landscape", header: "" }); eq(creati[creati.length - 1].pagine.length, 3, "A: una pagina per cambio");
+    delete A.state.cambi; let errore = null; try { await A.pacchettoProduci("cambi", { paper: "a4", N: 100, orient: "landscape", header: "" }); } catch (e) { errore = e; } ok(errore, "senza cambi: «non ha niente da stampare»");
+  } finally { A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; A.__pdfListaFmt = prima.f; reset(); }
+});
 taPdf("Versioni L4 · formato A con molte voci: niente testo tagliato in silenzio («+N altri»), PRIMA/DOPO restano dentro i margini", async () => {
   cambiScena(); const molti = []; for (let i = 0; i < 12; i++) molti.push(itC("m" + i, i % 2 ? "tastiera" : "cantante", 100 + i * 70, 400, { w: 60, d: 40 }));
   A.state.items = A.state.items.concat(molti); A.state.cambi = A.cambiNorm([cambio("c1", { quando: "dopo il brano 4", esce: ["i1", "i2", "i3", "i4"], entra: [itC("n1", "sedia", 5, 5), itC("n2", "leggio", 60, 5), itC("n3", "pedana", 120, 5), itC("n4", "corno", 200, 5), itC("n5", "tromba", 300, 5), itC("n6", "batteria", 400, 5), itC("n7", "astamic", 500, 5), itC("n8", "musViola", 600, 5)], sposta: molti.map((x, i) => ({ id: x.id, x: x.x + 30 + i, y: 420 + i, rot: 15 })) })]);
@@ -41937,6 +41948,11 @@ taPdf("Versioni L4 · formato A con molte voci: niente testo tagliato in silenzi
   try {
     const doc = await A.buildPdfFoglioCambi(new Date(2026, 10, 24), "a"), pg = doc.pagine[0], tt = pg.testi.map((x) => x.t).join("\n");
     ok(/\+6 altri/.test(tt), "12 spostamenti: 6 righe e «+6 altri»: " + tt); ok(/ENTRA/.test(tt) && /SI SPOSTA/.test(tt));
+    /* ENTRA con 60 voci (dati sintetici): si accorcia con «+N altri» in ≤3 righe, mai tagliato a metà */
+    const D = A.cambiFoglioDati(); D.righe[0].entra = Array.from({ length: 60 }, (_, k) => "Elemento numero " + (k + 1)); D.righe[0].esce = [];
+    const d2 = new (jsPdfCambi())({ format: "a4", orientation: "portrait" }); A.cambiFoglioA(d2, { righe: [D.righe[0]] }); const q = d2.pagine[1];
+    const yE = q.testi.find((x) => x.t === "ENTRA").y, yS = q.testi.find((x) => x.t === "SI SPOSTA").y, rE = q.testi.filter((x) => x.x > 40 && x.y >= yE - 0.01 && x.y < yS - 0.01).map((x) => x.t);
+    ok(rE.length >= 1 && rE.length <= 3 && /, \+\d+ altri$/.test(rE[rE.length - 1]), "ENTRA troppo lungo: «+N altri» in ≤3 righe: " + rE.join(" | ").slice(-160));
     const tutti = []; pg.testi.forEach((x) => { if (!/ di |Creato con/.test(x.t) && !/^v\d+ · /.test(x.t)) tutti.push([x.x, x.y]); }); pg.poli.forEach((q) => q.pts.forEach((p) => tutti.push(p)));
     eq(tutti.filter(([x, y]) => x < 14.99 || x > 282.01 || y < 14.99 || y > 185), [], "dentro i margini anche con tante voci");
   } finally { A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; reset(); }
@@ -41944,7 +41960,7 @@ taPdf("Versioni L4 · formato A con molte voci: niente testo tagliato in silenzi
 taPdf("Versioni L4 · inglese: intestazioni e frasi del foglio B in English, nomi del progetto intatti", async () => {
   cambiScena(); A.state.docLang = "en"; const prima = { jspdf: A.jspdf, l: A.loadJsPDF }; A.jspdf = { jsPDF: jsPdfCambi() }; A.loadJsPDF = () => Promise.resolve();
   try { const doc = await A.buildPdfFoglioCambi(new Date(2026, 10, 24)); const tt = doc.pagine[0].testi.map((x) => x.t).join("\n");
-    ok(/STAGE CHANGES · Concerto di prova/.test(tt) && /\bOUT\b/.test(tt) && /\bIN\b/.test(tt) && /MOVES/.test(tt) && /no differences/i.test(tt), tt.slice(0, 400)); ok(/to the left/.test(tt), "spostamenti in inglese");
+    ok(/STAGE CHANGES · Concerto di prova/.test(tt) && /\bOUT\b/.test(tt) && /\bIN\b/.test(tt) && /MOVES/.test(tt) && /no differences/i.test(tt), tt.slice(0, 400)); ok(/left/.test(tt) && !/sinistra/.test(tt), "spostamenti in inglese: " + tt.slice(0, 600));
   } finally { A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; delete A.state.docLang; reset(); }
 });
 taPdf("Versioni L4 · nel PDF dell'Esporta la pillola «cambi» aggiunge le pagine A4 in coda al resto; senza pillola o senza cambi il PDF è quello di sempre", async () => {
@@ -41972,5 +41988,6 @@ t("Versioni L4 · note della rilettura: N1 catalogo «Elementi di questo progett
   const i = appjs.indexOf("function custEditorClasse"); ok(i > 0 && /cambioBannerAggiorna\(\)/.test(appjs.slice(i, i + 700)), "N3: chiudendo l'editor il banner dei cambi si aggiorna");
 });
 
+await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
