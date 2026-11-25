@@ -42580,6 +42580,32 @@ function statusInfo(k){ for(var i=0;i<PROJECT_STATUSES.length;i++) if(PROJECT_ST
 /* Lo stato è DELLA VERSIONE (24/11/2026). Le etichette che si leggono sono «Bozza / Inviata / Approvata / Superata» (versioneStatoEtichetta); i valori
    salvati (bozza, revisione, approvato, superato) e quelle del rider PDF (PROJECT_STATUSES) restano come sempre. «Superata» non si propone: la mostra
    solo una versione che già lo è. */
+/* ═══ «SUPERATA» AUTOMATICA (L2b, 25/11/2026 — decisione di Simone) ═══
+   Una versione diventa Superata QUANDO NE VIENE INVIATA una più nuova (numero più alto passato a Inviata o Approvata), non quando si crea la bozza.
+   Le Inviate/Approvate con numero più BASSO diventano Superate (con la data di oggi); Bozze e versioni più nuove non si toccano. Una Superata resta in
+   sola lettura come una Inviata, e riportare a Bozza la versione che le ha superate NON le resuscita (lo si fa a mano dal menu Stato). Nessun campo nuovo:
+   `status:"superato"` e `statusAt` esistevano già. Restituisce le etichette «v1», «v2»… delle versioni appena superate. */
+function versioniSuperaPrecedenti(){
+  if(typeof VARIANTS==="undefined" || !state || VARIANTS.length<2) return [];
+  var idx=-1; for(var i=0;i<VARIANTS.length;i++) if(VARIANTS[i].id===activeVar){ idx=i; break; }
+  if(idx<0) return [];
+  var n=versioneNumeroDi({state:state}, idx).n, oggi=versioneOggiIso(), fatte=[];
+  for(var j=0;j<VARIANTS.length;j++){
+    if(j===idx) continue;
+    var st=VARIANTS[j].state; if(!st) continue;
+    if((st.status==="revisione" || st.status==="approvato") && versioneNumeroDi(VARIANTS[j], j).n<n){ st.status="superato"; st.statusAt=oggi; fatte.push("v"+versioneNumeroDi(VARIANTS[j], j).n); }
+  }
+  return fatte;
+}
+/* a quale versione si deve «Superata»: la più alta fra le Inviate/Approvate (numero maggiore del suo); null se non si trova */
+function versioneSuperataDa(v, i){
+  var n=versioneNumeroDi(v, i).n, migliore=null;
+  for(var j=0;j<VARIANTS.length;j++){
+    var st=VARIANTS[j].state; if(!st || (st.status!=="revisione" && st.status!=="approvato")) continue;
+    var m=versioneNumeroDi(VARIANTS[j], j).n; if(m>n && (!migliore || m>migliore)) migliore=m;
+  }
+  return migliore;
+}
 function statoVersioneOptions(cur){
   var ks=["bozza","revisione","approvato"]; if(cur==="superato") ks.push("superato");
   return ks.map(function(k){ return '<option value="'+k+'">'+esc(versioneStatoEtichetta(k))+'</option>'; }).join("");
@@ -42599,7 +42625,9 @@ function setProjectStatus(k, confermato){
   state.status=k; state.approval=state.approval||{by:"",at:""};
   if(k==="bozza") delete state.statusAt; else state.statusAt=versioneOggiIso();   /* quando è cambiato lo stato (AAAA-MM-GG) */
   if(k==="approvato"){ if(!state.approval.at) state.approval.at=new Date().toISOString().slice(0,10); }   /* firma la data all'approvazione; il nome lo mette l'utente */
+  var superate=(k==="revisione" || k==="approvato") ? versioniSuperaPrecedenti() : [];   /* L2b (25/11): inviarne una più nuova supera le precedenti */
   saveSoon(); renderStatusUI(); render();
+  if(superate.length && window.__toast) window.__toast(superate.length===1 ? "La "+superate[0]+" è ora Superata." : "La "+superate.join(" e la ")+" sono ora Superate.");
   if(typeof renderVariantBar==="function") renderVariantBar();   /* il pallino e la scritta dello stato stanno nella scheda */
 }
 function renderStatusUI(){
@@ -42650,7 +42678,9 @@ function applicaVersioneChiusa(){
     var att=activeVarObj(), idx=VARIANTS.indexOf(att);
     var tit=ban.querySelector("#verBannerTit"), nota=ban.querySelector("#verBannerNota");
     if(tit) tit.textContent=versioneBannerTitolo(att, idx, state);
-    if(nota) nota.textContent="Si guarda e si ristampa; per cambiarla crea la Versione "+Math.min(versioneNumeroNuovo(), VERSIONE_MAX)+". Titolo, luogo e data sono comuni a tutte le versioni.";
+    ban.setAttribute("data-stato", state.status||"");
+    var supDa=(state.status==="superato") ? versioneSuperataDa(att, idx) : null;
+    if(nota) nota.textContent=(supDa ? "Superata dalla v"+supDa+". " : "")+"Si guarda e si ristampa; per cambiarla crea la Versione "+Math.min(versioneNumeroNuovo(), VERSIONE_MAX)+". Titolo, luogo e data sono comuni a tutte le versioni.";
     ban.hidden=false;
   }
 }
