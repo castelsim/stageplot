@@ -41807,5 +41807,219 @@ t("Versioni L3 · in vista il tentativo di modifica spiega come fare; in una ver
   } finally { A.__custEditor = null; A.__toast = t0; A.verChiusaAvvisoAt = 0; reset(); }
 }));
 
+
+/* ───────── VERSIONI, lotto 4 (25/11/2026): FOGLIO DEI CAMBI (formato B, A opzionale), pillola, pacchetto, avviso ───────── */
+console.log("\nVersioni L4 (25/11/2026):");
+/* jsPDF finto con le primitive del disegno: poligoni (lines), triangoli, rettangoli, testi con allineamento */
+function jsPdfCambi() {
+  const base = jsPdfFinto();
+  return function (o) {
+    const d = base(o); let cur = 0; const orig = { add: d.addPage, set: d.setPage };
+    d.addPage = (f, or) => { const r = orig.add(f, or); cur = d.pagine.length - 1; return r; }; d.setPage = (i) => { orig.set(i); cur = i - 1; };
+    d.deletePage = (i) => { d.pagine.splice(i - 1, 1); cur = Math.min(cur, d.pagine.length - 1); };
+    d.pagine[0].poli = []; const o2 = d.addPage; d.addPage = (f, or) => { const r = o2(f, or); d.pagine[cur].poli = []; return r; };
+    d.lines = (rel, x, y, sc, st, cl) => { let px = x, py = y; const pts = [[x, y]]; rel.forEach((v) => { px += v[0]; py += v[1]; pts.push([px, py]); }); (d.pagine[cur].poli = d.pagine[cur].poli || []).push({ pts, st, fill: null }); };
+    d.triangle = (x1, y1, x2, y2, x3, y3, st) => { (d.pagine[cur].poli = d.pagine[cur].poli || []).push({ pts: [[x1, y1], [x2, y2], [x3, y3]], st, tri: true }); };
+    ["setLineDashPattern", "setLineCap", "setLineJoin", "roundedRect", "circle", "link", "saveGraphicsState", "restoreGraphicsState", "setGState", "textWithLink"].forEach((k) => { if (!d[k]) d[k] = () => {}; });
+    d.getFontSize = () => 10; d.getLineHeightFactor = () => 1.15; d.getStringUnitWidth = (t) => String(t).length * 0.5; d.getFont = () => ({ fontName: "helvetica", fontStyle: "normal" });
+    d.output = () => new ArrayBuffer(8); d.save = () => {};
+    return d;
+  };
+}
+const cambiScena = () => {
+  reset(); A.state.titolo = "Concerto di prova"; A.state.luogo = "Teatro Esempio, Via Roma 1"; A.state.evDate = "2026-12-10"; A.state.versione = 3; A.state.stage = { w: 1200, d: 800 };
+  A.state.items = [itC("i1", "cantante", 200, 300), itC("i2", "batteria", 600, 200, { w: 200, d: 180 }), itC("i3", "tastiera", 900, 500, { w: 130, d: 50 }), itC("i4", "astamic", 400, 400, { w: 20, d: 20 })];
+  A.state.cambi = A.cambiNorm([
+    cambio("c1", { quando: "dopo il brano 5 – Titolo finto", esce: ["i2"], entra: [itC("n5", "musViolino1", 500, 150, { label: "Mario Rossi" }), itC("n6", "musViolino1", 560, 150, { label: "Gigi" }), itC("n7", "musViola", 620, 150), itC("n8", "musVioloncello", 680, 150)], sposta: [{ id: "i1", x: 0, y: 300, rot: 0 }] }),
+    cambio("c2", { nome: "Coro", quando: "dopo il brano 9" }),
+    cambio("c3", { esce: ["n5", "n6", "n7", "n8"], entra: [itC("n9", "batteria", 600, 200, { w: 200, d: 180 })], sposta: [{ id: "i3", x: 750, y: 500, rot: 90 }] })]);
+};
+t("Versioni L4 · cambiFoglioDati: per ogni cambio esce/entra/si sposta in righe, ruoli e mai etichette libere; cambio vuoto = «nessuna differenza»; senza cambi niente", () => {
+  cambiScena(); const D = A.cambiFoglioDati();
+  eq(D.righe.length, 3); eq(D.righe.map((r) => r.n), [1, 2, 3]);
+  const r1 = D.righe[0]; eq(r1.quando, "dopo il brano 5 – Titolo finto");
+  ok(/Batteria/.test(r1.esce.join("|")) && r1.esce.length === 1, "esce la batteria: " + r1.esce);
+  ok(r1.entra.some((x) => /2× Violino musicista/.test(x)) && r1.entra.some((x) => /Viola/.test(x)), "entra: due violini raggruppati: " + r1.entra);
+  ok(!/Mario|Gigi/.test(JSON.stringify(D)), "mai le etichette libere (possono essere persone)");
+  eq(r1.sposta.length, 1); ok(/2 m a sinistra|2,00 m a sinistra/.test(r1.sposta[0]), "lo spostamento dice di quanto e dove: " + r1.sposta[0]);
+  ok(D.righe[1].vuoto && D.righe[1].esce.length + D.righe[1].entra.length + D.righe[1].sposta.length === 0, "cambio 2 vuoto"); eq(D.righe[1].nome, "Coro");
+  ok(/ruotat/.test(D.righe[2].sposta[0]) && /90/.test(D.righe[2].sposta[0]), "rotazione detta: " + D.righe[2].sposta[0]);
+  ok(/2× Violino musicista/.test(D.righe[2].esce.join("|")), "esce il quartetto: dal palco DOPO il cambio 1");
+  eq(JSON.stringify(A.state.cambi.map((c) => c.id)), JSON.stringify(["c1", "c2", "c3"]), "i dati non si toccano");
+  delete A.state.cambi; eq(A.cambiFoglioDati().righe, [], "senza cambi: nessuna riga"); reset();
+});
+t("Versioni L4 · max 6 voci per colonna, poi «+N altri» (7 voci: si mostrano tutte, «+1 altri» occuperebbe la stessa riga)", () => {
+  const v = (n) => Array.from({ length: n }, (_, i) => "V" + (i + 1));
+  eq(A.cambiVociMax(v(3), 6), v(3)); eq(A.cambiVociMax(v(6), 6), v(6)); eq(A.cambiVociMax(v(7), 6), v(7), "7: tutte");
+  eq(A.cambiVociMax(v(10), 6), ["V1", "V2", "V3", "V4", "V5", "V6", "+4 altri"]); eq(A.cambiVociMax([], 6), []);
+});
+t("Versioni L4 · nel foglio molti elementi per cambio: 12 tipi diversi → 6 voci + «+6 altri» in colonna", () => {
+  cambiScena(); const tipi = ["cantante", "batteria", "tastiera", "astamic", "musViolino1", "musViola", "musVioloncello", "sedia", "leggio", "pedana", "corno", "tromba"];
+  A.state.cambi = A.cambiNorm([cambio("c1", { entra: tipi.map((tp, i) => itC("m" + (i + 1), tp, 100 + i * 40, 100)) })]);
+  const r = A.cambiFoglioDati().righe[0]; eq(r.entra.length, 12, "i dati le hanno tutte"); const v = A.cambiVociMax(r.entra, 6); eq(v.length, 7, "6 voci + la riga di chiusura"); eq(v[6], "+6 altri"); reset();
+});
+t("Versioni L4 · cambioMiniPalco: entrati pieni, spostati con freccia, gli altri a contorno, usciti non disegnati; forme di sfondo e annotazioni saltate; proporzioni del palco", () => {
+  cambiScena();
+  const prima = A.applicaCambi(A.state.items, A.state.cambi, 0).items, dopo = A.applicaCambi(A.state.items, A.state.cambi, 1).items;
+  const M = A.cambioMiniPalco(prima, dopo, [{ x: 0, y: 0, w: 1200, d: 800 }], A.state.stage);
+  const per = (k) => M.forme.filter((f) => f.tipo === k).map((f) => f.id).sort();
+  eq(per("entra"), ["n5", "n6", "n7", "n8"], "entrati"); eq(per("sposta"), ["i1"], "spostato"); eq(per("resta"), ["i3", "i4"], "invariati");
+  ok(!M.forme.some((f) => f.id === "i2"), "chi esce non c'è nel palco dopo il cambio");
+  const sp = M.forme.find((f) => f.id === "i1"); ok(sp.da && sp.da.cx === 200 && sp.cx === 0, "lo spostato porta il punto di partenza");
+  ok(M.forme.every((f) => f.poly.length === 4), "ogni elemento è un rettangolo ruotato (4 angoli)");
+  eq(M.stage.length, 1); ok(M.bbox.x1 - M.bbox.x0 >= 1200 && M.bbox.y1 - M.bbox.y0 >= 800, "il riquadro contiene tutto il palco");
+  const d2 = dopo.concat([itC("t1", "testo", 10, 10), itC("f1", "forma", 10, 10), itC("k1", "tappeto", 10, 10), itC("r1", "tastiera", 10, 10, { rackId: "x" })]);
+  eq(A.cambioMiniPalco(prima, d2, [{ x: 0, y: 0, w: 1200, d: 800 }], A.state.stage).forme.length, M.forme.length, "testo, forma, tappeto e interni di un rack non si disegnano");
+  const r = A.cambioMiniPalco(prima.map((x) => Object.assign({}, x, { rot: 90 })), prima.map((x) => Object.assign({}, x, { rot: 90 })), [{ x: 0, y: 0, w: 1200, d: 800 }], A.state.stage);
+  const f0 = r.forme[0], xs = f0.poly.map((p) => p[0]), ys = f0.poly.map((p) => p[1]);
+  ok(Math.abs((Math.max(...xs) - Math.min(...xs)) - 90) < 1 && Math.abs((Math.max(...ys) - Math.min(...ys)) - 70) < 1, "ruotato di 90°: larghezza e profondità si scambiano");
+  const f = A.cambioMiniAdatta(M.bbox, 70, 46); ok(Math.abs(f.k * (M.bbox.x1 - M.bbox.x0) - f.w) < 1e-6 && f.w <= 70 + 1e-6 && f.h <= 46 + 1e-6, "adattato al riquadro senza deformare: " + JSON.stringify(f)); reset();
+});
+t("Versioni L4 · C1 mini palco: il riquadro è palco + margine, una regia lontana in platea non lo allarga; palco segnaposto con tutto fuori = contiene tutto", () => {
+  cambiScena(); const bl = [{ x: 0, y: 0, w: 1200, d: 800 }];
+  const prima = A.applicaCambi(A.state.items, A.state.cambi, 0).items, dopo = A.applicaCambi(A.state.items, A.state.cambi, 1).items;
+  const lontano = dopo.concat([itC("foh", "tastiera", 600, 3300, { w: 200, d: 100 })]);
+  const M = A.cambioMiniPalco(prima, lontano, bl, A.state.stage), mg = Math.max(150, 0.15 * 1200);
+  ok(M.bbox.y1 <= 800 + mg + 1 && M.bbox.x1 <= 1200 + mg + 1, "bbox entro palco+margine: " + JSON.stringify(M.bbox)); ok(!M.forme.some((f) => f.id === "foh"), "la regia lontana non si disegna");
+  ok(M.forme.some((f) => f.tipo === "entra"), "gli elementi sul palco restano");
+  const tutti = [itC("a1", "tastiera", 5000, 5000), itC("a2", "tastiera", 5200, 5100), itC("a3", "tastiera", 5400, 5300)];
+  const S = A.cambioMiniPalco([], tutti, [{ x: 0, y: 0, w: 50, d: 50 }], { w: 50, d: 50 }); eq(S.forme.length, 3, "palco segnaposto: si torna a contenere tutto"); ok(S.bbox.x1 >= 5400, "bbox contiene tutto"); reset();
+});
+t("Versioni L4 · C2 quantità DAVANTI: «2× Violino musicista», mai «×2» in coda; con una colonna stretta «2×» non resta da sola a fine riga", () => {
+  cambiScena(); const D = A.cambiFoglioDati();
+  ok(D.righe[0].entra.some((x) => /^2× Violino musicista$/.test(x)), "entra: " + D.righe[0].entra); ok(!/×\d/.test(D.righe[0].entra.join("|") + D.righe[2].esce.join("|")), "nessun «×N» in coda");
+  A.state.cambi = A.cambiNorm([cambio("c1", { entra: [itC("p1", "musViolino1", 1, 1), itC("p2", "musViolino1", 2, 2)] })]);
+  const righe = A.pdfTxtRighe("Estintore portatile e 2× Violino musicista", 26, 8.5, false);
+  ok(righe.every((r) => !/×$/.test(r)), "«2×» non chiude mai una riga: " + JSON.stringify(righe)); ok(righe.some((r) => /×\s*Violino|× Violino/.test(r) || /×/.test(r) && /Violino/.test(r)), "la riga col × contiene anche il nome: " + JSON.stringify(righe));
+  reset();
+});
+taPdf("Versioni L4 · C3 legenda: sinistra/destra viste dalla platea in B e in A, IT ed EN", async () => {
+  cambiScena(); const prima = { jspdf: A.jspdf, l: A.loadJsPDF }; A.jspdf = { jsPDF: jsPdfCambi() }; A.loadJsPDF = () => Promise.resolve();
+  try {
+    const txt = async (f) => (await A.buildPdfFoglioCambi(new Date(2026, 10, 24), f)).pagine.map((p) => p.testi.map((x) => x.t).join(" ")).join(" ");
+    ok(/sinistra e destra viste dalla platea/i.test(await txt("b")), "B it"); ok(/sinistra e destra viste dalla platea/i.test(await txt("a")), "A it");
+    A.docLinguaImposta("en"); ok(A.docEn(), "inglese attivo"); { ok(/as seen from the audience/i.test(await txt("b")), "B en"); ok(/as seen from the audience/i.test(await txt("a")), "A en"); }
+  } finally { A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; A.docLinguaImposta("it"); reset(); }
+});
+t("Versioni L4 · C4 avviso microfoni: «Il cambio 1 fa entrare» al singolare, «I cambi 1, 3 fanno entrare» al plurale", () => {
+  cambiScena(); A.state.cambi = A.cambiNorm([cambio("c1", { entra: [itC("n1", "musViolino1", 5, 5)] })]);
+  let a = A.controlliPrimaDelExport().find((x) => x.id === "cambi-mic-fuori-lista"); ok(/Il cambio 1 fa entrare/.test(a.testo), a.testo);
+  A.state.cambi = A.cambiNorm([cambio("c1", { entra: [itC("n1", "musViolino1", 5, 5)] }), cambio("c2", {}), cambio("c3", { entra: [itC("n2", "batteria", 9, 9)] })]);
+  a = A.controlliPrimaDelExport().find((x) => x.id === "cambi-mic-fuori-lista"); ok(/I cambi 1, 3 fanno entrare/.test(a.testo), a.testo); reset();
+});
+t("Versioni L4 · file singolo: «Titolo - cambi di palco - v3 del 24-11-2026.pdf» (titolo senza «vN»), in inglese «of»", () => {
+  cambiScena(); eq(A.cambiFoglioNomeFile(new Date(2026, 10, 24)), "Concerto di prova - cambi di palco - v3 del 24-11-2026.pdf");
+  A.state.docLang = "en"; eq(A.cambiFoglioNomeFile(new Date(2026, 10, 24)), "Concerto di prova - stage changes - v3 of 24-11-2026.pdf", "nome inglese"); delete A.state.docLang;
+  A.state.statoDoc = "definitivo"; ok(/definitivo/i.test(A.cambiFoglioNomeFile(new Date(2026, 10, 24))), "lo stato nel nome come gli altri fogli"); delete A.state.statoDoc; reset();
+});
+t("Versioni L4 · pacchetto S9: «cambi di palco» c'è solo se la pillola esiste (e quindi solo se ci sono cambi); senza, l'elenco è quello di sempre", () => {
+  const nomi = (k) => A.pacchettoDocumenti(k, false, true, false).map((d) => d.chiave);
+  eq(nomi(["rider"]), ["stageplot", "rider"], "senza la pillola: invariato"); eq(nomi(["rider", "cambi"]), ["stageplot", "rider", "cambi"], "con la pillola: in coda");
+  eq(A.pacchettoDocumenti(["cambi"], false, true, false).filter((d) => d.chiave === "cambi")[0].nome, "cambi di palco", "nome nel file: «20261210 v3 cambi di palco Teatro.pdf»");
+  eq(A.pacchettoNomeFile("cambi di palco", { data: "20261210", versione: 3, nome: "Teatro Esempio" }), "20261210 v3 cambi di palco Teatro Esempio");
+});
+t("Versioni L4 · pillola: «cambi» è fra le pagine tecniche solo se la versione ha cambi; è nell'ordine unico; export senza cambi identici", () => {
+  cambiScena(); const ch = A.__pdfChiaviTecniche(); ok(ch.indexOf("cambi") >= 0, "con cambi: pillola presente: " + ch);
+  delete A.state.cambi; ok(A.__pdfChiaviTecniche().indexOf("cambi") < 0, "senza cambi: nessuna pillola");
+  ok(A.PDF_TECH_ORDER.indexOf("cambi") > A.PDF_TECH_ORDER.indexOf("organico"), "ordine unico: dopo l'organico"); eq(new Set(A.PDF_TECH_ORDER).size, A.PDF_TECH_ORDER.length);
+  ok(/pdfPaginaSoloAudio\(key\)\{\s*return \[[^\]]*\]\.indexOf\(key\)>=0/.test(appjs) && !/"cambi"[^\]]*\]\.indexOf\(key\)/.test(appjs.slice(appjs.indexOf("function pdfPaginaSoloAudio"), appjs.indexOf("function pdfPaginaSoloAudio") + 300)), "i cambi non sono «solo audio»: escono anche in acustico"); reset();
+});
+taPdf("Versioni L4 · foglio B: PDF A4 verticale, intestazione «CAMBI DI PALCO · Titolo · v3 · luogo · data», una fascia per cambio, margini ≥15 mm, niente fuori dal foglio", async () => {
+  cambiScena(); const prima = { jspdf: A.jspdf, l: A.loadJsPDF }; A.jspdf = { jsPDF: jsPdfCambi() }; A.loadJsPDF = () => Promise.resolve();
+  try {
+    const doc = await A.buildPdfFoglioCambi(new Date(2026, 10, 24)); const pp = doc.pagine;
+    eq(pp.length, 1, "3 cambi stanno in una pagina"); eq(pp[0].wh, [210, 297], "A4 verticale");
+    const tt = pp[0].testi.map((x) => x.t).join("\n");
+    ok(/CAMBI DI PALCO · Concerto di prova · v3 · Teatro Esempio/.test(tt) && /10\/12\/2026/.test(tt), "intestazione: " + tt.split("\n").slice(0, 3));
+    ok(/ESCE/.test(tt) && /ENTRA/.test(tt) && /SI SPOSTA/.test(tt), "tre colonne"); ok(/nessuna differenza/i.test(tt), "il cambio vuoto lo dice");
+    ok(/1 di 1/.test(tt) && /v3 · \d\d\/\d\d\/\d{4}/.test(tt), "«1 di N» e «vN · data» nel piè");
+    ok(!/Mario|Gigi/.test(tt), "nessuna etichetta libera");
+    ["1", "2", "3"].forEach((n) => ok(pp[0].testi.some((x) => x.t === n), "numero grande del cambio " + n));
+    const tutti = []; pp.forEach((pg) => { pg.testi.forEach((x) => { if (!/ di |Creato con/.test(x.t) && !/^v\d+ · /.test(x.t)) tutti.push([x.x, x.y]); }); pg.poli.forEach((q) => q.pts.forEach((pt) => tutti.push(pt))); pg.linee.forEach((l) => { tutti.push([l.x1, l.y1], [l.x2, l.y2]); }); pg.rett.forEach((r) => { tutti.push([r.x, r.y], [r.x + r.w, r.y + r.h]); }); });
+    ok(tutti.length > 40, "ha disegnato: " + tutti.length); const fuori = tutti.filter(([x, y]) => x < 14.99 || x > 195.01 || y < 14.99 || y > 272);
+    eq(fuori, [], "tutto dentro 15 mm dai lati e sopra il piè (y ≤ 272)");
+    ok(pp[0].poli.some((q) => q.st === "F" || q.st === "FD"), "gli entrati sono pieni"); ok(pp[0].poli.some((q) => q.tri), "lo spostato ha la freccia");
+  } finally { A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; reset(); }
+});
+taPdf("Versioni L4 · foglio B con molti cambi: va a pagina nuova senza spezzare una fascia, «1 di N» su ogni pagina, intestazione ripetuta", async () => {
+  cambiScena(); A.state.cambi = A.cambiNorm(Array.from({ length: 9 }, (_, i) => cambio("c" + (i + 1), { quando: "dopo il brano " + (i + 1), entra: [itC("e" + (i + 1), "musViolino1", 300 + i * 10, 100)] })));
+  const prima = { jspdf: A.jspdf, l: A.loadJsPDF }; A.jspdf = { jsPDF: jsPdfCambi() }; A.loadJsPDF = () => Promise.resolve();
+  try {
+    const doc = await A.buildPdfFoglioCambi(new Date(2026, 10, 24)), pp = doc.pagine; ok(pp.length >= 2 && pp.length <= 4, "pagine: " + pp.length);
+    pp.forEach((pg, i) => { const tt = pg.testi.map((x) => x.t); ok(tt.some((x) => /CAMBI DI PALCO/.test(x)), "intestazione in pagina " + (i + 1)); ok(tt.some((x) => x === (i + 1) + " di " + pp.length), "«" + (i + 1) + " di " + pp.length + "»"); });
+    const numeri = pp.map((pg) => pg.testi.filter((x) => /^\d$/.test(x.t) && x.op && x.op.align === "center").map((x) => +x.t)).flat(); eq(numeri, [1, 2, 3, 4, 5, 6, 7, 8, 9], "tutti i cambi, nell'ordine, una volta sola");
+    pp.forEach((pg) => { const ys = pg.testi.concat(pg.poli.map((q) => ({ y: Math.max(...q.pts.map((p) => p[1])) }))).map((x) => x.y).filter((y) => y < 280); ok(Math.max(...ys) <= 272, "mai sotto il piè"); });
+  } finally { A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; reset(); }
+});
+taPdf("Versioni L4 · formato A: A4 orizzontale, un cambio per pagina, PRIMA e DOPO affiancati, scritte grandi", async () => {
+  cambiScena(); const prima = { jspdf: A.jspdf, l: A.loadJsPDF }; A.jspdf = { jsPDF: jsPdfCambi() }; A.loadJsPDF = () => Promise.resolve();
+  try {
+    const doc = await A.buildPdfFoglioCambi(new Date(2026, 10, 24), "a"), pp = doc.pagine; eq(pp.length, 3, "un cambio per pagina"); eq(pp[0].wh, [297, 210], "A4 orizzontale");
+    const t1 = pp[0].testi.map((x) => x.t).join("\n"); ok(/CAMBIO 1 di 3/.test(t1) && /PRIMA/.test(t1) && /DOPO/.test(t1) && /1 di 3/.test(t1), t1);
+    ok(/nessuna differenza/i.test(pp[1].testi.map((x) => x.t).join("\n")), "cambio vuoto");
+    const tutti = []; pp.forEach((pg) => { pg.testi.forEach((x) => { if (!/ di |Creato con/.test(x.t) && !/^v\d+ · /.test(x.t)) tutti.push([x.x, x.y]); }); pg.poli.forEach((q) => q.pts.forEach((pt) => tutti.push(pt))); });
+    eq(tutti.filter(([x, y]) => x < 14.99 || x > 282.01 || y < 14.99 || y > 185), [], "margini ≥15 mm anche in orizzontale");
+    eq(pp.map((pg) => pg.poli.filter((q) => q.pts.length === 4).length > 0), [true, true, true]);
+  } finally { A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; reset(); }
+});
+taPdf("Versioni L4 · pacchetto S9: il PDF «cambi» si produce davvero (B e A) con «1 di N»; senza cambi il documento non esiste", async () => {
+  cambiScena(); const creati = []; const base = jsPdfCambi(); const prima = { jspdf: A.jspdf, l: A.loadJsPDF, f: A.__pdfListaFmt };
+  A.jspdf = { jsPDF: function (o) { const d = base(o); creati.push(d); return d; } }; A.loadJsPDF = () => Promise.resolve();
+  try {
+    const b = await A.pacchettoProduci("cambi", { paper: "a4", N: 100, orient: "landscape", header: "" }); ok(b && b.length >= 0, "restituisce i byte");
+    const d = creati[creati.length - 1]; eq(d.pagine.length, 1, "B: 3 cambi = 1 pagina (la prima, vuota, è tolta)"); ok(d.pagine[0].testi.some((x) => /CAMBI DI PALCO/.test(x.t)) && d.pagine[0].testi.some((x) => x.t === "1 di 1"), "intestazione e «1 di N»");
+    A.__pdfListaFmt = { formato: "semplice", perPagina: 32, outFormato: "semplice", cambiFormato: "a" };
+    await A.pacchettoProduci("cambi", { paper: "a4", N: 100, orient: "landscape", header: "" }); eq(creati[creati.length - 1].pagine.length, 3, "A: una pagina per cambio");
+    delete A.state.cambi; let errore = null; try { await A.pacchettoProduci("cambi", { paper: "a4", N: 100, orient: "landscape", header: "" }); } catch (e) { errore = e; } ok(errore, "senza cambi: «non ha niente da stampare»");
+  } finally { A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; A.__pdfListaFmt = prima.f; reset(); }
+});
+taPdf("Versioni L4 · formato A con molte voci: niente testo tagliato in silenzio («+N altri»), PRIMA/DOPO restano dentro i margini", async () => {
+  cambiScena(); const molti = []; for (let i = 0; i < 12; i++) molti.push(itC("m" + i, i % 2 ? "tastiera" : "cantante", 100 + i * 70, 400, { w: 60, d: 40 }));
+  A.state.items = A.state.items.concat(molti); A.state.cambi = A.cambiNorm([cambio("c1", { quando: "dopo il brano 4", esce: ["i1", "i2", "i3", "i4"], entra: [itC("n1", "sedia", 5, 5), itC("n2", "leggio", 60, 5), itC("n3", "pedana", 120, 5), itC("n4", "corno", 200, 5), itC("n5", "tromba", 300, 5), itC("n6", "batteria", 400, 5), itC("n7", "astamic", 500, 5), itC("n8", "musViola", 600, 5)], sposta: molti.map((x, i) => ({ id: x.id, x: x.x + 30 + i, y: 420 + i, rot: 15 })) })]);
+  const prima = { jspdf: A.jspdf, l: A.loadJsPDF }; A.jspdf = { jsPDF: jsPdfCambi() }; A.loadJsPDF = () => Promise.resolve();
+  try {
+    const doc = await A.buildPdfFoglioCambi(new Date(2026, 10, 24), "a"), pg = doc.pagine[0], tt = pg.testi.map((x) => x.t).join("\n");
+    ok(/\+6 altri/.test(tt), "12 spostamenti: 6 righe e «+6 altri»: " + tt); ok(/ENTRA/.test(tt) && /SI SPOSTA/.test(tt));
+    /* ENTRA con 60 voci (dati sintetici): si accorcia con «+N altri» in ≤3 righe, mai tagliato a metà */
+    const D = A.cambiFoglioDati(); D.righe[0].entra = Array.from({ length: 60 }, (_, k) => "Elemento numero " + (k + 1)); D.righe[0].esce = [];
+    const d2 = new (jsPdfCambi())({ format: "a4", orientation: "portrait" }); A.cambiFoglioA(d2, { righe: [D.righe[0]] }); const q = d2.pagine[1];
+    const yE = q.testi.find((x) => x.t === "ENTRA").y, yS = q.testi.find((x) => x.t === "SI SPOSTA").y, rE = q.testi.filter((x) => x.x > 40 && x.y >= yE - 0.01 && x.y < yS - 0.01).map((x) => x.t);
+    ok(rE.length >= 1 && rE.length <= 3 && /, \+\d+ altri$/.test(rE[rE.length - 1]), "ENTRA troppo lungo: «+N altri» in ≤3 righe: " + rE.join(" | ").slice(-160));
+    const tutti = []; pg.testi.forEach((x) => { if (!/ di |Creato con/.test(x.t) && !/^v\d+ · /.test(x.t)) tutti.push([x.x, x.y]); }); pg.poli.forEach((q) => q.pts.forEach((p) => tutti.push(p)));
+    eq(tutti.filter(([x, y]) => x < 14.99 || x > 282.01 || y < 14.99 || y > 185), [], "dentro i margini anche con tante voci");
+  } finally { A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; reset(); }
+});
+taPdf("Versioni L4 · inglese: intestazioni e frasi del foglio B in English, nomi del progetto intatti", async () => {
+  cambiScena(); A.state.docLang = "en"; const prima = { jspdf: A.jspdf, l: A.loadJsPDF }; A.jspdf = { jsPDF: jsPdfCambi() }; A.loadJsPDF = () => Promise.resolve();
+  try { const doc = await A.buildPdfFoglioCambi(new Date(2026, 10, 24)); const tt = doc.pagine[0].testi.map((x) => x.t).join("\n");
+    ok(/STAGE CHANGES · Concerto di prova/.test(tt) && /\bOUT\b/.test(tt) && /\bIN\b/.test(tt) && /MOVES/.test(tt) && /no differences/i.test(tt), tt.slice(0, 400)); ok(/left/.test(tt) && !/sinistra/.test(tt), "spostamenti in inglese: " + tt.slice(0, 600));
+  } finally { A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; delete A.state.docLang; reset(); }
+});
+taPdf("Versioni L4 · nel PDF dell'Esporta la pillola «cambi» aggiunge le pagine A4 in coda al resto; senza pillola o senza cambi il PDF è quello di sempre", async () => {
+  cambiScena(); const prima = { pg: A.__pdfPages, sc: A.__pdfScaletta, qr: A.__pdfQr, jspdf: A.jspdf, l: A.loadJsPDF, d: A.drawStageVector };
+  A.__pdfScaletta = false; A.__pdfQr = null; A.jspdf = { jsPDF: jsPdfCambi() }; A.loadJsPDF = () => Promise.resolve(); A.drawStageVector = () => Promise.resolve();
+  try {
+    A.__pdfPages = {}; const solo = await A.buildPdfDoc("a4", 100, "landscape", ""); A.__pdfPages = { cambi: true }; const con = await A.buildPdfDoc("a4", 100, "landscape", "");
+    eq(con.pagine.length, solo.pagine.length + 1, "una pagina in più (3 cambi)"); ok(con.pagine[con.pagine.length - 1].testi.some((x) => /CAMBI DI PALCO/.test(x.t)), "l'ultima pagina è il foglio dei cambi");
+    eq(con.pagine[con.pagine.length - 1].wh, [210, 297], "A4 verticale dentro il PDF");
+    delete A.state.cambi; const senza = await A.buildPdfDoc("a4", 100, "landscape", ""); eq(senza.pagine.length, solo.pagine.length, "pillola scelta ma niente cambi: nessuna pagina in più");
+    cambiScena(); A.__pdfListaFmt = { formato: "semplice", perPagina: 32, outFormato: "semplice", cambiFormato: "a" }; A.__pdfPages = { cambi: true };
+    const fa = await A.buildPdfDoc("a4", 100, "landscape", ""); eq(fa.pagine.length, solo.pagine.length + 3, "formato A: una pagina per cambio"); eq(fa.pagine[fa.pagine.length - 1].wh, [297, 210]);
+  } finally { A.__pdfPages = prima.pg; A.__pdfScaletta = prima.sc; A.__pdfQr = prima.qr; A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; A.drawStageVector = prima.d; A.__pdfListaFmt = { formato: "semplice", perPagina: 32, outFormato: "semplice" }; reset(); }
+});
+t("Versioni L4 · «Prima di esportare»: avviso se un cambio fa entrare microfoni che la channel list non ha; niente con cambi senza microfoni nuovi e senza cambi", () => {
+  cambiScena(); const ids = () => A.controlliPrimaDelExport().map((x) => x.id);
+  ok(ids().indexOf("cambi-mic-fuori-lista") >= 0, "violini e batteria hanno un microfono: " + ids()); const a = A.controlliPrimaDelExport().find((x) => x.id === "cambi-mic-fuori-lista");
+  ok(/cambi? 1/i.test(a.testo) && /channel list/i.test(a.testo), a.testo); ok(!/Mario|Gigi/.test(a.testo), "senza nomi di persone");
+  A.state.cambi = A.cambiNorm([cambio("c1", { entra: [itC("n1", "leggio", 5, 5)] })]); ok(ids().indexOf("cambi-mic-fuori-lista") < 0, "un leggio non ha microfono");
+  delete A.state.cambi; ok(ids().indexOf("cambi-mic-fuori-lista") < 0, "senza cambi"); reset();
+});
+t("Versioni L4 · note della rilettura: N1 catalogo «Elementi di questo progetto» nascosto nel cambio; N2 snap combinato; N3 banner chiuso alla disconnessione; N4 pannelli aperti dal menu durante il cambio", () => {
+  ok(/body\.cambio-editor #catCustom\s*\{[^}]*display:\s*none/.test(stylesCss.replace(/\s+/g, " ")) || /body\.cambio-editor[^{]*#catCustom[^{]*\{[^}]*display:none/.test(stylesCss.replace(/\s+/g, " ")), "N1: #catCustom nascosto con body.cambio-editor");
+  ok(/function snapCombinato\(\)\{[^}]*paloTemporaneoAttivo|function snapCombinato\(\)\{[^}]*custEditorAttivo/.test(appjs) || !/function snapCombinato\(\)\{[^}]*!window\.__custEditor/.test(appjs), "N2: snapCombinato non è più escluso nel cambio");
+  const i = appjs.indexOf("function custEditorClasse"); ok(i > 0 && /cambioBannerAggiorna\(\)/.test(appjs.slice(i, i + 700)), "N3: chiudendo l'editor il banner dei cambi si aggiorna");
+});
+
+await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

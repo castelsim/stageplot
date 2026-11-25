@@ -37,6 +37,7 @@ function docNomeFile(n){
   n=String(n)
     .replace(/( - v\d+) del (\d{2}-\d{2}-\d{4})/, "$1 of $2")
     .replace(/( [A-Z]\d) orizz( \d+-\d+)/, "$1 landscape$2").replace(/( [A-Z]\d) vert( \d+-\d+)/, "$1 portrait$2")
+    .replace(/ - cambi di palco(?= - v\d+ of |(?:-definitivo|-provvisorio)?\.pdf$)/, " - stage changes")   /* foglio dei cambi (L4) */
     .replace(/ - palco((?:-definitivo|-provvisorio)?\.pdf)$/, " - stage$1").replace(/ - foglio teatro((?:-definitivo|-provvisorio)?\.pdf)$/, " - venue sheet$1")   /* senza versione lo stato è già in coda («palco-definitivo.pdf»): D2, 22/11 */
     .replace(/-(cablaggio-audio|da-definire|responsabilita|lista-carichi|note|rete|alimentazioni|luci|lista-rf|piano-elettrico|organico)((?:-definitivo|-provvisorio)?\.pdf)$/, function(all, k, coda){ return "-"+DOC_NOME_SUFFISSI[k]+coda; })
     .replace(/\b(D)efinitivo\b/g, function(_, c){ return c==="D" ? "Final" : "final"; }).replace(/\bdefinitivo\b/g, "final")
