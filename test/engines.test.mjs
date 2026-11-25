@@ -41495,5 +41495,65 @@ t("Versioni L2 · cloud: allinea (rev + link senza leggere il token), creaProget
   ok(/insert\(\{ user_id:requestUser, schema_version:SCHEMA_VERSION/.test(g) && !/share_token/.test(g), "insert come «Duplica»: nessun token");
   ok(/allinea: *allineaProgetto,[\s\S]{0,200}creaProgetto: *creaProgettoDa/.test(appjs) && /open: *openProject/.test(appjs), "esposti in window.__cloud");
 });
+t("Versioni L2b · «Superata» automatica: quando una versione passa a Inviata, le Inviate/Approvate con numero più basso diventano Superate (con data); le Bozze e le più nuove no", () => senzaForeign(() => {
+  const toast = []; const t0 = A.__toast; A.__toast = (m) => { toast.push(m); };
+  try {
+    const stati = () => { A.syncActiveVariant(); return A.VARIANTS.map((v) => v.state.status || "bozza"); };
+    reset(); docVersioni([{ versione: 1, status: "revisione", statusAt: "2026-11-10" }, { versione: 2, status: "approvato", statusAt: "2026-11-15" }, { versione: 3, items: [itV("c")] }, { versione: 4, items: [itV("d")] }]);
+    A.syncActiveVariant(); const scena = (i) => JSON.stringify(A.VARIANTS[i].state.items);
+    const sc0 = scena(0), sc1 = scena(1);
+    A.switchVariant("w2"); A.setProjectStatus("revisione");
+    eq(stati(), ["superato", "superato", "revisione", "bozza"], "v1 e v2 (Inviata e Approvata) → Superata; v3 Inviata; v4 Bozza intatta");
+    ok(/^\d{4}-\d{2}-\d{2}$/.test(A.VARIANTS[0].state.statusAt) && A.VARIANTS[0].state.statusAt !== "2026-11-10", "Superata ha la data di oggi");
+    eq([scena(0), scena(1)], [sc0, sc1], "la scena delle Superate non cambia");
+    ok(toast.some((m) => /Superate/.test(m) && /v1/.test(m) && /v2/.test(m)), "lo dice, in un toast quieto: " + toast.join("|"));
+    /* una Superata resta chiusa come una Inviata */
+    ok(A.versioneChiusa(A.VARIANTS[0].state), "Superata è in sola lettura");
+    /* tornare a Bozza NON resuscita le Superate */
+    A.setProjectStatus("bozza", true); eq(stati(), ["superato", "superato", "bozza", "bozza"], "la v3 torna Bozza, le Superate restano");
+    /* passare a Bozza non supera niente: la v2 che torna Bozza non deve far scattare la regola sulla v1 */
+    reset(); docVersioni([{ versione: 1, status: "revisione", statusAt: "2026-11-10" }, { versione: 2, status: "revisione", statusAt: "2026-11-12", items: [itV("b")] }]); A.syncActiveVariant(); A.switchVariant("w1");
+    A.setProjectStatus("bozza", true); eq(stati(), ["revisione", "bozza"], "tornare a Bozza non supera la v1");
+    /* una versione con numero PIÙ BASSO di una Inviata già esistente: nessuna Superata */
+    reset(); docVersioni([{ versione: 1, items: [itV("a")] }, { versione: 2, status: "revisione", statusAt: "2026-11-10" }, { versione: 3, status: "revisione", statusAt: "2026-11-12" }]);
+    A.syncActiveVariant(); A.setProjectStatus("revisione");
+    eq(stati(), ["revisione", "revisione", "revisione"], "la v1 inviata dopo la v3: nessuno viene superato");
+    /* le Bozze più basse non si toccano */
+    reset(); docVersioni([{ versione: 1 }, { versione: 2, items: [itV("b")] }]); A.syncActiveVariant(); A.switchVariant("w1"); A.setProjectStatus("revisione");
+    eq(stati(), ["bozza", "revisione"], "la Bozza v1 resta Bozza");
+    /* passare a Approvata (da Bozza) supera le precedenti come Inviata */
+    reset(); docVersioni([{ versione: 1, status: "revisione", statusAt: "2026-11-10" }, { versione: 2, items: [itV("b")] }]); A.syncActiveVariant(); A.switchVariant("w1"); A.setProjectStatus("approvato");
+    eq(stati(), ["superato", "approvato"], "Bozza → Approvata supera la v1 Inviata");
+    /* Inviata → Approvata (già chiusa): nulla da superare di nuovo, ma non rompe */
+    A.setProjectStatus("revisione"); eq(stati(), ["superato", "revisione"]);
+    /* stesso numero: nessuno supera l'altro */
+    reset(); docVersioni([{ versione: 2, status: "revisione", statusAt: "2026-11-10" }, { versione: 2, items: [itV("b")] }]); A.syncActiveVariant(); A.switchVariant("w1"); A.setProjectStatus("revisione");
+    eq(stati(), ["revisione", "revisione"], "numeri uguali: nessuna Superata");
+    /* progetto con una versione sola: niente da fare, nessun toast di Superata */
+    reset(); docVersioni([{ versione: 1 }]); A.syncActiveVariant(); toast.length = 0; A.setProjectStatus("revisione");
+    eq(stati(), ["revisione"]); ok(!toast.some((m) => /Supera/.test(m)), "nessun avviso");
+    /* C1 (rilettura Opus): scene a nome libero SENZA numero visibile non vengono mai superate né citate */
+    reset(); docVersioni([{ name: "Primo tempo", status: "revisione", statusAt: "2026-11-10" }, { name: "Secondo tempo", items: [itV("b")] }]); A.syncActiveVariant(); A.switchVariant("w1"); toast.length = 0;
+    A.setProjectStatus("revisione");
+    eq(stati(), ["revisione", "revisione"], "senza numero visibile nessuna Superata"); ok(!toast.some((m) => /Supera/.test(m)), "nessun toast");
+    eq([A.versioneSuperataDa(A.VARIANTS[0], 0), A.versioneSuperataDa(A.VARIANTS[1], 1)], [null, null], "nessuna «Superata dalla vN» per scene senza numero");
+    /* scena con numero che ne supera una a nome libero senza numero: quella non entra */
+    reset(); docVersioni([{ name: "Primo tempo", status: "revisione", statusAt: "2026-11-10" }, { versione: 2, items: [itV("b")] }]); A.syncActiveVariant(); A.switchVariant("w1"); A.setProjectStatus("revisione");
+    eq(stati(), ["revisione", "revisione"], "la scena senza numero non viene superata");
+    /* «Variante 1/2» senza numero scritto: la scheda mostra «Versione 1/2», la regola vale */
+    reset(); docVersioni([{ status: "revisione", statusAt: "2026-11-10" }, { items: [itV("b")] }]); A.syncActiveVariant(); A.switchVariant("w1"); A.setProjectStatus("revisione");
+    eq(stati(), ["superato", "revisione"], "«Variante 1/2» senza numero: la regola vale");
+  } finally { A.__toast = t0; reset(); }
+}));
+t("Versioni L2b · «Superata»: etichetta, banner e rider coerenti; progetti senza il nuovo stato invariati", () => {
+  eq(A.versioneStatoEtichetta("superato"), "Superata"); eq(A.versioneStatoEtichetta("revisione"), "Inviata");
+  eq([A.statusInfo("superato").label, A.statusInfo("superato").color], ["Superato", "#94a3b8"], "il rider PDF non cambia (etichetta e colore di sempre)");
+  eq([A.statusInfo("revisione").label, A.statusInfo("approvato").label], ["In revisione", "Approvato"], "il rider di Inviata/Approvata resta com'era");
+  reset(); docVersioni([{ versione: 1, status: "superato" }, { versione: 2, status: "approvato", items: [itV("b")] }, { versione: 3, status: "revisione", items: [itV("c")] }, { versione: 4, items: [itV("d")] }]); A.syncActiveVariant();
+  eq([A.versioneSuperataDa(A.VARIANTS[0], 0), A.versioneSuperataDa(A.VARIANTS[1], 1), A.versioneSuperataDa(A.VARIANTS[2], 2)], [3, 3, null], "superata dalla più alta fra le Inviate/Approvate; la Bozza v4 non conta");
+  ok(/"Superata dalla v"\+supDa/.test(appjs), "il banner scrive «Superata dalla vN»"); reset();
+  ok(/data-stato="superato"|setAttribute\("data-stato"/.test(appjs) && /#verBanner\[data-stato="superato"\]\{border-color:#94a3b8/.test(stylesCss), "banner Superata: stile grigio e quieto");
+  ok(/\.vtab-st-superato \.vtab-stt\{[^}]*opacity/.test(stylesCss) || /vtab\.superata/.test(stylesCss), "scheda Superata: scritta più quieta");
+});
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
