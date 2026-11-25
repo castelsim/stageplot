@@ -19649,6 +19649,10 @@ function elecDropCalcola(d){
 function elecDropAdvice(d, en){
   if(!d || (d.lvl!=="warn" && d.lvl!=="err") || d.pct==null) return "";
   var tot=(d.tot!=null?d.tot:d.pct), fine="", i;
+  if(d.colpa && !d.colpa.self && d.colpa.pct>d.pct+0.05){   /* la tratta di questa riga non è il problema: si dice quale lo è */
+    return (en ? (d.lvl==="err" ? "Over the 4 % limit" : "Close to the 4 % limit") : (d.lvl==="err" ? "Percorso oltre il limite del 4 %" : "Percorso vicino al limite del 4 %"))
+      + (en ? (", but the run to fix is "+d.colpa.en+" ("+elecPctTxt(d.colpa.pct)+"): larger size or shorter cable there.") : (", ma la tratta da sistemare è "+d.colpa.n+" ("+elecPctTxt(d.colpa.pct)+"): sezione maggiore o cavo più corto lì."));
+  }
   for(i=0;i<ELEC_DROP_SEZIONI.length;i++){ var s2=ELEC_DROP_SEZIONI[i]; if(s2<=d.S) continue;
     var p2=elecDropPct(d.I, d.L, s2, d.tri); if(p2!=null && tot-d.pct+p2<=ELEC_DROP.giallo){ fine=en ? (" Use a "+elecSezTxt(s2)+" cable ("+elecPctTxt(p2)+" on this run) or a shorter one.") : (" Usa un cavo da "+elecSezTxt(s2)+" ("+elecPctTxt(p2)+" su questa linea) oppure uno più corto."); break; } }
   var testa = en ? (d.lvl==="err" ? "Over the 4 % limit." : "Close to the 4 % limit.") : (d.lvl==="err" ? "Oltre il limite del 4 %." : "Vicina al limite del 4 %.");
@@ -19673,18 +19677,21 @@ function elecDropAnnota(loadLinks, uplinks, feeds){
   uplinks.forEach(function(u){ u.drop=elecDropCalcola({I:corrente(u.from), L:u.lenM, S:elecSezNum(u.section), tri:u.from.ph>1}); u.drop.peggiore=null; });
   feeds.forEach(function(f){ f.drop=elecDropCalcola({I:corrente(f.distro), L:f.lenM, S:elecSezNum(f.section), tri:f.distro.ph>1}); f.drop.peggiore=null; });
   loadLinks.forEach(function(l){
-    var tratte=[l.drop], d=l.distro, visti=[], up, fd;
+    var tratte=[{d:l.drop, n:"la linea del carico", en:"the load line"}], d=l.distro, visti=[], up, fd;
     while(d && visti.indexOf(d)<0){
       visti.push(d); up=null; uplinks.forEach(function(u){ if(!up && u.from===d) up=u; });
-      if(up){ tratte.push(up.drop); d=up.to; continue; }
+      if(up){ tratte.push({d:up.drop, n:"la dorsale "+(up.from.letter||"?")+"-"+((up.to&&up.to.letter)||"?"), en:"the feeder "+(up.from.letter||"?")+"-"+((up.to&&up.to.letter)||"?")}); d=up.to; continue; }
       fd=null; feeds.forEach(function(f){ if(!fd && f.distro===d) fd=f; });
-      if(fd) tratte.push(fd.drop);
+      if(fd) tratte.push({d:fd.drop, n:"l'alimentazione del quadro "+(fd.distro.letter||"?"), en:"the main feed of board "+(fd.distro.letter||"?")});
       break;
     }
-    var tot=0, parz=false; tratte.forEach(function(t){ if(t.pct==null) parz=true; else tot+=t.pct; });
+    var tot=0, parz=false, peggio=null; tratte.forEach(function(t){ if(t.d.pct==null) parz=true; else { tot+=t.d.pct; if(!peggio || t.d.pct>peggio.d.pct) peggio=t; } });
     l.drop.tot = tot>0||!parz ? tot : null; l.drop.parz=parz; if(l.drop.pct==null) l.drop.tot=null;
     l.drop.lvl = l.drop.pct==null ? "nd" : elecDropLevel(l.drop.tot);
-    tratte.forEach(function(t,i){ if(i>0 && !parz && (t.peggiore==null || tot>t.peggiore)) t.peggiore=tot; });
+    /* chi è la tratta da sistemare: la più lunga/sottile del percorso (la frase «cosa fare» punta lì, non sulla riga innocente) */
+    var colpa = peggio ? {n:peggio.n, en:peggio.en, pct:peggio.d.pct, self:false} : null;
+    tratte.forEach(function(t,i){ if(i===0 && colpa) l.drop.colpa={n:colpa.n, en:colpa.en, pct:colpa.pct, self:peggio===t};
+      if(i>0 && !parz && (t.d.peggiore==null || tot>t.d.peggiore)){ t.d.peggiore=tot; if(colpa) t.d.colpa={n:colpa.n, en:colpa.en, pct:colpa.pct, self:peggio===t}; } });
   });
   uplinks.concat(feeds).forEach(function(x){ var dr=x.drop; if(dr.pct==null) return;
     dr.tot = dr.peggiore!=null ? dr.peggiore : dr.pct; dr.lvl=elecDropLevel(dr.tot); });

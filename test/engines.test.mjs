@@ -42059,6 +42059,13 @@ const scenaCaduta = (modo, extra) => {
     elec: { on: true, mode: modo, supply: { kind: "custom", x: 0, y: 0 }, manual: { AR: { distro: "C" } }, uplinks: { C: { to: "Q" } } } }, extra || {}));
   return A.elecResult(true);
 };
+t("caduta di tensione · la frase non consiglia di cambiare la riga innocente: la linea del carico (1 m) rimanda alla dorsale lunga, la dorsale propone la sezione", () => {
+  const R = scenaCaduta("auto"), l = R.loadLinks[0], u = R.uplinks[0];
+  ok(l.drop.pct < 0.5 && u.drop.pct > 4, "scena: carico corto, dorsale lunga: " + l.drop.pct + " / " + u.drop.pct);
+  const fl = A.elecDropAdvice(l.drop); ok(/dorsale/.test(fl) && /8,\d %/.test(fl) && !/Usa un cavo da/.test(fl), "sul carico: indica la dorsale e non una sezione per sé: " + fl);
+  const fu = A.elecDropAdvice(u.drop); ok(/Usa un cavo da \d+ mm²/.test(fu), "sulla dorsale: propone la sezione: " + fu);
+  const fe = A.elecDropAdvice(l.drop, true); ok(/feeder/.test(fe) && !/dorsale/.test(fe), "in inglese: " + fe);
+});
 t("caduta di tensione · il motore la calcola su carico, dorsale e alimentazione con lunghezza e sezione che l'app già usa", () => {
   const R = scenaCaduta("auto"), prima = A.docToJSON();
   const l = R.loadLinks[0], u = R.uplinks[0], f = R.feeds[0];
