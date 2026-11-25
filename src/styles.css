@@ -2653,6 +2653,8 @@ body.viewmode.consult-viewer.cl-view #props #chanlist{ display:block; max-width:
 .hdr-variants .vtab-st-revisione .vtab-dot{background:#d97706}
 .hdr-variants .vtab-st-approvato .vtab-dot{background:#0d9488}
 .hdr-variants .vtab-st-superato .vtab-dot{background:#94a3b8}
+.hdr-variants .vtab-st-superato .vtab-stt{opacity:.7}   /* L2b: Superata si legge ma non chiama l'attenzione */
+.hdr-variants .vtab.chiusa .vtab-st-superato{color:var(--text-3,#94a3b8)}
 .hdr-variants .vtab-dup{margin-left:5px;font-size:11px;color:#b45309}
 header.bar-compatta .hdr-variants .vtab-stt{display:none}
 header.bar-compatta .hdr-variants .vtab-st{margin-left:4px}
@@ -2661,6 +2663,8 @@ header.bar-compatta .hdr-variants .vtab-st{margin-left:4px}
 #verBanner{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:30;box-sizing:border-box;max-width:min(94%,760px);display:flex;align-items:center;gap:10px;flex-wrap:wrap;
   padding:7px 12px;border:1px solid #d97706;border-radius:10px;background:color-mix(in srgb,#d97706 13%,var(--surface));color:var(--text);font-size:13px;line-height:1.35;box-shadow:0 4px 14px rgba(0,0,0,.12)}
 #verBanner[hidden]{display:none}
+#verBanner[data-stato="superato"]{border-color:#94a3b8;background:color-mix(in srgb,#94a3b8 12%,var(--surface))}   /* L2b: Superata = grigio quieto, non arancione */
+#verBanner[data-stato="superato"] .vb-dot{background:#94a3b8}
 #verBanner .vb-dot{width:9px;height:9px;border-radius:50%;background:#d97706;flex:0 0 auto}
 #verBanner .vb-testo{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1 1 220px}
 #verBanner .vb-testo span{font-size:12px;color:var(--text-2)}
