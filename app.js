@@ -18471,24 +18471,29 @@ function elecSection(a){ for(var i=0;i<ELEC_SECTIONS.length;i++){ if(a<=ELEC_SEC
    ΔU = m·I·L·(R·cosφ + X·sinφ): m = 2 monofase / √3 trifase, R = 25/S Ω/km (rame caldo: prudente), X = 0,1 Ω/km, cosφ 0,9; ΔU% su 230 V (mono) o 400 V (tri).
    Limite 4 % tra consegna e carico (CEI 64-8, letto dalla dispensa S2: sui fissi, per un palco temporaneo è un obiettivo prudente); sul disegno non compare
    (le etichette delle linee restano quelle di sempre, quindi PNG/SVG identici): vive nel pannello della linea, nel tooltip, nella Lista carichi e nei fogli elettrici.
-   NON entra in `issues`: l'audit, «Prima di esportare» e il collaudo sui progetti veri restano quelli di prima. Verificata sulle tabelle CEI UNEL della dispensa: ±3,5 %, per eccesso. */
+   NON entra in `issues`: l'audit, «Prima di esportare» e il collaudo sui progetti veri restano quelli di prima. Verificata sulle tabelle CEI UNEL della dispensa: scarto di circa ±3,5 % (sul 6 mm² monofase sta sotto di ~1 %: NON è «per eccesso»; rispetto ai conduttori caldi 60-70 °C è prudente).
+   Corrente = quella TIPICA del carico collegato (Ib, metodo della norma), non il caso peggiore: la fase più carica del quadro; trifase con carichi monofase = fase + neutro (B1). */
 var ELEC_DROP={ giallo:3, rosso:4, cosfi:0.9, rho:25, x:0.1 };
 var ELEC_DROP_SEZIONI=[1.5,2.5,4,6,10,16,25,35,50,70,95,120,150,185,240];
 function elecSezNum(txt){ var m=String(txt==null?"":txt).replace(",",".").match(/\d+(\.\d+)?/); var v=m?parseFloat(m[0]):NaN; return v>0?v:null; }
 function elecSezTxt(sx){ return String(sx).replace(".",",")+" mm²"; }
 function elecPctTxt(p){ return (Math.round(p*10)/10).toFixed(1).replace(".",",")+" %"; }
-function elecDropPct(I,L,S,tri,cosfi){
+function elecAmpTxt(i){ return (Math.round(i*10)/10).toFixed(1).replace(".",",")+" A"; }
+/* IN (solo trifase, facoltativo): corrente del neutro dei carichi monofase sbilanciati. Con IN>0 la fase peggiore chiude il circuito sul neutro:
+   ΔU = (Imax + IN)·L·z/230 (una sola fase carica = monofase, Imax + IN = 2·Imax). IN assente o 0 = fasi bilanciate, formula di prima. */
+function elecDropPct(I,L,S,tri,cosfi,IN){
   function pos(v){ return typeof v==="number" && isFinite(v) && v>0; }
   if(!pos(I) || !pos(L) || !pos(S)) return null;
   var c=(typeof cosfi==="number" && cosfi>0 && cosfi<=1) ? cosfi : ELEC_DROP.cosfi, sn=Math.sqrt(1-c*c);
-  var m=tri ? Math.sqrt(3) : 2, R=ELEC_DROP.rho/S;
-  return m*I*(L/1000)*(R*c+ELEC_DROP.x*sn)/(tri?400:230)*100;
+  var m=tri ? Math.sqrt(3) : 2, R=ELEC_DROP.rho/S, z=R*c+ELEC_DROP.x*sn;
+  if(tri && typeof IN==="number" && isFinite(IN) && IN>1e-6) return (I+IN)*(L/1000)*z/230*100;
+  return m*I*(L/1000)*z/(tri?400:230)*100;
 }
 function elecDropLevel(p){ if(p==null || !isFinite(p)) return "nd"; return p>ELEC_DROP.rosso ? "err" : (p>ELEC_DROP.giallo ? "warn" : "ok"); }
 /* d = {I, L (m), S (mm²), tri, stim}; tot = caduta del percorso intero (la riempie l'annotazione), altrimenti quella della tratta */
 function elecDropCalcola(d){
-  var out={I:d.I, L:d.L, S:d.S, tri:!!d.tri, stim:!!d.stim, pct:null, tot:null, lvl:"nd", manca:""};
-  out.pct=elecDropPct(d.I, d.L, d.S, d.tri);
+  var out={I:d.I, IN:d.IN||0, L:d.L, S:d.S, tri:!!d.tri, stim:!!d.stim, pct:null, tot:null, lvl:"nd", manca:"", completo:true, fino:""};
+  out.pct=elecDropPct(d.I, d.L, d.S, d.tri, undefined, d.IN);
   if(out.pct==null) out.manca = !(d.L>0) ? "lunghezza" : (!(d.I>0) ? "corrente" : "sezione");
   out.tot=out.pct; out.lvl=elecDropLevel(out.pct);
   return out;
@@ -18502,7 +18507,7 @@ function elecDropAdvice(d, en){
       + (en ? (", but the run to fix is "+d.colpa.en+" ("+elecPctTxt(d.colpa.pct)+"): larger size or shorter cable there.") : (", ma la tratta da sistemare è "+d.colpa.n+" ("+elecPctTxt(d.colpa.pct)+"): sezione maggiore o cavo più corto lì."));
   }
   for(i=0;i<ELEC_DROP_SEZIONI.length;i++){ var s2=ELEC_DROP_SEZIONI[i]; if(s2<=d.S) continue;
-    var p2=elecDropPct(d.I, d.L, s2, d.tri); if(p2!=null && tot-d.pct+p2<=ELEC_DROP.giallo){ fine=en ? (" Use a "+elecSezTxt(s2)+" cable ("+elecPctTxt(p2)+" on this run) or a shorter one.") : (" Usa un cavo da "+elecSezTxt(s2)+" ("+elecPctTxt(p2)+" su questa linea) oppure uno più corto."); break; } }
+    var p2=elecDropPct(d.I, d.L, s2, d.tri, undefined, d.IN); if(p2!=null && tot-d.pct+p2<=ELEC_DROP.giallo){ fine=en ? (" Use a "+elecSezTxt(s2)+" cable ("+elecPctTxt(p2)+" on this run) or a shorter one.") : (" Usa un cavo da "+elecSezTxt(s2)+" ("+elecPctTxt(p2)+" su questa linea) oppure uno più corto."); break; } }
   var testa = en ? (d.lvl==="err" ? "Over the 4 % limit." : "Close to the 4 % limit.") : (d.lvl==="err" ? "Oltre il limite del 4 %." : "Vicina al limite del 4 %.");
   return testa + (fine || (en ? " No standard size is enough on its own: shorten the cable or bring the board closer to the load." : " Nessuna sezione standard basta da sola: accorcia il cavo o porta il quadro più vicino al carico."));
 }
@@ -18511,8 +18516,10 @@ function elecDropRighe(d){
   if(!d) return [];
   var cls = d.lvl==="err" ? "drop-err" : (d.lvl==="warn" ? "drop-warn" : "");
   if(d.pct==null) return [["Caduta di tensione", "— (manca la "+(d.manca||"un dato")+")", ""]];
-  var t=elecPctTxt(d.pct)+" su "+Math.round(d.L)+" m · "+elecSezTxt(d.S)+(d.stim?" (sezione stimata)":"");
-  if(d.tot!=null && Math.abs(d.tot-d.pct)>0.05) t+=" · percorso intero "+elecPctTxt(d.tot);
+  var t=elecPctTxt(d.pct)+" a "+elecAmpTxt(d.I)+(d.tri?" (fase più carica)":"")+" su "+Math.round(d.L)+" m · "+elecSezTxt(d.S)+(d.stim?" (sezione stimata)":"");
+  if(d.completo===false){ t+=" · fino al quadro "+(d.fino||"?")+(d.tot!=null?" "+elecPctTxt(d.tot):"")+" (tratta dall'ingresso non calcolata)"; }
+  else if(d.parz){ t+=" · percorso parziale: manca un dato su una tratta"; }
+  else if(d.tot!=null && Math.abs(d.tot-d.pct)>0.05) t+=" · percorso intero "+elecPctTxt(d.tot);
   var r=[["Caduta di tensione", t, cls]], f=elecDropAdvice(d); if(f) r.push(["Cosa fare", f, cls]);
   return r;
 }
@@ -18521,9 +18528,24 @@ function elecDropRighe(d){
    mostrano già. Il totale del carico somma le tratte fino all'ingresso; dorsale e alimentazione prendono il totale del percorso peggiore che le attraversa. */
 function elecDropAnnota(loadLinks, uplinks, feeds){
   function corrente(d){ var n=d.ph>1 ? d.ph : 1, mx=0, i; for(i=0;i<n;i++) mx=Math.max(mx, (d.phLoad&&d.phLoad[i])||0); return mx; }
-  loadLinks.forEach(function(l){ l.drop=elecDropCalcola({I:l.load.a, L:l.lenM, S:elecSezNum(elecSection(Math.max(16,Math.ceil(l.load.a)))), tri:false, stim:true}); });
-  uplinks.forEach(function(u){ u.drop=elecDropCalcola({I:corrente(u.from), L:u.lenM, S:elecSezNum(u.section), tri:u.from.ph>1}); u.drop.peggiore=null; });
-  feeds.forEach(function(f){ f.drop=elecDropCalcola({I:corrente(f.distro), L:f.lenM, S:elecSezNum(f.section), tri:f.distro.ph>1}); f.drop.peggiore=null; });
+  /* corrente del neutro dei carichi monofase sulle tre fasi (0 = bilanciato): fase peggiore = Imax + IN (B1, rilettura Opus 25/11) */
+  function neutro(d){ if(!(d.ph>1)) return 0; var a=(d.phLoad&&d.phLoad[0])||0, b=(d.phLoad&&d.phLoad[1])||0, c=(d.phLoad&&d.phLoad[2])||0; return Math.sqrt(Math.max(0, a*a+b*b+c*c-a*b-b*c-c*a)); }
+  /* sezione STIMATA dei carichi (prudenza: il cavo più sottile tra i comuni): 1,5 mm² fino a 16 A (prolunga 3G1,5), 4 mm² fino a 32 A (CEE 5G4), poi la tabella delle dorsali */
+  function sezCarico(a){ return a<=16 ? 1.5 : (a<=32 ? 4 : elecSezNum(elecSection(Math.ceil(a)))); }
+  loadLinks.forEach(function(l){ l.drop=elecDropCalcola({I:l.load.a, L:l.lenM, S:sezCarico(l.load.a), tri:false, stim:true}); });
+  uplinks.forEach(function(u){ u.drop=elecDropCalcola({I:corrente(u.from), IN:neutro(u.from), L:u.lenM, S:elecSezNum(u.section), tri:u.from.ph>1}); u.drop.peggiore=null; });
+  feeds.forEach(function(f){ f.drop=elecDropCalcola({I:corrente(f.distro), IN:neutro(f.distro), L:f.lenM, S:elecSezNum(f.section), tri:f.distro.ph>1}); f.drop.peggiore=null; });
+  /* il percorso arriva davvero a un'alimentazione? (modalità manuale o senza ingresso: no → «percorso intero» sarebbe falso) */
+  function ingresso(d){ var visti=[], up, fd, parz=false;
+    while(d && visti.indexOf(d)<0){
+      visti.push(d); up=null; uplinks.forEach(function(u){ if(!up && u.from===d) up=u; });
+      if(up){ if(up.drop.pct==null) parz=true; d=up.to; continue; }
+      fd=null; feeds.forEach(function(f){ if(!fd && f.distro===d) fd=f; });
+      if(fd && fd.drop.pct==null) parz=true;
+      return {ok:!!fd, parz:parz, fino:d.letter||"?"}; }
+    return {ok:false, parz:parz, fino:visti.length?(visti[visti.length-1].letter||"?"):"?"}; }
+  uplinks.forEach(function(u){ var g=ingresso(u.to||u.from); u.drop.completo=g.ok && !g.parz && u.drop.pct!=null; u.drop.fino=g.fino; u.drop.parz=g.parz; });
+  feeds.forEach(function(f){ f.drop.completo=f.drop.pct!=null; f.drop.fino=f.distro.letter||"?"; });
   loadLinks.forEach(function(l){
     var tratte=[{d:l.drop, n:"la linea del carico", en:"the load line"}], d=l.distro, visti=[], up, fd;
     while(d && visti.indexOf(d)<0){
@@ -18535,6 +18557,7 @@ function elecDropAnnota(loadLinks, uplinks, feeds){
     }
     var tot=0, parz=false, peggio=null; tratte.forEach(function(t){ if(t.d.pct==null) parz=true; else { tot+=t.d.pct; if(!peggio || t.d.pct>peggio.d.pct) peggio=t; } });
     l.drop.tot = tot>0||!parz ? tot : null; l.drop.parz=parz; if(l.drop.pct==null) l.drop.tot=null;
+    var g=ingresso(l.distro); l.drop.completo=g.ok && !parz; l.drop.fino=g.fino;
     l.drop.lvl = l.drop.pct==null ? "nd" : elecDropLevel(l.drop.tot);
     /* chi è la tratta da sistemare: la più lunga/sottile del percorso (la frase «cosa fare» punta lì, non sulla riga innocente) */
     var colpa = peggio ? {n:peggio.n, en:peggio.en, pct:peggio.d.pct, self:false} : null;
@@ -21406,7 +21429,7 @@ function selectedCableInfo(){
       return { title:"Linea di alimentazione principale", sub:(fl.distro.letter||"Quadro")+" \u2192 "+((Re.supply&&Re.supply.name)||"Ingresso corrente"),
         rows:[["Distro", (fl.distro.letter||"")+(fl.distro.name?" \u00b7 "+fl.distro.name:"")],
               ["Ingresso corrente", (Re.supply&&Re.supply.name)||"\u2014"],
-              ["Corrente", Math.round(fl.a)+" A"],
+              ["Portata del quadro", Math.round(fl.a)+" A"],
               ["Sezione", fl.section||"\u2014"],
               ["Lunghezza", _cpLen(fl.lenM, null)]].concat(elecDropRighe(fl.drop)),
         hasPts:!!(fo2&&fo2.pts&&fo2.pts.length), from:fl.distro.it||null, to:null,
@@ -40765,7 +40788,7 @@ function netListPdf(shared){
 /* CADUTA DI TENSIONE nel foglio «Alimentazioni» (C1): tabella per tratta, poi «Cosa fare» per le sole linee gialle o rosse. */
 function elecDropBloccoPdf(doc, R, M, getY, setY){
   var T=elecDropTratte(R); if(!T.some(function(x){ return x.d.pct!=null; })) return;
-  var en=docEn(), y=getY(), cx=[M, M+96, M+112, M+128, M+146, M+166];
+  var en=docEn(), y=getY(), cx=[M, M+88, M+104, M+118, M+134, M+153];   /* «PERCORSO» entro 195 mm: ≥ 15 mm dal bordo (B4) */
   function colore(l){ return l==="err" ? "#dc2626" : (l==="warn" ? "#b45309" : "#111827"); }
   function riga(a,b,c,d,e,f,bold,col){ if(y>274){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(8.5); doc.setTextColor(col||"#111827");
     [a,b,c,d,e,f].forEach(function(t,i){ doc.text(String(t), cx[i], y); }); y+=5; }
@@ -40773,18 +40796,24 @@ function elecDropBloccoPdf(doc, R, M, getY, setY){
   y+=2; doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#b45309"); doc.text(en?"VOLTAGE DROP (limit 4 %)":"CADUTA DI TENSIONE (limite 4 %)", M, y); y+=6;
   doc.setDrawColor("#d97706"); doc.setLineWidth(0.4); doc.line(M, y-3.5, 194, y-3.5);
   riga(en?"RUN":"TRATTA","A","mm²","m",en?"RUN":"LINEA",en?"TOTAL":"PERCORSO", true, "#b45309");
-  T.forEach(function(x){ var d=x.d, nome=String(x.n); while(nome.length>2 && doc.getTextWidth(nome)>92){ nome=nome.slice(0,-2); }
+  T.forEach(function(x){ var d=x.d, nome=String(x.n); while(nome.length>2 && doc.getTextWidth(nome)>84){ nome=nome.slice(0,-2); }
     if(d.pct==null){ riga(nome, "—", "—", d.L>0?Math.round(d.L):"—", "—", "—", false, "#6b7280"); return; }
-    riga(nome, d.I.toFixed(1).replace(".",","), String(d.S).replace(".",",")+(d.stim?"*":""), Math.round(d.L), elecPctTxt(d.pct), elecPctTxt(d.tot!=null?d.tot:d.pct), d.lvl!=="ok", colore(d.lvl)); });
-  var visti={}, n=0;
-  T.forEach(function(x){ var f=elecDropAdvice(x.d, en); if(!f || n>=10) return; var k=x.n+f; if(visti[k]) return; visti[k]=1; n++;
+    riga(nome, d.I.toFixed(1).replace(".",","), String(d.S).replace(".",",")+(d.stim?"*":""), Math.round(d.L), elecPctTxt(d.pct), elecPctTxt(d.tot!=null?d.tot:d.pct)+(d.completo===false?"°":""), d.lvl!=="ok", colore(d.lvl)); });
+  /* consigli: dal peggiore (totale del percorso più alto), massimo 10, e si dice quanti restano fuori (B6) */
+  var visti={}, cand=[];
+  T.forEach(function(x){ var f=elecDropAdvice(x.d, en); if(!f) return; var k=x.n+f; if(visti[k]) return; visti[k]=1; cand.push({x:x, f:f, tot:(x.d.tot!=null?x.d.tot:x.d.pct)}); });
+  cand.sort(function(a,b){ return b.tot-a.tot; });
+  cand.slice(0,10).forEach(function(c){ var x=c.x;
     if(y>272){ doc.addPage(); y=18; } doc.setFont("helvetica", x.d.lvl==="err"?"bold":"normal"); doc.setFontSize(8.5); doc.setTextColor(colore(x.d.lvl));
-    var rr=doc.splitTextToSize("• "+x.n+": "+f, 178); doc.text(rr, M, y); y+=rr.length*4; });
-  if(y>268){ doc.addPage(); y=18; }
+    var rr=doc.splitTextToSize("• "+x.n+": "+c.f, 178); doc.text(rr, M, y); y+=rr.length*4; });
+  if(cand.length>10){ if(y>272){ doc.addPage(); y=18; } doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#6b7280");
+    doc.text("+"+(cand.length-10)+(en?" more lines: see the table above.":" altre linee: vedi la tabella sopra."), M, y); y+=4; }
+  var incompleto=T.some(function(x){ return x.d.pct!=null && x.d.completo===false; });
   doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor("#6b7280");
   var nota=doc.splitTextToSize(en
-    ? "Calculation: copper, power factor 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (conservative values, within 3,5 % of the CEI UNEL tables, on the high side). Limit 4 % from the supply point to the load (CEI 64-8), yellow above 3 %. * = size estimated from the current: load cables have no size written in the project. Estimate: to be verified by the designer."
-    : "Calcolo: rame, fattore di potenza 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (valori prudenti, entro il 3,5 % dalle tabelle CEI UNEL, per eccesso). Limite 4 % dal punto di consegna al carico (CEI 64-8), giallo oltre il 3 %. * = sezione stimata dalla corrente: i cavi dei carichi non hanno una sezione scritta nel progetto. Stima: la verifica spetta al progettista.", 178);
+    ? "Calculation: copper, power factor 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (conservative values: about +/-3,5 % from the CEI UNEL tables). Limit 4 % from the supply point to the load (CEI 64-8), yellow above 3 %. Current (A) = estimated connected load on the most loaded phase, not the board rating; loads still to be connected and loads without power are left out; three-phase boards with single-phase loads: neutral included. * = size estimated from the current (1,5 mm2 up to 16 A, 4 mm2 up to 32 A): load cables have no size written in the project."+(incompleto?" ° = run up to the board shown: the run from the supply is not calculated (supply not set or manual mode).":"")+" Estimate: to be verified by the designer."
+    : "Calcolo: rame, fattore di potenza 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (valori prudenti: scarto di circa ±3,5 % dalle tabelle CEI UNEL). Limite 4 % dal punto di consegna al carico (CEI 64-8), giallo oltre il 3 %. Corrente (A) = carico stimato collegato sulla fase più carica, non la portata del quadro; esclusi i carichi da collegare e quelli senza potenza; quadri trifase con carichi monofase: neutro compreso. * = sezione stimata dalla corrente (1,5 mm² fino a 16 A, 4 mm² fino a 32 A): i cavi dei carichi non hanno una sezione scritta nel progetto."+(incompleto?" ° = percorso fino al quadro indicato: tratta dall'ingresso non calcolata (ingresso non definito o modalità manuale).":"")+" Stima: la verifica spetta al progettista.", 178);
+  if(y+nota.length*3.4>280){ doc.addPage(); y=18; }
   doc.text(nota, M, y); y+=nota.length*3.4+2;
   setY(y);
 }
@@ -41470,12 +41499,14 @@ function elecReportPdf(shared){
     (function(){   /* C1: caduta di tensione, in coda ai dettagli; non fa parte delle criticità dell'audit */
       var T=elecDropTratte(R), V=T.filter(function(x){ return x.d.pct!=null; }), en=docEn(); if(!V.length) return;
       line(en?"Voltage drop (limit 4 %)":"Caduta di tensione (limite 4 %)", 12, true, "#b45309", 6);
-      var mx=Math.max.apply(null, V.map(function(x){ return x.d.tot!=null?x.d.tot:x.d.pct; }));
-      line(en ? ("Maximum over the whole run: "+elecPctTxt(mx)+". Copper, power factor 0,9, sizes as above (load cables: estimated from the current); conservative values. Estimate: to be verified by the designer.")
-              : ("Massima sul percorso intero: "+elecPctTxt(mx)+". Rame, fattore di potenza 0,9, sezioni come sopra (per i carichi stimate dalla corrente); valori prudenti. Stima: la verifica spetta al progettista."), 9, false, null, 4.6);
-      var dett=V.filter(function(x){ return x.d.lvl==="warn" || x.d.lvl==="err"; });
+      var mx=Math.max.apply(null, V.map(function(x){ return x.d.tot!=null?x.d.tot:x.d.pct; })), incompleto=V.some(function(x){ return x.d.completo===false; });
+      var notaI=en ? " Current = estimated connected load on the most loaded phase, not the board rating; loads still to be connected and loads without power are left out." : " Corrente = carico stimato collegato sulla fase più carica, non la portata del quadro; esclusi i carichi da collegare e quelli senza potenza.";
+      line(en ? ((incompleto ? "Maximum over the calculated run: " : "Maximum over the whole run: ")+elecPctTxt(mx)+(incompleto ? " (up to the board shown: the run from the supply is missing)." : ".")+" Copper, power factor 0,9, sizes as above (load cables: estimated from the current); conservative values."+notaI+" Estimate: to be verified by the designer.")
+              : ((incompleto ? "Massima sul percorso calcolato: " : "Massima sul percorso intero: ")+elecPctTxt(mx)+(incompleto ? " (fino al quadro indicato: manca la tratta dall'ingresso)." : ".")+" Rame, fattore di potenza 0,9, sezioni come sopra (per i carichi stimate dalla corrente); valori prudenti."+notaI+" Stima: la verifica spetta al progettista."), 9, false, null, 4.6);
+      var dett=V.filter(function(x){ return x.d.lvl==="warn" || x.d.lvl==="err"; }).sort(function(a,b){ return (b.d.tot!=null?b.d.tot:b.d.pct)-(a.d.tot!=null?a.d.tot:a.d.pct); });
       dett.slice(0,12).forEach(function(x){ line("• "+x.n+": "+elecPctTxt(x.d.pct)+(en?" over ":" su ")+Math.round(x.d.L)+" m. "+elecDropAdvice(x.d, en), 9, x.d.lvl==="err", x.d.lvl==="err"?"#dc2626":"#b45309", 4.6); });
-      if(!dett.length) line(en?"All lines within 3 %.":"Tutte le linee entro il 3 %.", 9, false, "#0d9488", 4.6);
+      if(dett.length>12) line("+"+(dett.length-12)+(en?" more lines: see the power sheet.":" altre linee: vedi il foglio Alimentazioni."), 9, false, "#6b7280", 4.6);
+      if(!dett.length) line(incompleto ? (en?"Calculated runs within 3 %; the run from the supply is missing.":"Tratte calcolate entro il 3 %; manca la tratta dall'ingresso.") : (en?"All lines within 3 %.":"Tutte le linee entro il 3 %."), 9, false, "#0d9488", 4.6);
       var nd=T.length-V.length; if(nd) line(en ? (nd+(nd===1?" line":" lines")+" without length or size: drop not calculated.") : (nd+(nd===1?" linea senza":" linee senza")+" lunghezza o sezione: caduta non calcolata."), 9, false, "#6b7280", 4.6);
       y+=4; })();
     line("Criticità", 12, true, "#b45309", 6);

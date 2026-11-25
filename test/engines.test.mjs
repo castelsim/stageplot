@@ -42035,11 +42035,11 @@ t("caduta di tensione · trifase 400 V: i numeri della tabella dello studio (16/
 t("caduta di tensione · monofase 230 V: 16 A, 50 m (esempio 1 dello studio) con 2,5 / 4 / 6 mm²", () => {
   vicino(A.elecDropPct(16, 50, 2.5, false), 6.3, 0.06, "2,5 mm²"); vicino(A.elecDropPct(16, 50, 4, false), 3.9, 0.06, "4 mm²"); vicino(A.elecDropPct(16, 50, 6, false), 2.6, 0.06, "6 mm²");
 });
-t("caduta di tensione · contro le tabelle CEI UNEL della dispensa (S2): scarto entro ±3,5 %, per eccesso (prudente)", () => {
+t("caduta di tensione · contro le tabelle CEI UNEL della dispensa (S2): scarto entro ±3,5 % (non sempre per eccesso)", () => {
   /* k in mV/(A·m): dalla caduta % di 1 A su 1 m. 6 mm² mono cosφ 0,9 → tabella 7,67; 10 mm² tri cosφ 0,8 → tabella 3,45 */
   const k1 = A.elecDropPct(1, 1, 6, false, 0.9) / 100 * 230 * 1000, k2 = A.elecDropPct(1, 1, 10, true, 0.8) / 100 * 400 * 1000;
   ok(Math.abs(k1 / 7.67 - 1) <= 0.03, "6 mm² mono: " + k1.toFixed(2) + " vs 7,67 (" + ((k1 / 7.67 - 1) * 100).toFixed(1) + " %)");
-  ok(k2 / 3.45 - 1 >= 0 && k2 / 3.45 - 1 <= 0.035, "10 mm² tri cosφ 0,8: " + k2.toFixed(2) + " vs 3,45 (" + ((k2 / 3.45 - 1) * 100).toFixed(1) + " %): per eccesso, mai sotto");
+  ok(Math.abs(k2 / 3.45 - 1) <= 0.035, "10 mm² tri cosφ 0,8: " + k2.toFixed(2) + " vs 3,45 (" + ((k2 / 3.45 - 1) * 100).toFixed(1) + " %): entro ±3,5 %");
 });
 t("caduta di tensione · dato mancante o assurdo = nessun numero (null), mai un valore inventato", () => {
   [[0, 50, 2.5], [16, 0, 2.5], [16, 50, 0], [16, 50, null], [16, NaN, 2.5], [-3, 50, 2.5], [16, 50, undefined], [Infinity, 50, 2.5]].forEach((a) => eq(A.elecDropPct(a[0], a[1], a[2], false), null, "null per " + JSON.stringify(a)));
@@ -42071,8 +42071,8 @@ t("caduta di tensione · il motore la calcola su carico, dorsale e alimentazione
   const l = R.loadLinks[0], u = R.uplinks[0], f = R.feeds[0];
   ok(l && l.drop && u && u.drop && f && f.drop, "le tre famiglie hanno `drop`");
   const sez = (x) => parseFloat(String(x).replace(",", "."));
-  vicino(u.drop.pct, A.elecDropPct(u.drop.I, u.lenM, sez(u.section), u.drop.tri), 0.001, "la dorsale usa la sua lunghezza e la sua sezione mostrate");
-  vicino(f.drop.pct, A.elecDropPct(f.drop.I, f.lenM, sez(f.section), f.drop.tri), 0.001, "l'alimentazione idem");
+  vicino(u.drop.pct, A.elecDropPct(u.drop.I, u.lenM, sez(u.section), u.drop.tri, undefined, u.drop.IN), 0.001, "la dorsale usa la sua lunghezza e la sua sezione mostrate");
+  vicino(f.drop.pct, A.elecDropPct(f.drop.I, f.lenM, sez(f.section), f.drop.tri, undefined, f.drop.IN), 0.001, "l'alimentazione idem");
   vicino(l.drop.pct, A.elecDropPct(l.drop.I, l.lenM, l.drop.S, false), 0.001, "il carico: lunghezza della linea, sezione stimata");
   ok(l.drop.stim === true, "la sezione del carico non è mostrata dall'app: è dichiarata «stimata»");
   vicino(l.drop.tot, (l.drop.pct || 0) + (u.drop.pct || 0) + (f.drop.pct || 0), 0.001, "il totale del carico somma le tratte fino all'ingresso");
@@ -42139,6 +42139,84 @@ t("caduta di tensione · il disegno non cambia: nessuna etichetta del canvas con
   ok(i > 0, "etichette presenti");
   const blocco = appjs.slice(i - 200, i + 900);
   ok(!/drop|caduta/i.test(blocco), "le etichette elec-lbl non usano `drop`");
+});
+
+/* ---- C1 · correzioni della rilettura Opus (PR #228, 25/11/2026): B1-B6 + sezione dei carichi prudente ---- */
+const scenaC1 = (modo, corta, nCi) => {
+  /* corta: ciabatta vicina al quadro (nessun giallo); nCi: N ciabatte con un amp rack ciascuna, l'ultima più lontana (molte tratte) */
+  const items = [{ id: "Q", type: "distro32", x: 100, y: 100 }];
+  const manual = {}, uplinks = {};
+  if (nCi) { for (let i = 0; i < nCi; i++) { const x = i === nCi - 1 ? 7900 : 6000 + i * 20; items.push({ id: "C" + i, type: "ciabatta", x, y: 100 + i * 40 }, { id: "AR" + i, type: "amprack", x, y: 130 + i * 40, watt: 3300 }); manual["AR" + i] = { distro: "C" + i }; uplinks["C" + i] = { to: "Q" }; } }
+  else { const x = corta ? 300 : 7000; items.push({ id: "C", type: "ciabatta", x, y: 100 }, { id: "AR", type: "amprack", x, y: 160, watt: 1500 }); manual.AR = { distro: "C" }; uplinks.C = { to: "Q" }; }
+  A.loadDoc({ _v: A.SCHEMA_VERSION, inputs: [], outputs: [], stage: { w: 8000, d: 1200, blocks: [{ x: 0, y: 0, w: 8000, d: 1200 }] }, items, elec: { on: true, mode: modo, supply: { kind: "custom", x: 0, y: 0 }, manual, uplinks } });
+  A.__elecRes = null; return A.elecResult(true);
+};
+const testiPdf = (fn) => { const d = new (jsPdfCambi())({ format: "a4", orientation: "portrait" }); fn(d); return d; };
+t("C1 B1 · trifase con carichi monofase: una sola fase carica = caduta del monofase (fase+neutro); fasi bilanciate = numero di prima", () => {
+  const mono = A.elecDropPct(14.3, 70, 6, false), unaFase = A.elecDropPct(14.3, 70, 6, true, 0.9, 14.3), bil = A.elecDropPct(14.3, 70, 6, true, 0.9, 0);
+  vicino(unaFase, mono, 0.01, "una fase carica ≈ monofase (" + unaFase + " vs " + mono + ")");
+  eq(bil, A.elecDropPct(14.3, 70, 6, true), "bilanciato: identico a prima");
+  ok(unaFase > 1.8 * A.elecDropPct(14.3, 70, 6, true), "il trifase bilanciato sottostimava di quasi la metà");
+  const R = scenaC1("auto", true), f = R.feeds[0];
+  ok(f.drop.tri && f.drop.IN > 0, "il calcolo del quadro porta la corrente di neutro: IN=" + f.drop.IN);
+  vicino(f.drop.pct, A.elecDropPct(f.drop.I, f.lenM, f.drop.S, false), 0.01, "alimentazione con un solo carico = monofase");
+  ok(A.elecDropPct(10, 50, 6, true, 0.9, 5) > A.elecDropPct(10, 50, 6, true) && A.elecDropPct(10, 50, 6, true, 0.9, 5) < A.elecDropPct(10, 50, 6, true, 0.9, 10), "monotono con lo sbilanciamento");
+});
+taPdf("C1 B2 · modalità manuale (nessuna alimentazione): mai «percorso intero» né «Tutte le linee entro il 3 %»; si dice che manca la tratta dall'ingresso", async () => {
+  const Rm = scenaC1("manual", true), lm = Rm.loadLinks[0];
+  eq(Rm.feeds.length, 0, "in manuale non c'è l'alimentazione");
+  eq(lm.drop.completo, false, "percorso non completo");
+  const rm = A.elecDropRighe(lm.drop).map((x) => x[1]).join(" | "); ok(/tratta dall'ingresso non calcolata/.test(rm) && !/percorso intero/.test(rm), "pannello: " + rm);
+  const Ra = scenaC1("auto", true), la = Ra.loadLinks[0]; eq(la.drop.completo, true, "in automatico il percorso arriva all'ingresso");
+  const ra = A.elecDropRighe(la.drop).map((x) => x[1]).join(" | "); ok(!/non calcolata/.test(ra), "auto: " + ra);
+  const prima = { jspdf: A.jspdf, l: A.loadJsPDF }; A.jspdf = { jsPDF: jsPdfCambi() }; A.loadJsPDF = () => Promise.resolve();
+  const piano = () => testiPdf((d) => A.elecReportPdf(d)).pagine.flatMap((p) => p.testi.map((x) => x.t)).join(" ").replace(/\s+/g, " ");
+  try {
+    scenaC1("manual", true); const m = piano(); ok(!/Tutte le linee entro il 3 %/.test(m) && /manca la tratta dall'ingresso/.test(m), "Piano elettrico manuale: " + m.slice(-420));
+    ok(!/percorso intero/.test(m), "e niente «percorso intero» nel Piano");
+    scenaC1("auto", true); const a = piano(); ok(/Tutte le linee entro il 3 %/.test(a) && !/manca la tratta dall'ingresso/.test(a), "Piano in automatico completo: " + a.slice(-300));
+    scenaC1("manual", true); const al = testiPdf((d) => A.elecLinesPdf(d)).pagine.flatMap((p) => p.testi.map((x) => x.t)).join(" "); ok(/tratta dall'ingresso non calcolata|manca la tratta dall'ingresso/.test(al), "foglio Alimentazioni: dichiara l'ingresso non calcolato");
+  } finally { A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; reset(); }
+});
+t("C1 B3 · la corrente usata è scritta (carico stimato, fase più carica) e il pannello del quadro non la confonde con la portata", () => {
+  const R = scenaC1("auto", false), l = R.loadLinks[0], f = R.feeds[0];
+  const rl = A.elecDropRighe(l.drop)[0][1]; ok(new RegExp(String(l.drop.I.toFixed(1)).replace(".", ",") + " A").test(rl), "riga carico con la corrente: " + rl);
+  const rf = A.elecDropRighe(f.drop)[0][1]; ok(/\d+,\d A/.test(rf), "riga alimentazione con la corrente: " + rf);
+  ok(f.drop.I < f.a, "la corrente di calcolo (" + f.drop.I + " A) è diversa dalla portata del quadro (" + f.a + " A)");
+  ok(/\["Portata del quadro", Math\.round\(fl\.a\)/.test(appjs.replace(/\s+/g, " ")) || /Portata del quadro/.test(appjs), "il pannello chiama «Portata» ciò che è la portata");
+  ok(/fase più carica/.test(appjs) && /carichi da collegare/.test(appjs) && /phase/.test(appjs), "nota dei fogli: corrente = carico collegato, fase più carica, esclusi da collegare/senza potenza");
+});
+taPdf("C1 B4 · PDF Alimentazioni: «PERCORSO» e le colonne a ≥ 15 mm dal bordo destro", async () => {
+  scenaC1("auto", false); const prima = { jspdf: A.jspdf, l: A.loadJsPDF }; A.jspdf = { jsPDF: jsPdfCambi() }; A.loadJsPDF = () => Promise.resolve();
+  try {
+    const d = testiPdf((x) => A.elecLinesPdf(x)); const th = d.pagine.flatMap((p) => p.testi).filter((x) => x.t === "PERCORSO");
+    ok(th.length === 1, "intestazione presente"); ok(th[0].x + 8 * 8.5 * 0.3528 * 0.78 <= 195.01, "PERCORSO finisce entro 195 mm (x=" + th[0].x + ")");
+    const ult = d.pagine.flatMap((p) => p.testi).filter((x) => Math.abs(x.x - th[0].x) < 1e-6 && x.t !== "PERCORSO" && /%/.test(x.t)); ok(ult.every((x) => x.x + String(x.t).length * 1.9 <= 195.01), "anche i valori della colonna");
+  } finally { A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; reset(); }
+});
+t("C1 B5 · niente «per eccesso» (la formula sta a ±3,5 % dalle tabelle, anche sotto dell'1 %)", () => {
+  ok(!/CEI UNEL[^"]{0,40}per eccesso/.test(appjs) && !/on the high side/.test(appjs), "nessuna frase «per eccesso» sulle tabelle CEI UNEL");
+  ok(/±\s?3,5 %/.test(appjs) || /about ±3,5 %/.test(appjs), "scarto dichiarato in ±");
+  const k1 = A.elecDropPct(1, 1, 6, false, 0.9) / 100 * 230 * 1000; ok(k1 < 7.67, "è davvero sotto la tabella sul 6 mm² mono (" + k1.toFixed(2) + " < 7,67): quindi «per eccesso» era falso");
+});
+taPdf("C1 B6 · molte tratte: i consigli sono ordinati dal peggiore, la dorsale peggiore c'è sempre e si dice «+N altre linee»", async () => {
+  const R = scenaC1("auto", false, 14); const prima = { jspdf: A.jspdf, l: A.loadJsPDF }; A.jspdf = { jsPDF: jsPdfCambi() }; A.loadJsPDF = () => Promise.resolve();
+  try {
+    const peg = R.uplinks.slice().sort((a, b) => b.drop.tot - a.drop.tot)[0], nome = "Dorsale " + peg.from.letter + " ->";
+    const T = (fn) => testiPdf(fn).pagine.flatMap((p) => p.testi.map((x) => String(x.t).replace(/\s+/g, " ")));
+    const al = T((d) => A.elecLinesPdf(d)); const cons = al.filter((x) => /^• /.test(x));
+    ok(cons.length > 3, "ci sono consigli: " + cons.length); ok(cons.some((x) => x.indexOf(nome) >= 0), "Alimentazioni: la dorsale peggiore (" + nome + ") è tra i consigli"); ok(al.some((x) => /^\+\d+ (altre linee|more lines)|\+\d+ altre linee/.test(x)), "e c'è «+N altre linee»");
+    ok(cons[0].indexOf(nome) >= 0 || /Alimentazione/.test(cons[0]), "il primo consiglio è del peggiore: " + cons[0].slice(0, 60));
+    const pi = T((d) => A.elecReportPdf(d)); ok(pi.some((x) => x.indexOf("• " + nome) === 0 || x.indexOf(nome) >= 0), "Piano elettrico: la peggiore c'è"); ok(pi.some((x) => /\+\d+ altre linee/.test(x)), "Piano: «+N altre linee»");
+  } finally { A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; reset(); }
+});
+t("C1 sezione dei carichi · stima PRUDENTE: 1,5 mm² fino a 16 A, 4 mm² fino a 32 A, sempre marcata «stimata»", () => {
+  A.loadDoc({ _v: A.SCHEMA_VERSION, inputs: [], outputs: [], stage: { w: 8000, d: 1200, blocks: [{ x: 0, y: 0, w: 8000, d: 1200 }] },
+    items: [{ id: "Q", type: "distro32", x: 100, y: 100 }, { id: "A", type: "amprack", x: 3000, y: 100, watt: 2300 }, { id: "B", type: "amprack", x: 3000, y: 200, watt: 5500 }],
+    elec: { on: true, mode: "auto", supply: { kind: "custom", x: 0, y: 0 } } }); A.__elecRes = null;
+  const R = A.elecResult(true), a = R.loadLinks.filter((l) => l.load.it.id === "A")[0], b = R.loadLinks.filter((l) => l.load.it.id === "B")[0];
+  eq(a.drop.S, 1.5, "10 A → 1,5 mm²"); eq(b.drop.S, 4, "24 A → 4 mm²"); ok(a.drop.stim && b.drop.stim, "marcate stimate");
+  ok(/sezione stimata/.test(A.elecDropRighe(a.drop)[0][1]), "e il pannello lo dice");
 });
 
 await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
