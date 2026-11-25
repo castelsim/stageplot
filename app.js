@@ -23631,7 +23631,7 @@ function snapValido(v){ return v==="0"||v==="1"||v==="5"||v==="10"||v==="25"||v=
 function snapDalDocumento(){ var v=DOC_EXTRA && DOC_EXTRA.snap; snapMode=snapValido(v) ? v : "25"; try{ syncSnapSelects(); }catch(e){} }   /* il menu si allinea quando c'è; aprire il documento non deve mai fallire per lui */
 /* Le voci dell'aggancio seguono l'unità del documento (19/11/2026): in piedi 6", 1', 2', 3' (passi esatti, DOC_SNAP_FT), altrimenti 25 cm, 50 cm, 1 m. */
 /* Precisione al centimetro (22/11/2026): in testa i passi fini 1, 5, 10 cm (in piedi 1" e 3"); il passo di serie resta 25 cm / 1'. «Libero» = senza griglia (a cm interi nello spostamento, continuo nel ridimensionamento). */
-function snapOpzioni(){ return docUnita()==="ft" ? [["0","Libero"],["ft1","1\""],["ft3","3\""],["ft6","6\""],["ft12","1'"],["ft24","2'"],["ft36","3'"],["obj","Oggetti"]] : [["0","Libero"],["1","1 cm"],["5","5 cm"],["10","10 cm"],["25","25 cm"],["50","50 cm"],["100","1 m"],["obj","Oggetti"]]; }
+function snapOpzioni(){ return docUnita()==="ft" ? [["0","Libero"],["ft1","1\""],["ft3","3\""],["ft6","6\""],["ft12","1'"],["ft24","2'"],["ft36","3'"],["obj","Solo oggetti"]] : [["0","Libero"],["1","1 cm"],["5","5 cm"],["10","10 cm"],["25","25 cm"],["50","50 cm"],["100","1 m"],["obj","Solo oggetti"]]; }
 function snapOpzioniScrivi(){
   var o=snapOpzioni(), chiave=o.map(function(x){ return x[0]; }).join(",");
   ["snapSel","snapSelM"].forEach(function(id){ var el=document.getElementById(id); if(!el || el.__snapChiave===chiave) return; el.__snapChiave=chiave;
@@ -25179,11 +25179,11 @@ function magneticSnap(dragItems, ddx, ddy){
   var pad=Math.round(Math.max(W,D)*0.06);
   if(xSnap) guides.push({x1:xSnap.val,y1:-pad,x2:xSnap.val,y2:D+pad,cls:'snap-guide '+xSnap.cls});
   if(ySnap) guides.push({x1:-pad,y1:ySnap.val,x2:W+pad,y2:ySnap.val,cls:'snap-guide '+ySnap.cls});
-  return {sdx:sdx,sdy:sdy,guides:guides};
+  return {sdx:sdx,sdy:sdy,guides:guides,hx:!!xSnap,hy:!!ySnap,gx:xSnap?guides[0]:null,gy:ySnap?guides[guides.length-1]:null};
 }
-function objectSnap(dragItems, ddx, ddy){
-  if(!dragItems.length) return {sdx:0,sdy:0,guides:[]};
-  var W=state.stage.w, D=state.stage.d, T=SNAP_T;
+function objectSnap(dragItems, ddx, ddy, Tol){
+  if(!dragItems.length) return {sdx:0,sdy:0,guides:[],hx:false,hy:false,gx:null,gy:null};
+  var W=state.stage.w, D=state.stage.d, T=(Tol>0)?Tol:SNAP_T;
   var dragIds={};
   dragItems.forEach(function(d){ dragIds[d.id]=true; });
   /* AABB degli item trascinati nella posizione proposta */
@@ -25214,7 +25214,47 @@ function objectSnap(dragItems, ddx, ddy){
   var pad=Math.round(Math.max(W,D)*0.06);
   if(xSnap) guides.push({x1:xSnap.val,y1:-pad,x2:xSnap.val,y2:D+pad,cls:'snap-guide '+xSnap.cls});
   if(ySnap) guides.push({x1:-pad,y1:ySnap.val,x2:W+pad,y2:ySnap.val,cls:'snap-guide '+ySnap.cls});
-  return {sdx:sdx,sdy:sdy,guides:guides};
+  return {sdx:sdx,sdy:sdy,guides:guides,hx:!!xSnap,hy:!!ySnap,gx:xSnap?guides[0]:null,gy:ySnap?guides[guides.length-1]:null};
+}
+/* SNAP COMBINATO (25/11/2026, Simone: «lo snap ad oggetti dev'essere l'opzione di default… se voglio far passare il cavo a bordo palco devono poter attivare lo snap»).
+   Con qualunque passo di griglia (non «Libero», non «Solo oggetti») gli elementi si agganciano anche ai bordi e ai centri di palco, pedane e altri elementi
+   entro ~8 px di schermo (5 px coi passi fini, dove si lavora al centimetro); fuori soglia vale la griglia. ⌘/Ctrl sospende tutto (Alt resta la copia). */
+var SNAP_OBJ_PX=8, SNAP_OBJ_PX_FINE=5;
+function snapObjTol(){ return hSize(snapFine() ? SNAP_OBJ_PX_FINE : SNAP_OBJ_PX); }
+function snapCombinato(){ return !window.__custEditor && snapMode!=="0" && snapMode!=="obj"; }
+function combinedSnap(dragItems, ddx, ddy){
+  var m=snapFine() ? null : magneticSnap(dragItems,ddx,ddy), o=objectSnap(dragItems,ddx,ddy,snapObjTol()), r={sdx:0,sdy:0,hx:false,hy:false,guides:[]};
+  [["x","sdx","hx","gx"],["y","sdy","hy","gy"]].forEach(function(a){
+    var pm=m&&m[a[2]]?m:null, po=o[a[2]]?o:null, w=(pm&&po) ? (Math.abs(po[a[1]])<Math.abs(pm[a[1]]) ? po : pm) : (pm||po);
+    if(!w) return; r[a[1]]=w[a[1]]; r[a[2]]=true; r.guides.push(w[a[3]]);
+  });
+  return r;
+}
+/* AGGANCIO DEI CAVI (25/11/2026): il LATO che si trascina (audio, elettrico, monitor digitali) si porta sul bordo/centro più vicino di palco, pedane ed elementi
+   (x per un lato verticale, y per uno orizzontale) entro la tolleranza, altrimenti sulla griglia. ⌘/Ctrl = libero; «Libero» = nessun aggancio; «Solo oggetti» = senza griglia.
+   Torna {val, guide}: la guida si disegna con renderSnapGuides. */
+function snapCoordOggetti(v, vert, tol){
+  var tg=objSnapTargets({}), arr=vert ? tg.x : tg.y, best=null, bd=tol+1e-9;
+  arr.forEach(function(t){ var d=Math.abs(v-t); if(d<bd){ bd=d; best=t; } });
+  return best;
+}
+function guidaLato(t, vert){ var W=state.stage.w, D=state.stage.d, pad=Math.round(Math.max(W,D)*0.06);
+  return vert ? {x1:t,y1:-pad,x2:t,y2:D+pad,cls:'snap-guide'} : {x1:-pad,y1:t,x2:W+pad,y2:t,cls:'snap-guide'}; }
+function snapLatoCavo(val, ori, e){
+  if(e && (e.metaKey||e.ctrlKey)) return {val:val, guide:null};
+  if(snapMode==="0") return {val:val, guide:null};
+  var vert=(ori!=="h"), t=snapCoordOggetti(val, vert, snapObjTol());
+  if(t!=null) return {val:Math.round(t*100)/100, guide:guidaLato(t, vert)};
+  var g=snapVal(); return {val:(g>0 ? snapQ(val, g) : val), guide:null};
+}
+/* punto di connessione / alimentazione trascinato a mano: stesso aggancio agli oggetti su x e y (la griglia, come prima, no) */
+function snapPuntoCavo(x, y, e){
+  var gs=[], px=x, py=y;
+  if(!(e && (e.metaKey||e.ctrlKey)) && snapMode!=="0"){
+    var tx=snapCoordOggetti(x, true, snapObjTol()), ty=snapCoordOggetti(y, false, snapObjTol());
+    if(tx!=null){ px=tx; gs.push(guidaLato(tx, true)); } if(ty!=null){ py=ty; gs.push(guidaLato(ty, false)); }
+  }
+  return {x:Math.round(px), y:Math.round(py), guides:gs};
 }
 /* bersagli dello snap «Oggetti»: bordi e centro del palco + bordi e centro (AABB) di ogni altro elemento; la pedana ad arco con la figura VERA */
 function objSnapTargets(skipIds){
@@ -25237,7 +25277,7 @@ function resizePose(it, drag, nw, nd, sgx, sgy){
   var cc=Math.cos(drag.rot), ss=Math.sin(drag.rot), shx=sgx*(nw-drag.w0)/2, shy=sgy*(nd-drag.d0)/2;
   it.w=nw; it.d=nd; it.x=drag.x0+(shx*cc-shy*ss); it.y=drag.y0+(shx*ss+shy*cc);
 }
-function resizeObjSnap(it, drag, sgx, sgy, nw, nd){
+function resizeObjSnap(it, drag, sgx, sgy, nw, nd, Tol){
   if(it.type==="platea"||it.type==="custshape"||it.type==="cableramp"||it.type==="metro") return null;
   var q=drag.rot*2/Math.PI; if(Math.abs(q-Math.round(q))>1e-6) return null;
   var cc=Math.round(Math.cos(drag.rot)), ss=Math.round(Math.sin(drag.rot)), W=state.stage.w, D=state.stage.d, ids={}, guides=[], pad=Math.round(Math.max(W,D)*0.06);
@@ -25248,7 +25288,7 @@ function resizeObjSnap(it, drag, sgx, sgy, nw, nd){
     if(ax===1 && it.type==="parapetto") return;   /* spessore fisso */
     var ox=ax===0?sg*cc:-sg*ss, oy=ax===0?sg*ss:sg*cc, gx=Math.abs(ox)>0.5, sgn=gx?ox:oy, tgt=gx?tg.x:tg.y;   /* direzione del lato mosso nel mondo */
     function lato(){ var b=aabb(); return gx ? (sgn>0?b.x1:b.x0) : (sgn>0?b.y1:b.y0); }
-    var v=lato(), best=null, bd=SNAP_T+1;
+    var v=lato(), best=null, bd=((Tol>0)?Tol:SNAP_T)+1;
     tgt.forEach(function(t){ var dd=Math.abs(v-t); if(dd<bd){ bd=dd; best=t; } });
     if(best==null) return;
     var n0=ax===0?nw:nd, n=n0;
@@ -25265,9 +25305,9 @@ function resizeObjSnap(it, drag, sgx, sgy, nw, nd){
 }
 /* il passo di snap di un ridimensionamento con le maniglie: nw/nd = misure già calcolate (e snappate alla griglia se grid), l'elemento è già nella posa corrispondente.
    Modalità «Oggetti»: resizeObjSnap (palco + elementi, tutte le rotazioni ortogonali); altrimenti, e per i tipi esclusi, il magnete al bordo palco di sempre (solo rot 0). */
-function resizeSnapStep(rzit, drag, ed, sgx, sgy, nw, nd, grid, rzCust){
+function resizeSnapStep(rzit, drag, ed, sgx, sgy, nw, nd, grid, rzCust, comb){
   var rsg=[];
-  var rzObj=(!grid && !rzCust && snapModeEff()==="obj") ? resizeObjSnap(rzit, drag, sgx, sgy, nw, nd) : null;
+  var rzObj=(!rzCust && ((!grid && snapModeEff()==="obj") || comb)) ? resizeObjSnap(rzit, drag, sgx, sgy, nw, nd, comb ? snapObjTol() : 0) : null;   /* «Solo oggetti» (SNAP_T) oppure snap combinato di serie con la griglia (tolleranza in px) */
   if(rzObj){ nw=rzit.w; nd=rzit.d; rsg=rzObj.guides; }
   if(!rzObj && !grid && drag.rot===0 && rzit.type!=="platea"){   /* platea: il magnete al bordo la lascerebbe fuori dalle sue caselle (una sedia in meno) */
         var rW=state.stage.w,rD=state.stage.d,rT=custEditorAttivo()?hSize(8):SNAP_T;
@@ -27600,13 +27640,13 @@ svg.addEventListener("pointermove", function(e){
   if(drag.mode==="cabseg"){   /* editing Max: trascina il LATO in perpendicolare; gli angoli si formano da soli */
     sp=svgPoint(e);
     var val=(drag.ori==="h") ? Math.round(sp.y) : Math.round(sp.x);
-    var gstep=snapVal(); if(gstep>0) val=snapQ(val, gstep);   /* Align: snap del lato alla griglia (come Max) */
+    var _sl=snapLatoCavo(val, drag.ori, e); val=_sl.val; renderSnapGuides(_sl.guide?[_sl.guide]:[]);   /* griglia + bordi di palco, pedane ed elementi (25/11/2026) */
     var WP=cabCleanPoly(cabMoveSeg(drag.fp0, drag.si, drag.ori, val));
     var ms=cabManual(drag.key); ms.pts=WP.slice(1,-1); drag.moved=true; __cabRes=null; redrawStageLayers();
     return;
   }
   if(drag.mode==="cabhome"){   /* trascina il punto principale di connessione (diventa personalizzato) */
-    sp=svgPoint(e); state.cab.home={kind:"custom", x:Math.round(sp.x), y:Math.round(sp.y)}; drag.moved=true; __cabRes=null; redrawStageLayers();
+    sp=svgPoint(e); var _sph=snapPuntoCavo(sp.x, sp.y, e); state.cab.home={kind:"custom", x:_sph.x, y:_sph.y}; drag.moved=true; renderSnapGuides(_sph.guides); __cabRes=null; redrawStageLayers();
     return;
   }
   if(drag.mode==="port"){   /* porta: il cavo fantasma segue il cursore */
@@ -27627,7 +27667,7 @@ svg.addEventListener("pointermove", function(e){
   if(drag.mode==="elecseg"){   /* linea elettrica: trascina il LATO in perpendicolare (come l'audio) */
     sp=svgPoint(e);
     var valE=(drag.ori==="h") ? Math.round(sp.y) : Math.round(sp.x);
-    var gstepE=snapVal(); if(gstepE>0) valE=snapQ(valE, gstepE);
+    var _slE=snapLatoCavo(valE, drag.ori, e); valE=_slE.val; renderSnapGuides(_slE.guide?[_slE.guide]:[]);
     var WPE=cabCleanPoly(cabMoveSeg(drag.fp0, drag.si, drag.ori, valE));
     if(drag.key.indexOf("up:")===0){ state.elec.uplinks=state.elec.uplinks||{}; var ue=state.elec.uplinks[drag.key.slice(3)]||(state.elec.uplinks[drag.key.slice(3)]={}); ue.pts=WPE.slice(1,-1); }
     else if(drag.key.indexOf("fd:")===0){ var feE=elecFeedVoce(drag.key.slice(3)); feE.pts=WPE.slice(1,-1); }
@@ -27643,7 +27683,7 @@ svg.addEventListener("pointermove", function(e){
   if(drag.mode==="mondseg"){   /* monitor digitale: trascina il LATO (come l'audio/elettrico) */
     sp=svgPoint(e);
     var valm=(drag.ori==="h") ? Math.round(sp.y) : Math.round(sp.x);
-    var gm=snapVal(); if(gm>0) valm=snapQ(valm, gm);
+    var _slM=snapLatoCavo(valm, drag.ori, e); valm=_slM.val; renderSnapGuides(_slM.guide?[_slM.guide]:[]);
     var WPm=cabCleanPoly(cabMoveSeg(drag.fp0, drag.si, drag.ori, valm));
     mondManual(drag.key).pts=WPm.slice(1,-1); drag.moved=true; __mondRes=null; redrawStageLayers();
     return;
@@ -27654,7 +27694,7 @@ svg.addEventListener("pointermove", function(e){
     return;
   }
   if(drag.mode==="elecsupply"){   /* trascina l'alimentazione elettrica (diventa personalizzata) */
-    sp=svgPoint(e); state.elec.supply={kind:"custom", x:Math.round(sp.x), y:Math.round(sp.y)}; drag.moved=true; __elecRes=null; redrawStageLayers();
+    sp=svgPoint(e); var _spe=snapPuntoCavo(sp.x, sp.y, e); state.elec.supply={kind:"custom", x:_spe.x, y:_spe.y}; drag.moved=true; renderSnapGuides(_spe.guides); __elecRes=null; redrawStageLayers();
     return;
   }
   if(drag.mode==="venue"){
@@ -27678,6 +27718,7 @@ svg.addEventListener("pointermove", function(e){
     var sm=snapModeEff();
     var magnet = freeMove ? {sdx:0,sdy:0,guides:[]}
       : sm==="obj" ? objectSnap(drag.items,ddx,ddy)
+      : snapCombinato() ? combinedSnap(drag.items,ddx,ddy)   /* di serie: griglia + oggetti (25/11/2026) */
       : (sm!=="0" && !snapFine()) ? magneticSnap(drag.items,ddx,ddy)
       : {sdx:0,sdy:0,guides:[]};
     renderSnapGuides(magnet.guides);
@@ -27687,8 +27728,9 @@ svg.addEventListener("pointermove", function(e){
       else if(sm==="obj"){ it.x=Math.round(d.x0+ddx+magnet.sdx); it.y=Math.round(d.y0+ddy+magnet.sdy); }
       else {
         /* griglia + magnetic bordo palco: il magnetic prevale quando si è vicini a un bordo */
-        it.x = magnet.sdx!==0 ? Math.round(d.x0+ddx+magnet.sdx) : snap(d.x0+ddx);
-        it.y = magnet.sdy!==0 ? Math.round(d.y0+ddy+magnet.sdy) : snap(d.y0+ddy);
+        var _hx=(magnet.hx!==undefined) ? magnet.hx : magnet.sdx!==0, _hy=(magnet.hy!==undefined) ? magnet.hy : magnet.sdy!==0;   /* combinato: l'aggancio c'è anche a distanza zero */
+        it.x = _hx ? Math.round(d.x0+ddx+magnet.sdx) : snap(d.x0+ddx);
+        it.y = _hy ? Math.round(d.y0+ddy+magnet.sdy) : snap(d.y0+ddy);
       }
       var g=itemNode(it.id);
       if(g) g.setAttribute("transform","translate("+it.x+" "+it.y+")");
@@ -27758,7 +27800,7 @@ svg.addEventListener("pointermove", function(e){
       /* snap magnetico a bordo palco durante resize (solo rot=0, no griglia) */
       var rsg=[], rzCust=custRidimensionaAggancio(drag, rzit, ed, e);   /* «Crea elemento»: il lato aggancia gli altri (Tappa A) */
       if(rzCust){ nw=rzit.w; nd=rzit.d; }
-      var rsn=resizeSnapStep(rzit, drag, ed, sgx, sgy, nw, nd, grid, !!rzCust); nw=rsn.nw; nd=rsn.nd; rsg=rsn.guides;   /* snap del lato mosso: palco (sempre a rot 0) e, in modalità «Oggetti», gli altri elementi */
+      var rsn=resizeSnapStep(rzit, drag, ed, sgx, sgy, nw, nd, grid, !!rzCust, snapCombinato() && !(e.metaKey||e.ctrlKey)); nw=rsn.nw; nd=rsn.nd; rsg=rsn.guides;   /* snap del lato mosso: palco (sempre a rot 0) e, in modalità «Oggetti», gli altri elementi */
       if(rzit.type==="pedanaarco") arcoNormalizza(rzit);   /* il magnete al bordo non porta mai la freccia oltre il semicerchio, né lo spessore oltre il massimo */
       drag.moved=true; redrawItemNode(rzit); renderSnapGuides(rsg); if(rzCust) custDisegnaAggancio(rzCust);   /* aggiornamento parziale: rigenera solo il nodo ridimensionato, poi le guide di snap */
     }
@@ -27878,8 +27920,9 @@ svg.addEventListener("pointerup", function(e){
   delete pointers[e.pointerId];
   if(pinch){ if(Object.keys(pointers).length<2) pinch=null; svg.classList.remove("dragging"); drag=null; return; }
   if(drag && (drag.mode==="custarea" || drag.mode==="custforma")){ custPointerUp(e); svg.classList.remove("dragging"); return; }
-  if(drag && drag.mode==="cabseg"){ if(drag.moved){ save(); } __cabRes=null; render(); renderCabPanel(); drag=null; return; }
+  if(drag && drag.mode==="cabseg"){ renderSnapGuides([]); if(drag.moved){ save(); } __cabRes=null; render(); renderCabPanel(); drag=null; return; }
   if(drag && drag.mode==="cabhome"){
+    renderSnapGuides([]);
     if(drag.moved){ save(); }
     else if(typeof showHomeMenu==="function"){   /* premuto e rilasciato senza muovere = e' un clic */
       showHomeMenu(e.clientX, e.clientY);
@@ -27982,8 +28025,8 @@ svg.addEventListener("pointerup", function(e){
     render(); renderAccessoriCount(); drag=null; return;
   }
   if(drag && drag.mode==="elecpre"){ drag=null; return; }   /* clic senza movimento: solo selezione */
-  if(drag && drag.mode==="elecseg"){ if(drag.moved){ save(); } __elecRes=null; render(); renderElecPanel(); drag=null; return; }
-  if(drag && drag.mode==="mondseg"){ if(drag.moved) save(); __mondRes=null; render(); drag=null; return; }
+  if(drag && drag.mode==="elecseg"){ renderSnapGuides([]); if(drag.moved){ save(); } __elecRes=null; render(); renderElecPanel(); drag=null; return; }
+  if(drag && drag.mode==="mondseg"){ renderSnapGuides([]); if(drag.moved) save(); __mondRes=null; render(); drag=null; return; }
   if(drag && drag.mode==="mondreconnect"){   /* estremo: su hub/mixerino = riconnetti, nel vuoto = scollega */
     var rpM=svgPoint(e), tn=(state.items||[]).filter(function(t){ return MON_DIG_NODE[t.type] && t.id!==drag.key; })
       .filter(function(t){ return Math.abs(rpM.x-t.x)<=(t.w||40)/2+12 && Math.abs(rpM.y-t.y)<=(t.d||40)/2+12; })[0];
@@ -28017,7 +28060,7 @@ svg.addEventListener("pointerup", function(e){
     }
     render(); renderElecPanel(); drag=null; return;
   }
-  if(drag && drag.mode==="elecsupply"){ if(drag.moved){ save(); } __elecRes=null; render(); renderElecPanel(); drag=null; return; }
+  if(drag && drag.mode==="elecsupply"){ renderSnapGuides([]); if(drag.moved){ save(); } __elecRes=null; render(); renderElecPanel(); drag=null; return; }
   if(drag && drag.mode==="calibnav"){
     var wasMoved=drag.moved; drag=null; svg.classList.remove("dragging");
     if(!wasMoved && venueCalibMode>0 && venueCalibMode<=2){

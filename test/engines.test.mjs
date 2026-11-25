@@ -37236,9 +37236,9 @@ t("Unità nell'editor (19/11): interruttore in barra e nel Menu, un solo punto c
   ok(/_du\.addEventListener\("change", function\(\)\{ unitaCambia\(_du\.value\)/.test(html) && /_dft\.addEventListener\("click", function\(\)\{ unitaCambia\("ft"\)/.test(html), "resta anche in Esporta, sullo stesso punto");
   conDoc(null, "ft", () => {
     eq(A.snapOpzioni().map((x) => x[0]), ["0", "ft1", "ft3", "ft6", "ft12", "ft24", "ft36", "obj"], "in piedi l'aggancio ha 1\", 3\" (fini, 22/11), 6\", 1', 2', 3'");
-    eq(A.snapOpzioni().map((x) => x[1]), ["Libero", '1"', '3"', '6"', "1'", "2'", "3'", "Oggetti"], "con le etichette in piedi");
+    eq(A.snapOpzioni().map((x) => x[1]), ["Libero", '1"', '3"', '6"', "1'", "2'", "3'", "Solo oggetti"], "con le etichette in piedi");
   });
-  eq(A.snapOpzioni().map((x) => x[1]), ["Libero", "1 cm", "5 cm", "10 cm", "25 cm", "50 cm", "1 m", "Oggetti"], "in metri: i passi fini 1, 5, 10 cm (22/11) e poi quelli di sempre");
+  eq(A.snapOpzioni().map((x) => x[1]), ["Libero", "1 cm", "5 cm", "10 cm", "25 cm", "50 cm", "1 m", "Solo oggetti"], "in metri: i passi fini 1, 5, 10 cm (22/11) e poi quelli di sempre");
   eq([A.DOC_SNAP_FT.ft6, A.DOC_SNAP_FT.ft12, A.DOC_SNAP_FT.ft24, A.DOC_SNAP_FT.ft36].map((v) => +v.toFixed(2)), [15.24, 30.48, 60.96, 91.44], "i passi sono esatti (1 ft = 30,48 cm)");
   eq([A.snapValido("ft12"), A.snapValido("ft99"), A.snapValido("25")], [true, false, true], "ft12 vale, ft99 no");
   eq([A.snapPerUnita("25", true), A.snapPerUnita("50", true), A.snapPerUnita("100", true), A.snapPerUnita("0", true), A.snapPerUnita("obj", true), A.snapPerUnita("1", true), A.snapPerUnita("5", true), A.snapPerUnita("10", true)], ["ft12", "ft24", "ft36", "0", "obj", "ft1", "ft3", "ft3"], "m → ft: il passo più vicino; libero e oggetti restano");
@@ -39494,7 +39494,7 @@ t("Snap «Oggetti» nel ridimensionamento con le maniglie (21/11/2026): il lato 
     eq(A.resizeObjSnap(p, dr, 1, 0, p.w, p.d), null, "platea: nessun intervento (caselle)"); const q = add("pedana", 600, 400, { w: 300, d: 150, h: 40 }); const d2 = { x0: 600, y0: 400, w0: 300, d0: 150, rot: 45 * Math.PI / 180 };
     eq(A.resizeObjSnap(q, d2, 1, 0, 300, 150), null, "rotazione 45°: nessun intervento (come il palco)"); }
   /* cablaggio: il gestore delle maniglie passa dal passo di snap, prima di arcoNormalizza */
-  ok(/drag\.mode==="itemresize"[^]*?resizeSnapStep\(rzit, drag, ed, sgx, sgy, nw, nd, grid, !!rzCust\)[^]*?arcoNormalizza\(rzit\)/.test(appjs), "il ridimensionamento chiama resizeSnapStep, poi arcoNormalizza");
+  ok(/drag\.mode==="itemresize"[^]*?resizeSnapStep\(rzit, drag, ed, sgx, sgy, nw, nd, grid, !!rzCust(, snapCombinato\(\)[^)]*\))?\)[^]*?arcoNormalizza\(rzit\)/.test(appjs), "il ridimensionamento chiama resizeSnapStep, poi arcoNormalizza");
   A.snapMode = "25"; reset();
 });
 
@@ -41495,7 +41495,85 @@ t("Versioni L2 · cloud: allinea (rev + link senza leggere il token), creaProget
   ok(/insert\(\{ user_id:requestUser, schema_version:SCHEMA_VERSION/.test(g) && !/share_token/.test(g), "insert come «Duplica»: nessun token");
   ok(/allinea: *allineaProgetto,[\s\S]{0,200}creaProgetto: *creaProgettoDa/.test(appjs) && /open: *openProject/.test(appjs), "esposti in window.__cloud");
 });
-t("Versioni L2b · «Superata» automatica: quando una versione passa a Inviata, le Inviate/Approvate con numero più basso diventano Superate (con data); le Bozze e le più nuove no", () => senzaForeign(() => {
+/* ===== SNAP COMBINATO (25/11/2026): griglia + oggetti di serie; lati dei cavi che si agganciano ===== */
+t("Snap combinato · spostamento: con la griglia gli elementi si agganciano anche ai bordi di pedane ed elementi entro ~8 px; fuori soglia vale la griglia; con passo fine 5 px", () => {
+  const prima = A.snapMode; A.__custEditor = false;
+  try {
+    reset(); A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };
+    const ped = add("pedana", 600, 300, { w: 200, d: 100, h: 20 });   /* bordi x 500..700, y 250..350 */
+    const b = add("pedana", 300, 300, { w: 100, d: 100, h: 20 });     /* bordo destro a 350 */
+    A.snapMode = "25"; eq(A.snapObjTol(), 8, "tolleranza di serie: 8 px (qui 1 px = 1 cm)");
+    /* il bordo sinistro di b (250) portato a 705: dista 5 cm dal bordo destro di ped (700) → si aggancia */
+    let r = A.combinedSnap([{ id: b.id, x0: b.x, y0: b.y }], 705 + 50 - b.x, 0);
+    ok(r.hx, "agganciato sull'asse x"); eq(r.sdx, -5, "delta verso il bordo dell'altra pedana"); ok(r.guides.some(g => g.cls.indexOf("snap-guide") >= 0 && g.x1 === 700), "guida sul bordo (700)");
+    /* a 30 cm: nessun aggancio agli oggetti → vale la griglia (lo decide il chiamante: hx falso) */
+    r = A.combinedSnap([{ id: b.id, x0: b.x, y0: b.y }], 730 + 50 - b.x, 0); ok(!r.hx, "fuori soglia: nessun aggancio agli oggetti");
+    /* il bordo del palco di sempre resta (15 cm, passo non fine) */
+    r = A.combinedSnap([{ id: b.id, x0: b.x, y0: b.y }], -(b.x - 50) + 12, 0); ok(r.hx && r.sdx === -12, "bordo sinistro del palco entro 15 cm: come prima");
+    /* con passo fine il magnete largo del palco non c'è, gli oggetti sì ma a 5 px */
+    A.snapMode = "1"; eq(A.snapObjTol(), 5, "passo fine: 5 px");
+    r = A.combinedSnap([{ id: b.id, x0: b.x, y0: b.y }], 704 + 50 - b.x, 0); ok(r.hx && r.sdx === -4, "passo 1 cm: 4 cm dal bordo → aggancia");
+    r = A.combinedSnap([{ id: b.id, x0: b.x, y0: b.y }], 708 + 50 - b.x, 0); ok(!r.hx, "passo 1 cm: 8 cm → no");
+    r = A.combinedSnap([{ id: b.id, x0: b.x, y0: b.y }], -(b.x - 50) + 12, 0); ok(!r.hx, "passo fine: il palco a 12 cm non attira (come prima)");
+    /* asse y indipendente: il centro in y di b a 304 → centro di ped (300) */
+    /* palco (−13) e pedana (+7) entrambi in soglia sullo stesso asse: vince il più vicino */
+    reset(); A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] }; A.snapMode = "25";
+    const pa = add("pedana", 100, 600, { w: 160, d: 60, h: 20 }), bb = add("pedana", 300, 300, { w: 100, d: 100, h: 20 });   /* pa: x 20..180 */
+    r = A.combinedSnap([{ id: bb.id, x0: bb.x, y0: bb.y }], 13 + 50 - bb.x, 0); ok(r.hx && r.sdx === 7, "vince il bordo della pedana (7) sul palco (13): " + r.sdx);
+    /* già allineato (distanza 0): è comunque un aggancio, la griglia non lo sposta */
+    r = A.combinedSnap([{ id: bb.id, x0: bb.x, y0: bb.y }], 20 + 50 - bb.x, 0); ok(r.hx && r.sdx === 0, "allineato esatto: hx vero con delta 0");
+    ok(/_hx=\(magnet\.hx!==undefined\) \? magnet\.hx/.test(appjs), "lo spostamento usa il flag hx (aggancio anche a distanza 0)");
+    reset(); A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] }; add("pedana", 600, 300, { w: 200, d: 100, h: 20 }); const b2 = add("pedana", 300, 300, { w: 100, d: 100, h: 20 }); void b2;
+    A.snapMode = "25"; r = A.combinedSnap([{ id: b2.id, x0: b2.x, y0: b2.y }], 0, 4); ok(r.hy && r.sdy === -4 && !r.hx, "asse y: centro con centro, x libero");
+  } finally { A.snapMode = prima; reset(); }
+});
+t("Snap combinato · modalità: la griglia aggancia gli oggetti, «Libero» no, «Oggetti» resta solo oggetti; ⌘/Ctrl sospende (Alt è la copia); testo del menu", () => {
+  ok(/sm==="obj" \? objectSnap\(drag\.items,ddx,ddy\)/.test(appjs), "«Oggetti» resta solo oggetti");
+  ok(/snapCombinato\(\) \? combinedSnap\(drag\.items,ddx,ddy\)/.test(appjs), "lo spostamento usa lo snap combinato con la griglia");
+  ok(/var freeMove = e\.metaKey \|\| e\.ctrlKey/.test(appjs), "⌘/Ctrl = movimento libero (sospende anche gli oggetti)");
+  const prima = A.snapMode; A.__custEditor = false;
+  try { for (const [m, att] of Object.entries({ "0": false, "1": true, "5": true, "10": true, "25": true, "50": true, "100": true, obj: false, ft12: true, ft1: true })) { A.snapMode = m; eq(A.snapCombinato(), att, "snapCombinato con «" + m + "»"); }
+    A.snapMode = "25"; A.__custEditor = true; ok(!A.snapCombinato(), "editor «Crea elemento»: invariato"); } finally { A.snapMode = prima; A.__custEditor = false; }
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/title="Aggancio: griglia più oggetti/.test(html), "tooltip dell'aggancio dice che include gli oggetti");
+  ok(/⌘\/Ctrl/.test(html.slice(html.indexOf('title="Aggancio: griglia più oggetti'), html.indexOf('title="Aggancio: griglia più oggetti') + 400)), "…e dice come sospenderlo");
+  ok(/\["obj","Solo oggetti"\]/.test(appjs) && /data-snap="obj">Solo oggetti</.test(html), "la voce «Oggetti» diventa «Solo oggetti» (il valore salvato resta obj)");
+  ok(/Aggancio: griglia \+ oggetti/.test(html), "etichetta del pannello telefono");
+});
+t("Snap combinato · cavi: il LATO si aggancia ai bordi del palco, delle pedane e degli altri elementi (x per i lati verticali, y per gli orizzontali), poi alla griglia; ⌘/Ctrl, Libero", () => {
+  const prima = A.snapMode; A.__custEditor = false;
+  try {
+    reset(); A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };
+    add("pedana", 600, 300, { w: 200, d: 100, h: 20 });   /* x 500..700 · y 250..350 */
+    A.snapMode = "25";
+    let r = A.snapLatoCavo(703, "v", {}); eq(r.val, 700, "lato verticale a 3 cm dal bordo pedana → 700"); ok(r.guide && r.guide.x1 === 700 && r.guide.x2 === 700, "guida verticale");
+    r = A.snapLatoCavo(1195, "v", {}); eq(r.val, 1200, "lato verticale: bordo destro del palco");
+    r = A.snapLatoCavo(253, "h", {}); eq(r.val, 250, "lato orizzontale: bordo alto della pedana (le y)"); ok(r.guide.y1 === 250 && r.guide.y2 === 250, "guida orizzontale");
+    r = A.snapLatoCavo(703, "h", {}); eq(r.val, 700, "le x non contano per un lato orizzontale: 703 → griglia 700 (nessuna guida)"); ok(!r.guide, "…senza guida");
+    r = A.snapLatoCavo(660, "v", {}); eq(r.val, 650, "fuori soglia: griglia 25"); ok(!r.guide, "senza guida");
+    r = A.snapLatoCavo(703, "v", { metaKey: true }); eq(r.val, 703, "⌘ sospende tutto"); r = A.snapLatoCavo(703, "v", { ctrlKey: true }); eq(r.val, 703, "Ctrl idem");
+    A.snapMode = "0"; r = A.snapLatoCavo(703, "v", {}); eq(r.val, 703, "Libero: nessun aggancio, nemmeno agli oggetti");
+    A.snapMode = "obj"; r = A.snapLatoCavo(703, "v", {}); eq(r.val, 700, "«Solo oggetti»: aggancia"); r = A.snapLatoCavo(730, "v", {}); eq(r.val, 730, "«Solo oggetti»: lontano resta dov'è (niente griglia)");
+    /* il lato mosso di un cavo vero: la poligonale si ricostruisce dal valore agganciato */
+    A.snapMode = "25"; const fp0 = [[100, 100], [100, 500], [900, 500]], WP = A.cabCleanPoly(A.cabMoveSeg(fp0, 1, "v", A.snapLatoCavo(1, "v", {}).val)); ok(Array.isArray(WP) && WP.length >= 2, "cabMoveSeg accetta il valore agganciato");
+  } finally { A.snapMode = prima; reset(); }
+  for (const m of ["cabseg", "elecseg", "mondseg"]) ok(new RegExp('drag\\.mode==="' + m + '"[\\s\\S]{0,700}snapLatoCavo\\(').test(appjs), m + ": il lato passa da snapLatoCavo");
+  ok(/function snapPuntoCavo/.test(appjs) && /cabhome"\)\{[\s\S]{0,300}snapPuntoCavo\(/.test(appjs) && /elecsupply"\)\{[\s\S]{0,300}snapPuntoCavo\(/.test(appjs), "punto di connessione e alimentazione: snapPuntoCavo");
+});
+t("Snap combinato · ridimensionamento: con la griglia il lato mosso aggancia i bordi vicini; ⌘/Ctrl no; senza il flag l'invariato", () => {
+  const prima = A.snapMode; A.__custEditor = false;
+  try {
+    reset(); A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };
+    add("pedana", 900, 300, { w: 200, d: 100, h: 20 });   /* bordo sinistro a 800 */
+    const r0 = add("pedana", 600, 300, { w: 300, d: 100, h: 20 }), dr = { x0: 600, y0: 300, w0: 300, d0: 100, rot: 0 };
+    A.snapMode = "25"; A.resizePose(r0, dr, 355, 100, 1, 0);   /* lato destro a 780+... → 455+600-... */
+    const dx0 = r0.x + r0.w / 2;   /* 450+... bordo destro = 600-150+355 = 805 → a 5 cm dal bordo 800 */
+    eq(dx0, 805, "prova: lato destro a 805");
+    const o = A.resizeSnapStep(r0, dr, "r", 1, 0, 355, 100, true, false, true); arcoNear(r0.x + r0.w / 2, 800, 1e-9, "snap combinato: il lato destro va a 800"); ok(o.guides.length === 1, "una guida");
+    A.resizePose(r0, dr, 355, 100, 1, 0); A.resizeSnapStep(r0, dr, "r", 1, 0, 355, 100, true, false, false); arcoNear(r0.x + r0.w / 2, 805, 1e-9, "senza il flag (⌘/Ctrl o editor): invariato");
+  } finally { A.snapMode = prima; reset(); }
+  ok(/resizeSnapStep\(rzit, drag, ed, sgx, sgy, nw, nd, grid, !!rzCust, snapCombinato\(\) && !\(e\.metaKey\|\|e\.ctrlKey\)\)/.test(appjs), "il ridimensionamento passa il flag combinato (spento con ⌘/Ctrl)");
+});t("Versioni L2b · «Superata» automatica: quando una versione passa a Inviata, le Inviate/Approvate con numero più basso diventano Superate (con data); le Bozze e le più nuove no", () => senzaForeign(() => {
   const toast = []; const t0 = A.__toast; A.__toast = (m) => { toast.push(m); };
   try {
     const stati = () => { A.syncActiveVariant(); return A.VARIANTS.map((v) => v.state.status || "bozza"); };

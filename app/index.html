@@ -4684,14 +4684,14 @@ body.cambio-vista #catalog{pointer-events:none;opacity:.55}
     </select>
     <span class="snapchev" aria-hidden="true">▾</span>
   </span>
-  <span class="snapwrap" title="Aggancio: come si posizionano gli elementi quando li sposti — su una griglia regolare o liberi">
+  <span class="snapwrap" title="Aggancio: griglia più oggetti — gli elementi e i lati dei cavi si agganciano alla griglia scelta e, da vicino, ai bordi e ai centri di palco, pedane ed elementi. «Solo oggetti» toglie la griglia, «Libero» ogni aggancio. Tieni premuto ⌘/Ctrl mentre trascini per sospenderlo.">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
-    <select id="snapSel" aria-label="Aggancio alla griglia">
+    <select id="snapSel" aria-label="Aggancio: griglia più oggetti">
       <option value="0">Libero</option>
       <option value="25" selected>25 cm</option>
       <option value="50">50 cm</option>
       <option value="100">1 m</option>
-      <option value="obj">Oggetti</option>
+      <option value="obj">Solo oggetti</option>
     </select>
     <span class="snapchev" aria-hidden="true">▾</span>
   </span>
@@ -6384,13 +6384,13 @@ body.cambio-vista #catalog{pointer-events:none;opacity:.55}
     <div class="mrow mrow-var" id="mDocLangRow"><span class="mrow-t">Lingua del documento<small class="mrow-s">Document language</small></span><select id="docLangSelM" aria-label="Lingua del documento · Document language"><option value="it">Italiano</option><option value="en">English</option></select></div>
     <div class="mrow mrow-var" id="mUnitRow"><span class="mrow-t">Unità delle misure</span><select id="unitSelM" aria-label="Unità delle misure"><option value="m">metri</option><option value="ft">piedi e pollici</option><option value="both">m + ft-in</option></select></div>
     <div class="mrow mrow-col">
-      <span class="mrow-t" id="mSnapLbl">Aggancio alla griglia</span>
+      <span class="mrow-t" id="mSnapLbl">Aggancio: griglia + oggetti<small class="mrow-s">si aggancia anche ai bordi di palco, pedane ed elementi</small></span>
       <div class="mseg" id="mSnap" role="radiogroup" aria-labelledby="mSnapLbl">
         <button type="button" role="radio" data-snap="0">Libero</button>
         <button type="button" role="radio" data-snap="25">25 cm</button>
         <button type="button" role="radio" data-snap="50">50 cm</button>
         <button type="button" role="radio" data-snap="100">1 m</button>
-        <button type="button" role="radio" data-snap="obj">Oggetti</button>
+        <button type="button" role="radio" data-snap="obj">Solo oggetti</button>
       </div>
     </div>
     <button class="mrow" data-act="rot" role="switch" aria-checked="true" id="mRotRow"><span class="mrow-t">Gira il palco largo</span><span class="mswitch" aria-hidden="true"></span></button>
