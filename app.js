@@ -7754,14 +7754,12 @@ function programmaLuciPdf(doc){
   var M=16, R=194, FONDO=272, y, stella=false;   /* FONDO = quello degli altri fogli (ph-25): sotto stanno «1 di N · vN · data» e il credito a 280,8 mm */
   var cQ=M, cA=M+13, cN=M+88, cW=R-22, cT=R;
   doc.addPage("a4","portrait");
-  doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
-  doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — "+L("Programma luci","Lighting schedule"), M, 9);
-  doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(docTesto(dataDocumento()), R, 9, {align:"right"});
-  y=22;
+  pdfTestata(doc, "#0d9488", "STAGE PLOT — "+L("Programma luci","Lighting schedule"), docTesto(dataDocumento()), M, 210);
+  y=PDF_Y0;
   if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
   doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
   if(D.tot.n){ doc.text(totTxt(D.tot), M, y); y+=8; }
-  function nuova(){ doc.addPage("a4","portrait"); y=22; }
+  function nuova(){ doc.addPage("a4","portrait"); y=PDF_TOP+7; }
   function testaColonne(){
     doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor("#0b7a70");
     doc.text(L("Q.tà","Qty"), cQ, y); doc.text(L("APPARECCHIO","FIXTURE"), cA, y); doc.text(L("NUMERI","NUMBERS"), cN, y);
@@ -32095,7 +32093,7 @@ function labelPrefix(it, src){
   var base=(it.label||"").trim(), def=(TYPES[it.type].defLabel||"").trim();
   if(!base || base===def || base===src) return src;
   if(src.toLowerCase().indexOf(base.toLowerCase())===0) return src;
-  if(/^(?:DI )?[LR]$/.test(src)) return base+" "+src;   /* stereo: «Chitarra acustica 1 L», senza trattino, uguale per tutti (Simone 25/11/2026) */
+  if(/(?:^|[ \/])[LR]$/.test(src)) return base+" "+src;   /* stereo: «Chitarra acustica 1 L», senza trattino, uguale per tutti (Simone 25/11/2026) */
   return base+" - "+src;
 }
 function bandInputs(o){
@@ -40442,12 +40440,8 @@ function cabReportPdf(shared){
       doc.setTextColor(color||"#1f2937");
       y=pdfACapo(doc, txt, M, y, W-2*M, dy||5);
     }
-    doc.setFillColor("#0d9488"); doc.rect(0,0,W,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFontSize(11); doc.setFont("helvetica","bold");
-    doc.text("STAGE PLOT — Report cablaggio audio", M, 9);
-    doc.setFontSize(9); doc.setFont("helvetica","normal");
-    doc.text(dataDocumento(), W-M, 9, {align:"right"});
-    y=22;
+    pdfTestata(doc, "#0d9488", "STAGE PLOT — Report cablaggio audio", dataDocumento(), M, W);
+    y=PDF_Y0;
     if(state.titolo || state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
     /* M-06 onestà tecnica: le lunghezze sono stime sul percorso ortogonale, da verificare in loco. */
     (function(){ var d="Le lunghezze sono STIME: percorso disegnato (ortogonale) × 1,10 + 0,6 m di scorta, più 2 m dove il cavo sale al microfono su asta, arrotondate al taglio commerciale. Utili per l'ordine cavi: il percorso reale sul palco — dislivelli, passaggi, pedane — va verificato in loco.";
@@ -40502,9 +40496,8 @@ function cabReportPdf(shared){
     else line("Nessuna criticità rilevata.", 10, false, "#0d9488", 5);
     /* L6 — Scheda cavi per il service: una pagina a sé, per box (zona), con colore del nastro, numero del cavo, lunghezza disegnata e taglio da prendere (R22) */
     try{ if(MAT && (MAT.nXlr||MAT.nMc||MAT.nEl)){
-      doc.addPage("a4","portrait"); y=22;
-      doc.setFillColor("#0d9488"); doc.rect(0,0,W,14,"F"); doc.setTextColor("#ffffff"); doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.text("STAGE PLOT — Scheda cavi per il service", M, 9);
-      doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(dataDocumento(), W-M, 9, {align:"right"});
+      doc.addPage("a4","portrait"); y=PDF_Y0;
+      pdfTestata(doc, "#0d9488", "STAGE PLOT — Scheda cavi per il service", dataDocumento(), M, W);
       if(state.titolo || state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
       var riga=function(txt, bold, color){ if(y>272){ doc.addPage("a4","portrait"); y=20; } line(txt, 9, bold, color, 4.6); };
       line("Da preparare (per taglio)", 12, true, "#0d9488", 6);
@@ -40537,10 +40530,8 @@ function patchListPdf(shared){
   var R=pl.R;
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, y=22, cols=[M, M+10, M+62, M+100, M+136, M+158];   /* #, SORGENTE, FOH, MIC/DI, ASTA, PATCH */
-    doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Channel list", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
+    var M=16, y=PDF_Y0, cols=[M, M+10, M+62, M+100, M+136, M+158];   /* #, SORGENTE, FOH, MIC/DI, ASTA, PATCH */
+    pdfTestata(doc, "#0d9488", "STAGE PLOT — Channel list", dataDocumento(), M, 210);
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     if(R.mixer&&MIXER_DB[R.mixer]) { doc.text("Mixer: "+hwLabel(R.mixer,MIXER_DB), M, y); y+=5; }
@@ -40552,7 +40543,7 @@ function patchListPdf(shared){
        box dipingeva di rosso l'intera riga: su una band appena creata (stage box quasi mai dichiarata)
        TUTTA la input list usciva rossa, e chi la riceveva leggeva «errore» su dati giusti (23/08). */
     var _testaTab=null;
-    function trow(a,b,c,d,e,f,bold,color,lastColor){ if(y>274){ doc.addPage(); y=18; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827");
+    function trow(a,b,c,d,e,f,bold,color,lastColor){ if(y>274){ doc.addPage(); y=PDF_TOP+5; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827");
       doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y);
       doc.setTextColor(lastColor||color||"#111827"); doc.text(String(f),cols[5],y); y+=5.4; }
     /* l'intestazione delle colonne torna in cima a ogni pagina di seguito (revisione 28/09: i canali 48-63
@@ -40561,13 +40552,13 @@ function patchListPdf(shared){
     _testa(); _testaTab=_testa;
     var _band=false, _teatro=false;   /* «fornito da» della channel list: ** (band) e ° (teatro) accanto alla sorgente, legenda sotto (30/09, 12/11) */
     pl.rows.forEach(function(r){ if(r.by==="Band" && !r.reserved) _band=true; if(r.by==="Teatro" && !r.reserved) _teatro=true; trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?(r.servizio||"RISERVATO"):(r.name+fornitoSegno(r.by)), r.short||"", r.reserved?"":(r.mic+(r.p48?"  (48V)":"")), r.standShared?"stessa asta":(r.stand||""), r.patch, false, (r.spare||r.reserved)?"#9a948b":"#111827", (r.spare||r.reserved||r.box)?null:"#b45309"); });
-    if(_band){ y+=1.5; doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor("#555555"); if(y>274){ doc.addPage(); y=18; } doc.text(FORNITO_BAND_LEGENDA, M, y); y+=5.4; }
-    if(_teatro){ if(!_band) y+=1.5; doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor("#555555"); if(y>274){ doc.addPage(); y=18; } doc.text(FORNITO_TEATRO_LEGENDA, M, y); y+=5.4; }
+    if(_band){ y+=1.5; doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor("#555555"); if(y>274){ doc.addPage(); y=PDF_TOP+5; } doc.text(FORNITO_BAND_LEGENDA, M, y); y+=5.4; }
+    if(_teatro){ if(!_band) y+=1.5; doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor("#555555"); if(y>274){ doc.addPage(); y=PDF_TOP+5; } doc.text(FORNITO_TEATRO_LEGENDA, M, y); y+=5.4; }
     /* IL RIQUADRO «CHI FORNISCE COSA» (12/11): una riga per fornitore con i canali, e quanti restano senza indicazione.
        Solo se almeno un canale dice chi lo porta: senza, la pagina è quella di sempre. */
     var _fr=fornituraRiepilogo(pl.rows);
     if(_fr.gruppi.length){
-      y+=2; if(y>268){ doc.addPage(); y=18; }
+      y+=2; if(y>268){ doc.addPage(); y=PDF_TOP+5; }
       doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor("#0e7490"); doc.text("Chi fornisce cosa", M, y);
       doc.setDrawColor("#0d9488"); doc.setLineWidth(0.3); doc.line(M, y+1.8, 194, y+1.8); y+=6.2;
       doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#111827");
@@ -40601,13 +40592,11 @@ function todefinePdf(shared){
   var deleg=(typeof productionSummary==="function")?productionSummary(state).filter(function(r){return ["venue","service","produzione"].indexOf((state.production.systems[r.key]||{}).ans)>=0;}):[];
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, W=210, y=22;
-    doc.setFillColor("#475569"); doc.rect(0,0,W,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Criticità e aspetti da definire", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
-    function heading(t,col){ if(y>272){ doc.addPage(); y=18; } doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor(col||"#475569"); doc.text(t, M, y); y+=5.4; doc.setTextColor("#111827"); }
-    function body(t){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); var lines=doc.splitTextToSize(String(t==null||t===""?"—":t), W-2*M);
-      lines.forEach(function(ln){ if(y>274){ doc.addPage(); y=18; } doc.text(ln, M, y); y+=4.8; }); y+=2.2; }
+    var M=16, W=210, y=PDF_Y0;
+    pdfTestata(doc, "#475569", "STAGE PLOT — Criticità e aspetti da definire", dataDocumento(), M, W);
+    function heading(t,col){ if(y>272){ doc.addPage(); y=PDF_TOP+5; } doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor(col||"#475569"); doc.text(t, M, y); y+=5.4; doc.setTextColor("#111827"); }
+    function body(t){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); var lines=doc.splitTextToSize(String(t==null||t===""?"—":t), W-2*M-2);
+      lines.forEach(function(ln){ if(y>274){ doc.addPage(); y=PDF_TOP+5; } doc.text(ln, M, y); y+=4.8; }); y+=2.2; }
     if(errs.length){ heading("ERRORI TECNICI","#dc2626"); errs.forEach(function(x){ body("• "+x.msg+(x.fix?(" → "+x.fix):"")); }); y+=2; }
     if(warns.length){ heading("INFORMAZIONI MANCANTI O INCOERENTI","#b45309"); warns.forEach(function(x){ body("• "+x.msg); }); y+=2; }
     if(deleg.length){ heading("SISTEMI DELEGATI","#0d9488"); deleg.forEach(function(r){ body("• "+r.label+": "+r.text+"."); }); y+=2; }
@@ -40639,13 +40628,11 @@ function responsabilitaPdf(shared){
   if(!rows.length){ if(!shared) alert("Nessuna azienda assegnata ai reparti."); return; }
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, y=22, cols=[M, M+50, M+118];
-    doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Responsabilità", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
+    var M=16, y=PDF_Y0, cols=[M, M+50, M+118];
+    pdfTestata(doc, "#0d9488", "STAGE PLOT — Responsabilità", dataDocumento(), M, 210);
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
     var _testaTab=null;
-    function trow(a,b,c,bold,color){ if(y>274){ doc.addPage(); y=18; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); y+=5.8; }
+    function trow(a,b,c,bold,color){ if(y>274){ doc.addPage(); y=PDF_TOP+5; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); y+=5.8; }
     /* intestazione delle colonne ripetuta sulle pagine di seguito (revisione 28/09) */
     function _testa(){ trow("REPARTO","AZIENDA / SERVICE","REFERENTE (se pubblicato)", true, "#0b7a70"); doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.8, 194, y-3.8); }
     _testa(); _testaTab=_testa;
@@ -40664,16 +40651,14 @@ function riderPdf(shared){
   var d=riderData();
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, W=210, y=22;
-    doc.setFillColor("#4338ca"); doc.rect(0,0,W,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(eventoConferenza() ? "SCHEDA TECNICA EVENTO" : "STAGE PLOT — Rider tecnico", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
+    var M=16, W=210, y=PDF_Y0;
+    pdfTestata(doc, "#4338ca", eventoConferenza() ? "SCHEDA TECNICA EVENTO" : "STAGE PLOT — Rider tecnico", dataDocumento(), M, W);
     if(d.titolo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text(d.titolo+(d.luogo?" — "+d.luogo:""), M, y); y+=7; }
     (function(){ var si=statusInfo(d.status); var sign=(d.status==="approvato" && (d.approvedBy||d.approvedAt)) ? "  ·  firmato"+(d.approvedBy?" da "+d.approvedBy:"")+(d.approvedAt?" il "+new Date(d.approvedAt).toLocaleDateString("it-IT"):"") : "";
       doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(si.color); doc.text(si.label.toUpperCase()+sign, M, y); y+=7; doc.setTextColor("#111827"); })();
-    function heading(t){ if(y>272){ doc.addPage(); y=18; } doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor("#4338ca"); doc.text(t, M, y); y+=5.4; doc.setTextColor("#111827"); }
-    function body(t){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); var lines=doc.splitTextToSize(String(t==null||t===""?"—":t), W-2*M);
-      lines.forEach(function(ln){ if(y>274){ doc.addPage(); y=18; } doc.text(ln, M, y); y+=4.8; }); y+=3.2; }
+    function heading(t){ if(y>272){ doc.addPage(); y=PDF_TOP+5; } doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor("#4338ca"); doc.text(t, M, y); y+=5.4; doc.setTextColor("#111827"); }
+    function body(t){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); var lines=doc.splitTextToSize(String(t==null||t===""?"—":t), W-2*M-2);
+      lines.forEach(function(ln){ if(y>274){ doc.addPage(); y=PDF_TOP+5; } doc.text(ln, M, y); y+=4.8; }); y+=3.2; }
     var acu=eventoAcustico(), vtxt=acu?riderVideoText():"";
     if(acu) body(riderAcusticoFrase()); else if(eventoMisto()) body(riderMistoNota());   /* S6: sonorizzazione */
     if(!acu){
@@ -40703,7 +40688,7 @@ function riderPdf(shared){
         /* SOLO ruolo, nome e recapito: la NOTA del contatto è un appunto interno del tecnico
            («non risponde mai, chiama la moglie») e non deve finire nel PDF che si manda al locale. */
         body(head+(c.contact?" — "+c.contact:"")); }); }
-    else if(d.contatto){ if(y>274){ doc.addPage(); y=18; } doc.setFont("helvetica","italic"); doc.setFontSize(9); doc.setTextColor("#374151"); y=pdfACapo(doc, "Riferimento tecnico: "+d.contatto, M, y, 178, 5); }
+    else if(d.contatto){ if(y>274){ doc.addPage(); y=PDF_TOP+5; } doc.setFont("helvetica","italic"); doc.setFontSize(9); doc.setTextColor("#374151"); y=pdfACapo(doc, "Riferimento tecnico: "+d.contatto, M, y, 178, 5); }
     if(shared) return;
     pdfCredit(doc);
     pdfSave(doc, fileName()+"-rider.pdf");
@@ -40716,16 +40701,14 @@ function monitorListPdf(shared){
   var R=pl.R;
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, y=22, cols=[M, M+14, M+70, M+120, M+160];
-    doc.setFillColor("#0891b2"); doc.rect(0,0,210,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Monitor list", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
+    var M=16, y=PDF_Y0, cols=[M, M+14, M+70, M+116, M+156];
+    pdfTestata(doc, "#0891b2", "STAGE PLOT — Monitor list", dataDocumento(), M, 210);
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     /* «5 / 0» con nessuna stage box dichiarata sembrava un errore: la capacità si scrive solo se c'è */
     y=pdfACapo(doc, "Uscite usate: "+R.mixChTot+(R.capOutTot?" / "+R.capOutTot:"")+(R.boxes.length?"   ·   Stage box: "+R.boxes.map(function(b){ return b.letter+" (out "+b.usedOut+"/"+b.outCap+")"; }).join("  ·  "):"   ·   nessuna stage box dichiarata"), M, y, 178, 4.6)+3.4;
     var _testaTab=null;
-    function trow(a,b,c,d,e,bold,color,lastColor){ if(y>274){ doc.addPage(); y=18; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y);
+    function trow(a,b,c,d,e,bold,color,lastColor){ if(y>274){ doc.addPage(); y=PDF_TOP+5; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y);
       doc.setTextColor(lastColor||color||"#111827"); doc.text(String(e),cols[4],y); y+=5.4; }   /* l'uscita mancante si vede nella sua cella, non su tutta la riga */
     /* l'intestazione delle colonne torna in cima a ogni pagina di seguito (revisione 28/09: i canali 48-63
        di un'orchestra vera finivano su un foglio senza «# SORGENTE MIC/DI…») */
@@ -40745,10 +40728,8 @@ function loadListPdf(shared){
   var R=pl.R;
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, y=22, cols=[M, M+14, M+92, M+124, M+150];
-    doc.setFillColor("#d97706"); doc.rect(0,0,210,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Lista carichi", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
+    var M=16, y=PDF_Y0, cols=[M, M+14, M+92, M+124, M+150];
+    pdfTestata(doc, "#d97706", "STAGE PLOT — Lista carichi", dataDocumento(), M, 210);
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     var P=elecPotenza(R);
@@ -40759,7 +40740,7 @@ function loadListPdf(shared){
     var _swL=elecSenzaWTxt(R); if(_swL){ doc.setFontSize(8.5); y=pdfACapo(doc, _swL, M, y, 178, 3.8)-0.8; }
     y+=3;
     var _testaTab=null;
-    function trow(a,b,c,d,e,bold,color,lastColor){ if(y>274){ doc.addPage(); y=18; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y);
+    function trow(a,b,c,d,e,bold,color,lastColor){ if(y>274){ doc.addPage(); y=PDF_TOP+5; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y);
       doc.setTextColor(lastColor||color||"#111827"); doc.text(String(e),cols[4],y); y+=5.4; }   /* «senza distro» si vede nella sua cella */
     /* l'intestazione delle colonne torna in cima a ogni pagina di seguito (revisione 28/09: i canali 48-63
        di un'orchestra vera finivano su un foglio senza «# SORGENTE MIC/DI…») */
@@ -40777,10 +40758,10 @@ function loadListPdf(shared){
       doc.setFont("helvetica","normal"); doc.setFontSize(9); var xf=cols[2]+doc.getTextWidth(wt)+1.2;
       doc.setFontSize(7); doc.setTextColor(r.fonte==="stima"?"#b45309":"#6b7280"); doc.text(fb, xf, y-5.4); });
     var _leg=WATT_FONTE_LEGENDA.filter(function(l){ return _fonti[l[0]]; }).map(function(l){ return l[0]+" = "+l[1]; });
-    if(_leg.length){ y+=2; if(y>274){ doc.addPage(); y=18; } doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#6b7280");
-      var _lg=doc.splitTextToSize("W: "+_leg.join(" · "), 178); doc.text(_lg, M, y); y+=_lg.length*3.6+1; }
-    if(P.picco){ if(y>274){ doc.addPage(); y=18; } doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#6b7280");
-      var _mx=doc.splitTextToSize("W = assorbimento tipico. Massimo = PA e monitor a piena potenza (1/3), circa il doppio della stima: su questo si dimensionano presa e generatore. "+elecDisclaimer(elecAmbiente(state)), 178); doc.text(_mx, M, y); y+=_mx.length*3.6+1; }
+    if(_leg.length){ y+=2; if(y>274){ doc.addPage(); y=PDF_TOP+5; } doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#6b7280");
+      var _lg=doc.splitTextToSize("W: "+_leg.join(" · "), 176); doc.text(_lg, M, y); y+=_lg.length*3.6+1; }
+    if(P.picco){ if(y>274){ doc.addPage(); y=PDF_TOP+5; } doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#6b7280");
+      var _mx=doc.splitTextToSize("W = assorbimento tipico. Massimo = PA e monitor a piena potenza (1/3), circa il doppio della stima: su questo si dimensionano presa e generatore. "+elecDisclaimer(elecAmbiente(state)), 176); doc.text(_mx, M, y); y+=_mx.length*3.6+1; }
     var _rmp=(state.items||[]).filter(function(it){ return it.type==="cableramp"; });   /* passacavi: il service sa quanti moduli servono */
     if(_rmp.length){ var _rm=_rmp.reduce(function(a,it){ return a+rampModules(it); },0), _rl=_rmp.reduce(function(a,it){ return a+(it.w||0); },0);
       y+=4; doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor("#111827"); doc.text("Passacavi: "+_rm+" moduli · "+mUnaDec(_rl)+" m", M, y); y+=6; }
@@ -40903,7 +40884,7 @@ function patchListServicePdf(shared, opts){
   var K=(opts && opts.perPagina===48) ? 48 : 32;
   var pl=patchList(); if(!pl.rows.length) return;
   var run=function(doc){
-    var rows=pl.rows, pagine=Math.ceil(rows.length/K), M=12, W=297, cols=[M, M+10, M+72, M+104, M+120, M+142, M+206, M+240];
+    var rows=pl.rows, pagine=Math.ceil(rows.length/K), M=16, W=297, cols=[M, M+10, M+72, M+104, M+120, M+142, M+206, M+240];
     var tp=String(state.titolo||"").trim(), nome=(typeof titoloSenzaVersione==="function" ? titoloSenzaVersione(tp) : tp)||"Channel list";
     var dt=(state.evDate||"").replace(/-/g,""), v=(typeof versioneNumero==="function") ? versioneNumero() : 0;
     var testata=[nome, dt, String(state.luogo||"").trim(), v?("v"+v):""].filter(Boolean).join(" \u2013 ");
@@ -40913,14 +40894,12 @@ function patchListServicePdf(shared, opts){
       doc.addPage("a4","landscape");
       var r0=rows[pg*K], r1=rows[Math.min(rows.length,(pg+1)*K)-1];
       var num=function(r){ return (pl.hasFoh&&r.foh)?r.foh:r.n; };
-      doc.setFillColor("#0d9488"); doc.rect(0,0,W,12,"F");
-      doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.text("STAGE PLOT \u2014 Channel list", M, 8);
-      doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), W-M, 8, {align:"right"});
-      doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(fit(testata, W-2*M), M, 19);
+      pdfTestata(doc, "#0d9488", "STAGE PLOT \u2014 Channel list", dataDocumento(), M, W);
+      doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(fit(testata, W-2*M), M, 30);
       var boxTag=(r0.box && r0.patch) ? String(r0.patch).split("\u00b7")[0] : "";
       doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor("#555555");
-      doc.text("Canali "+num(r0)+"-"+num(r1)+(boxTag?" \u00b7 box "+boxTag:"")+" \u00b7 pagina "+(pg+1)+" di "+pagine, M, 25);
-      var y0=31;
+      doc.text("Canali "+num(r0)+"-"+num(r1)+(boxTag?" \u00b7 box "+boxTag:"")+" \u00b7 pagina "+(pg+1)+" di "+pagine, M, 36);
+      var y0=42;
       if(pg===0 && ct && (ct.riservati>0 || ct.oltre>0)){ doc.setTextColor(ct.oltre?"#b45309":"#555555"); doc.text(ct.testo, M, y0); y0+=5; }
       var rh=Math.min(5.2, (192-(y0+6))/K), fs=Math.max(6, Math.min(8.5, rh*1.8));
       doc.setFont("helvetica","bold"); doc.setFontSize(fs); doc.setTextColor("#0d9488");
@@ -40958,14 +40937,12 @@ function dantePatchPdf(shared){
   var byId={}; (state.items||[]).forEach(function(x){ byId[x.id]=x; });
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, y=22, cols=[M, M+26, M+92, M+124, M+150, M+172];
-    doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Patch stage box", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
+    var M=16, y=PDF_Y0, cols=[M, M+24, M+82, M+112, M+138, M+156];
+    pdfTestata(doc, "#0d9488", "STAGE PLOT — Patch stage box", dataDocumento(), M, 210);
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
     if(R.mixer&&MIXER_DB[R.mixer]){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555"); doc.text("Mixer: "+hwLabel(R.mixer,MIXER_DB), M, y); y+=7; }
     var _testaTab=null;
-    function trow(a,b,c,d,e,f,bold,color){ if(y>274){ doc.addPage(); y=18; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); doc.text(String(f),cols[5],y); y+=5.4; }
+    function trow(a,b,c,d,e,f,bold,color){ if(y>274){ doc.addPage(); y=PDF_TOP+5; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); doc.text(String(f),cols[5],y); y+=5.4; }
     /* l'intestazione delle colonne torna in cima a ogni pagina di seguito (revisione 28/09: i canali 48-63
        di un'orchestra vera finivano su un foglio senza «# SORGENTE MIC/DI…») */
     function _testa(){ trow("DEVICE","MODELLO","POSIZIONE","CANALI FOH","IN USO","RISERVATE", true, "#0d9488"); doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6); }
@@ -40994,16 +40971,14 @@ function netListPdf(shared){
   if(!N.runs.length){ if(!shared) alert("Nessuna tratta di rete (serve il cablaggio attivo con mixer e box digitali)."); return; }
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, y=22, cols=[M, M+58, M+96, M+134, M+164];
-    doc.setFillColor("#4f46e5"); doc.rect(0,0,210,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Rete", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
+    var M=16, y=PDF_Y0, cols=[M, M+58, M+96, M+134, M+164];
+    pdfTestata(doc, "#4f46e5", "STAGE PLOT — Rete", dataDocumento(), M, 210);
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     var head = N.sw ? "Topologia a stella sullo switch "+(N.sw.label||"rete")+" ("+N.swUsed+"/"+N.swPorts+" porte"+(N.red?", Primary+Secondary":"")+")" : "Tratte dirette box → console (nessuno switch)";
     doc.text(head, M, y); y+=7;
     var _testaTab=null;
-    function trow(a,b,c,d,e,bold,color){ if(y>274){ doc.addPage(); y=18; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.4; }
+    function trow(a,b,c,d,e,bold,color){ if(y>274){ doc.addPage(); y=PDF_TOP+5; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.4; }
     /* l'intestazione delle colonne torna in cima a ogni pagina di seguito (revisione 28/09: i canali 48-63
        di un'orchestra vera finivano su un foglio senza «# SORGENTE MIC/DI…») */
     function _testa(){ trow("TRATTA","PROTOCOLLO","MEZZO","LUNGHEZZA","NOTE", true, "#4338ca"); doc.setDrawColor("#4f46e5"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6); }
@@ -41029,6 +41004,12 @@ function netListPdf(shared){
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
+/* Quadro di testa delle tratte «incomplete» (25/11): «fino al quadro A», mai «fino al quadro indicato». Una lettera o più (ordine di comparsa). */
+function elecDropQuadriTesta(T, en){
+  var u=[]; (T||[]).forEach(function(x){ if(x.d && x.d.pct!=null && x.d.completo===false){ var q=String(x.d.fino||"").trim(); if(q && u.indexOf(q)<0) u.push(q); } });
+  if(!u.length) return en ? "the head board" : "il quadro di testa";
+  return en ? (u.length===1 ? "board "+u[0] : "boards "+u.join(", ")) : (u.length===1 ? "quadro "+u[0] : "quadri "+u.join(", "));
+}
 /* CADUTA DI TENSIONE nel foglio «Alimentazioni» (C1): tabella per tratta, poi «Cosa fare» per le sole linee gialle o rosse. */
 function elecDropBloccoPdf(doc, R, M, getY, setY){
   var T=elecDropTratte(R); if(!T.some(function(x){ return x.d.pct!=null; })) return;
@@ -41042,21 +41023,21 @@ function elecDropBloccoPdf(doc, R, M, getY, setY){
   riga(en?"RUN":"TRATTA","A","mm²","m",en?"RUN":"LINEA",en?"TOTAL":"PERCORSO", true, "#b45309");
   T.forEach(function(x){ var d=x.d, nome=String(x.n); while(nome.length>2 && doc.getTextWidth(nome)>84){ nome=nome.slice(0,-2); }
     if(d.pct==null){ riga(nome, "—", "—", d.L>0?Math.round(d.L):"—", "—", "—", false, "#6b7280"); return; }
-    riga(nome, d.I.toFixed(1).replace(".",","), String(d.S).replace(".",",")+(d.stim?"*":""), Math.round(d.L), elecPctTxt(d.pct), elecPctTxt(d.tot!=null?d.tot:d.pct)+(d.completo===false?"°":""), d.lvl!=="ok", colore(d.lvl)); });
+    riga(nome, d.I.toFixed(1).replace(".",","), String(d.S).replace(".",",")+(d.stim?"\u2020":""), Math.round(d.L), elecPctTxt(d.pct), elecPctTxt(d.tot!=null?d.tot:d.pct)+(d.completo===false?"°":""), d.lvl!=="ok", colore(d.lvl)); });
   /* consigli: dal peggiore (totale del percorso più alto), massimo 10, e si dice quanti restano fuori (B6) */
   var visti={}, cand=[];
   T.forEach(function(x){ var f=elecDropAdvice(x.d, en); if(!f) return; var k=x.n+f; if(visti[k]) return; visti[k]=1; cand.push({x:x, f:f, tot:(x.d.tot!=null?x.d.tot:x.d.pct)}); });
   cand.sort(function(a,b){ return b.tot-a.tot; });
   cand.slice(0,10).forEach(function(c){ var x=c.x;
     if(y>272){ doc.addPage(); y=22; } doc.setFont("helvetica", x.d.lvl==="err"?"bold":"normal"); doc.setFontSize(8.5); doc.setTextColor(colore(x.d.lvl));
-    var rr=doc.splitTextToSize("• "+x.n+": "+c.f, 178); doc.text(rr, M, y); y+=rr.length*4; });
+    var rr=doc.splitTextToSize("• "+x.n+": "+c.f, 176); doc.text(rr, M, y); y+=rr.length*4; });
   if(cand.length>10){ if(y>272){ doc.addPage(); y=22; } doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#6b7280");
     doc.text("+"+(cand.length-10)+(en?" more lines: see the table above.":" altre linee: vedi la tabella sopra."), M, y); y+=4; }
   var incompleto=T.some(function(x){ return x.d.pct!=null && x.d.completo===false; });
   doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor("#6b7280");
   var nota=doc.splitTextToSize(en
-    ? "Calculation: copper, power factor 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (conservative values: about +/-3,5 % from the CEI UNEL tables). Limit 4 % from the supply point to the load (CEI 64-8), yellow above 3 %. Current (A) = estimated connected load on the most loaded phase, not the board rating; loads still to be connected and loads without power are left out; three-phase boards with single-phase loads: neutral included. * = size estimated from the current (1,5 mm2 up to 16 A, 4 mm2 up to 32 A): load cables have no size written in the project."+(incompleto?" ° = run up to the board shown: the run from the supply is not calculated (supply not set or manual mode).":"")+" Estimate: to be verified by the designer."
-    : "Calcolo: rame, fattore di potenza 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (valori prudenti: scarto di circa ±3,5 % dalle tabelle CEI UNEL). Limite 4 % dal punto di consegna al carico (CEI 64-8), giallo oltre il 3 %. Corrente (A) = carico stimato collegato sulla fase più carica, non la portata del quadro; esclusi i carichi da collegare e quelli senza potenza; quadri trifase con carichi monofase: neutro compreso. * = sezione stimata dalla corrente (1,5 mm² fino a 16 A, 4 mm² fino a 32 A): i cavi dei carichi non hanno una sezione scritta nel progetto."+(incompleto?" ° = percorso fino al quadro indicato: tratta dall'ingresso non calcolata (ingresso non definito o modalità manuale).":"")+" Stima: la verifica spetta al progettista.", 178);
+    ? "Calculation: copper, power factor 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (conservative values: about +/-3,5 % from the CEI UNEL tables). Limit 4 % from the supply point to the load (CEI 64-8), yellow above 3 %. Current (A) = estimated connected load on the most loaded phase, not the board rating; loads still to be connected and loads without power are left out; three-phase boards with single-phase loads: neutral included. \u2020 = size estimated from the current (1,5 mm2 up to 16 A, 4 mm2 up to 32 A): load cables have no size written in the project."+(incompleto?" ° = run up to "+elecDropQuadriTesta(T,true)+": the run from the supply is not calculated (supply not set or manual mode).":"")+" Estimate: to be verified by the designer."
+    : "Calcolo: rame, fattore di potenza 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (valori prudenti: scarto di circa ±3,5 % dalle tabelle CEI UNEL). Limite 4 % dal punto di consegna al carico (CEI 64-8), giallo oltre il 3 %. Corrente (A) = carico stimato collegato sulla fase più carica, non la portata del quadro; esclusi i carichi da collegare e quelli senza potenza; quadri trifase con carichi monofase: neutro compreso. \u2020 = sezione stimata dalla corrente (1,5 mm² fino a 16 A, 4 mm² fino a 32 A): i cavi dei carichi non hanno una sezione scritta nel progetto."+(incompleto?" ° = percorso fino al "+elecDropQuadriTesta(T,false)+": tratta dall'ingresso non calcolata (ingresso non definito o modalità manuale).":"")+" Stima: la verifica spetta al progettista.", 176);
   if(y+nota.length*3.4>280){ doc.addPage(); y=22; }
   doc.text(nota, M, y); y+=nota.length*3.4+2;
   setY(y);
@@ -41067,14 +41048,12 @@ function elecLinesPdf(shared){
   if(!distros.length){ if(!shared) alert("Nessuna linea elettrica (aggiungi carichi e un distro)."); return; }
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, y=22, cols=[M, M+22, M+52, M+72, M+160];
-    doc.setFillColor("#d97706"); doc.rect(0,0,210,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Alimentazioni", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
+    var M=16, y=PDF_Y0, cols=[M, M+22, M+52, M+72, M+160];
+    pdfTestata(doc, "#d97706", "STAGE PLOT — Alimentazioni", dataDocumento(), M, 210);
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
-    function trow(a,b,c,d,e,bold,color){ if(y>274){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.4; }
+    function trow(a,b,c,d,e,bold,color){ if(y>274){ doc.addPage(); y=PDF_TOP+5; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.4; }
     distros.forEach(function(d){
-      if(y>268){ doc.addPage(); y=18; }
+      if(y>268){ doc.addPage(); y=PDF_TOP+5; }
       var mine=(R.loadLinks||[]).filter(function(l){ return l.distro===d; }).sort(function(a,b){ return a.line-b.line; });
       var phTxt=d.phLoad.slice(0,d.ph).map(function(x){ return x.toFixed(0); }).join("/");
       doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#b45309");
@@ -41088,8 +41067,8 @@ function elecLinesPdf(shared){
     });
     elecDropBloccoPdf(doc, R, M, function(){ return y; }, function(v){ y=v; });   /* C1: blocco in coda, le righe sopra restano quelle di sempre */
     doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#9a948b");
-    if(y>274){ doc.addPage(); y=18; }
-    doc.text("* = numero linea scelto a mano. Magnetotermici e differenziali = dati di targa del quadro.", M, y);
+    if(y>274){ doc.addPage(); y=PDF_TOP+5; }
+    doc.text(docEn() ? "* = line number chosen by hand. Breakers and RCDs = board nameplate data." : "* = numero linea scelto a mano. Magnetotermici e differenziali = dati di targa del quadro.", M, y);
     if(shared) return;
     pdfCredit(doc);
     pdfSave(doc, fileName()+"-alimentazioni.pdf");
@@ -41123,7 +41102,7 @@ function outputListServicePdf(shared){
   var L; try{ L=busList(); }catch(_e){ L={count:0}; }
   if(!L.count){ if(!shared) alert("Nessuna uscita console (aggiungi monitor o bus dalle «Uscite console»)."); return; }
   var run=function(doc){
-    var M=12, W=297, K=OUT_SERVICE_RIGHE, cols=[M, M+14, M+92, M+140, M+186, 0];
+    var M=16, W=297, K=OUT_SERVICE_RIGHE, cols=[M, M+14, M+92, M+140, M+186, 0];
     var tp=String(state.titolo||"").trim(), nome=(typeof titoloSenzaVersione==="function" ? titoloSenzaVersione(tp) : tp)||"Output list";
     var dt=(state.evDate||"").replace(/-/g,""), v=(typeof versioneNumero==="function") ? versioneNumero() : 0;
     var testata=[nome, dt, String(state.luogo||"").trim(), v?("v"+v):""].filter(Boolean).join(" \u2013 ");
@@ -41140,17 +41119,15 @@ function outputListServicePdf(shared){
     var totPag=blocchi.length+((L.unpatched&&L.unpatched.length)?1:0), pag=0;
     function testa(titoloPag, sub){
       doc.addPage("a4","landscape"); pag++;
-      doc.setFillColor("#0891b2"); doc.rect(0,0,W,12,"F");
-      doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.text("STAGE PLOT \u2014 Output list", M, 8);
-      doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), W-M, 8, {align:"right"});
-      doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(fit(testata, W-2*M), M, 19);
-      doc.setTextColor("#0e7490"); doc.setFontSize(12); doc.text(titoloPag, M, 27);
-      doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor("#555555"); doc.text(sub, M, 32);
+      pdfTestata(doc, "#0891b2", "STAGE PLOT \u2014 Output list", dataDocumento(), M, W);
+      doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(fit(testata, W-2*M), M, 30);
+      doc.setTextColor("#0e7490"); doc.setFontSize(12); doc.text(titoloPag, M, 38);
+      doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor("#555555"); doc.text(sub, M, 43);
     }
     blocchi.forEach(function(bl){
       var b=bl.box, mod=(b.hw&&STAGEBOX_DB[b.hw]) ? STAGEBOX_DB[b.hw].model : "";
       testa((b.sbId?("ID "+b.sbId):("Box "+b.letter))+(mod?" \u2014 "+mod:""), "Uscite "+bl.da+"-"+(bl.da+bl.righe.length-1)+" \u00b7 usate "+bl.usate+" su "+b.outCap+" \u00b7 pagina "+(pag+1)+" di "+totPag);
-      var y0=38, rh=Math.min(9.5,(190-y0-14)/(K+1)), fs=Math.max(7.5, Math.min(10, rh*1.25));
+      var y0=49, rh=Math.min(9.5,(190-y0-14)/(K+1)), fs=Math.max(7.5, Math.min(10, rh*1.25));
       doc.setFont("helvetica","bold"); doc.setFontSize(fs); doc.setTextColor("#0891b2");
       ["OUT","MIX","MACCHINA","CUFFIE","MONITOR e P.A."].forEach(function(h,i){ doc.text(h, cols[i], y0+4); });
       doc.setDrawColor("#0891b2"); doc.setLineWidth(0.4); doc.line(M, y0+5.6, W-M, y0+5.6);
@@ -41189,17 +41166,15 @@ function outputListPdf(shared, opts){
   if(!L.count){ if(!shared) alert("Nessuna uscita console (aggiungi monitor o bus dalle «Uscite console»)."); return; }
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, y=22, cols=[M, M+26, M+108, M+134];
-    doc.setFillColor("#0891b2"); doc.rect(0,0,210,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Output list", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
+    var M=16, y=PDF_Y0, cols=[M, M+26, M+108, M+134];
+    pdfTestata(doc, "#0891b2", "STAGE PLOT — Output list", dataDocumento(), M, 210);
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
-    function trow(a,b,c,d,bold,color){ if(y>274){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); y+=5.4; }
+    function trow(a,b,c,d,bold,color){ if(y>274){ doc.addPage(); y=PDF_TOP+5; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); y+=5.4; }
     var all=(L.auto||[]).concat(L.rows.filter(function(r){ return r.box; }));
     L.boxes.forEach(function(b){
       var mine=all.filter(function(r){ return r.box.id===b.id; }).sort(function(a,c){ return a.ports[0]-c.ports[0]; });
       if(!mine.length) return;
-      if(y>270){ doc.addPage(); y=18; }
+      if(y>270){ doc.addPage(); y=PDF_TOP+5; }
       var usedN=mine.reduce(function(a,r){ return a+r.ports.length; },0);
       doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#0e7490");
       doc.text((b.sbId?("ID "+b.sbId):("Box "+b.letter))+(b.hw&&STAGEBOX_DB[b.hw]?" — "+STAGEBOX_DB[b.hw].model:"")+" · out "+usedN+"/"+b.outCap, M, y); y+=6;
@@ -41212,14 +41187,14 @@ function outputListPdf(shared, opts){
       y+=4;
     });
     if(L.unpatched && L.unpatched.length){
-      if(y>270){ doc.addPage(); y=18; }
+      if(y>270){ doc.addPage(); y=PDF_TOP+5; }
       doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#b91c1c");
       doc.text("Da patchare (out esaurite)", M, y); y+=6;
       L.unpatched.forEach(function(bu){ trow("—", bu.name.slice(0,44), (BUS_KINDS[bu.kind]||{}).tag||"ST", (bu.dest||"").slice(0,30), false, "#b91c1c"); });
       y+=2;
     }
     doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#9a948b");
-    if(y>274){ doc.addPage(); y=18; }
+    if(y>274){ doc.addPage(); y=PDF_TOP+5; }
     doc.text("* = porta scelta a mano. Un bus può alimentare più uscite senza essere duplicato.", M, y);
     if(shared) return;
     pdfCredit(doc);
@@ -41234,22 +41209,20 @@ function rackListPdf(shared){
   var FN={}; RACK_FN.forEach(function(o){ FN[o[0]]=o[1]; });
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, y=22;
-    doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Lista rack", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
+    var M=16, y=PDF_Y0;
+    pdfTestata(doc, "#0d9488", "STAGE PLOT — Lista rack", dataDocumento(), M, 210);
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 9); }
     var letters={}; try{ (cabResult().boxes||[]).forEach(function(b){ if(b.id) letters[b.id]=b.letter; }); }catch(_e){}
     racks.forEach(function(rk){
       var cont=rackContents(rk.id), used=rackUsedU(rk.id), tot=rk.rackU||12;
-      if(y>270){ doc.addPage(); y=18; }
+      if(y>270){ doc.addPage(); y=PDF_TOP+5; }
       doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#0b7a70");
       doc.text((rk.label||"Rack")+" — "+(FN[rk.rackFn]||"Generico")+" · "+used+"/"+tot+"U"+(used>tot?"  (!) rack troppo piccolo":""), M, y); y+=6;
       doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.5, 194, y-3.5);
       doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#111827");
       if(!cont.length){ doc.setTextColor("#777777"); doc.text("(vuoto)", M, y); y+=6; }
       cont.forEach(function(x,i){
-        if(y>274){ doc.addPage(); y=18; }
+        if(y>274){ doc.addPage(); y=PDF_TOP+5; }
         var nm=(letters[x.id]?("["+letters[x.id]+"] "):"")+rackDevName(x);
         doc.setTextColor("#111827"); doc.text((i+1)+".", M, y);
         doc.text(rackUhOf(x)+"U", M+9, y);
@@ -41269,10 +41242,8 @@ function backlineListPdf(shared){
   var pl=backlineList(); if(!pl.rows.length){ if(!shared) alert("Nessun elemento backline sul palco."); return; }
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, y=22, cols=[M, M+16, M+130];
-    doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Backline", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
+    var M=16, y=PDF_Y0, cols=[M, M+16, M+130];
+    pdfTestata(doc, "#0d9488", "STAGE PLOT — Backline", dataDocumento(), M, 210);
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     doc.text(pl.totItems+" element"+(pl.totItems===1?"o":"i")+" di backline"+(pl.byService?"   ·   "+pl.byService+" da fornire (Service)":""), M, y); y+=8;
@@ -41282,7 +41253,7 @@ function backlineListPdf(shared){
     function trow(a,b,c,bold,color){ doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5);
       var bl=doc.splitTextToSize(String(b), cols[2]-cols[1]-4);
       /* la riga a capo si misura INTERA: una riga che parte a 274 con 3 righe arrivava a 282 e toccava il piè (rilettura 17/11/2026) */
-      if(y+(bl.length-1)*3.9>274){ doc.addPage(); y=18; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); }
+      if(y+(bl.length-1)*3.9>274){ doc.addPage(); y=PDF_TOP+5; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); }
       doc.setTextColor(color||"#111827");
       doc.text(String(a),cols[0],y); doc.text(bl,cols[1],y); doc.text(String(c),cols[2],y); y+=5.6+(bl.length-1)*3.9; }
     /* intestazione delle colonne ripetuta sulle pagine di seguito (revisione 28/09) */
@@ -41308,12 +41279,8 @@ function backlineListPdf(shared){
 function scalettaPdf(doc){
   var d=scalettaList(); if(!d.rows.length) return false;
   doc.addPage("a4","portrait");
-  var M=16, R=194, y=22, col="#475569", XT=M+11, XD=R, WT=R-XT-24;
-  doc.setFillColor(col); doc.rect(0,0,210,14,"F");
-  doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11);
-  doc.text("STAGE PLOT — Scaletta", M, 9);
-  doc.setFont("helvetica","normal"); doc.setFontSize(9);
-  doc.text(dataDocumento(), R, 9, {align:"right"});
+  var M=16, R=194, y=PDF_Y0, col="#475569", XT=M+11, XD=R, WT=R-XT-24;
+  pdfTestata(doc, col, "STAGE PLOT — Scaletta", dataDocumento(), M, 210);
   if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
   doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
   doc.text(scalettaRiassunto(d), M, y); y+=8;
@@ -41329,7 +41296,7 @@ function scalettaPdf(doc){
     doc.setFontSize(8.5);
     var nl=r.note ? doc.splitTextToSize(r.note, WT).slice(0,3) : [];
     var h=tl.length*(r.segno?4.6:5.2)+nl.length*4+2.6;
-    if(y+h>274){ doc.addPage("a4","portrait"); y=18; testa(); }   /* la riga intera passa di pagina, con l'intestazione delle colonne */
+    if(y+h>274){ doc.addPage("a4","portrait"); y=PDF_TOP+5; testa(); }   /* la riga intera passa di pagina, con l'intestazione delle colonne */
     if(r.segno){ doc.setFillColor("#f1f5f9"); doc.rect(M, y-4.2, R-M, h-0.6, "F"); }
     doc.setTextColor(r.segno?"#334155":"#111827");
     if(r.n){ doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(r.n, XT-3, y, {align:"right"}); }
@@ -41343,7 +41310,7 @@ function scalettaPdf(doc){
     y+=h;
   });
   /* il totale chiude la tabella: è il numero che l'organizzazione chiede per primo */
-  if(y+9>274){ doc.addPage("a4","portrait"); y=18; }
+  if(y+9>274){ doc.addPage("a4","portrait"); y=PDF_TOP+5; }
   doc.setDrawColor("#111827"); doc.setLineWidth(0.5); doc.line(M, y-2.6, R, y-2.6); y+=3;
   doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#111827");
   doc.text("Totale"+(d.brani ? " · "+(d.brani===1?"1 brano":d.brani+" brani") : ""), XT, y);
@@ -41357,12 +41324,8 @@ function pdfListGeneric(doc, key, shared){
   if(!cfg || !cfg.data) return false;
   var d=cfg.data(); if(!d || !d.rows || !d.rows.length) return false;
   if(shared) doc.addPage("a4","portrait");
-  var M=16, y=22, col=cfg.color||"#0d9488";
-  doc.setFillColor(col); doc.rect(0,0,210,14,"F");
-  doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11);
-  doc.text("STAGE PLOT \u2014 "+cfg.title, M, 9);
-  doc.setFont("helvetica","normal"); doc.setFontSize(9);
-  doc.text(dataDocumento(), 194, 9, {align:"right"});
+  var M=16, y=PDF_Y0, col=cfg.color||"#0d9488";
+  pdfTestata(doc, col, "STAGE PLOT \u2014 "+cfg.title, dataDocumento(), M, 210);
   if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
   var sub=cfg.sub?cfg.sub(d):"";
   if(sub){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
@@ -41399,7 +41362,7 @@ function pdfListGeneric(doc, key, shared){
   function riga(vals, bold, colore, sep, fondo){
     var righe=vals.map(function(v,i){ return pdfTxtRighe(v==null?"":String(v), ws[i], PT, bold); });
     var n=Math.max.apply(null, righe.map(function(r){ return r.length; }));
-    if(y+(n-1)*PASSO>274){ doc.addPage(); y=18; sep=false; if(testa){ var _t=testa; testa=null; _t(); testa=_t; } }   /* la riga passa di pagina intera, con l'intestazione delle colonne */
+    if(y+(n-1)*PASSO>274){ doc.addPage(); y=PDF_TOP+5; sep=false; if(testa){ var _t=testa; testa=null; _t(); testa=_t; } }   /* la riga passa di pagina intera, con l'intestazione delle colonne */
     if(fondo){ doc.setFillColor(fondo); doc.rect(M-1.5, y-3.8, R-M+3, 5.4+(n-1)*PASSO, "F"); doc.setFillColor("#000000"); }   /* banda delle righe di sezione (organico, 12/11): il grassetto da solo non si vede in stampa */
     if(sep){ doc.setDrawColor("#e5e7eb"); doc.setLineWidth(0.2); doc.line(M, y-3.8, R, y-3.8); }
     doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(PT);
@@ -41627,10 +41590,8 @@ function rfListPdf(shared){
   var pl=rfList(); if(!pl.rows.length){ if(!shared) alert("Nessun radiomic o in-ear sul palco."); return; }
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, y=22, cols=[M, M+44, M+80, M+116, M+156];
-    doc.setFillColor("#4f46e5"); doc.rect(0,0,210,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Lista RF (radiomicrofoni / in-ear)", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
+    var M=16, y=PDF_Y0, cols=[M, M+44, M+80, M+116, M+156];
+    pdfTestata(doc, "#4f46e5", "STAGE PLOT — Lista RF (radiomicrofoni / in-ear)", dataDocumento(), M, 210);
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     var bandKeys=Object.keys(pl.bands);
@@ -41638,7 +41599,7 @@ function rfListPdf(shared){
     y=pdfACapo(doc, sommario, M, y, 178, 4.6)+1.4;
     doc.setFontSize(8.5); doc.setTextColor("#9ca3af"); doc.text("Documentazione per il coordinamento frequenze (a cura del service).", M, y); y+=7;
     var _testaTab=null;
-    function trow(a,b,c,d,e,bold,color){ if(y>274){ doc.addPage(); y=18; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.6; }
+    function trow(a,b,c,d,e,bold,color){ if(y>274){ doc.addPage(); y=PDF_TOP+5; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.6; }
     /* intestazione delle colonne ripetuta sulle pagine di seguito (revisione 28/09) */
     function _testa(){ trow("DISPOSITIVO","CHI LO USA","TIPO","FREQ. / BANDA", "RICEVITORE", true, "#4338ca"); doc.setDrawColor("#4f46e5"); doc.setLineWidth(0.4); doc.line(M, y-3.8, 194, y-3.8); }
     _testa(); _testaTab=_testa;
@@ -41659,10 +41620,8 @@ function pmListPdf(shared){
   if(!mixers.length && !pmhubs.length){ if(!shared) alert("Nessun personal monitor con modello sul palco."); return; }
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, y=22;
-    doc.setFillColor("#c026d3"); doc.rect(0,0,210,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Personal monitor", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
+    var M=16, y=PDF_Y0;
+    pdfTestata(doc, "#c026d3", "STAGE PLOT — Personal monitor", dataDocumento(), M, 210);
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
     function line(txt,size,bold,color,dy){ doc.setFontSize(size||9.5); doc.setFont("helvetica",bold?"bold":"normal"); doc.setTextColor(color||"#111827"); y=pdfACapo(doc, txt, M, y, 210-2*M, dy||5.4); }
     var R=monDigEngine();   /* fresh: la distinta deve riflettere lo stato reale, non la cache */
@@ -41709,10 +41668,8 @@ function elecReportPdf(shared){
     if(shared) doc.addPage("a4","portrait");
     var W=210, M=16, y=0;
     function line(txt, size, bold, color, dy){ doc.setFontSize(size||10); doc.setFont("helvetica", bold?"bold":"normal"); doc.setTextColor(color||"#1f2937"); y=pdfACapo(doc, txt, M, y, W-2*M, dy||5); }
-    doc.setFillColor("#d97706"); doc.rect(0,0,W,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.text("STAGE PLOT — Piano elettrico", M, 9);
-    doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(dataDocumento(), W-M, 9, {align:"right"});
-    y=22;
+    pdfTestata(doc, "#d97706", "STAGE PLOT — Piano elettrico", dataDocumento(), M, W);
+    y=PDF_Y0;
     if(state.titolo||state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
     /* M-06 onestà tecnica: i valori sono STIME preliminari, non un progetto esecutivo. Assunzioni esplicite. */
     (function(){ var d="STIMA PRELIMINARE — non è un progetto elettrico esecutivo. Linee calcolate sull'assorbimento tipico con assunzioni fisse (230 V, fattore di potenza 1, nessun derating, spunto, duty cycle"+(elecDropTratte(R).some(function(x){ return x.d.pct!=null; })?" o dislivello; la caduta di tensione è calcolata a parte, più sotto":", caduta di tensione o dislivello")+"); prese e generatore sul massimo (audio a 1/3 della potenza, generatore con fattore di potenza 0,8). Dimensionamento, protezioni e sicurezza vanno verificati da un elettricista qualificato. "+ELEC_DISCLAIMER_LEGGE;
@@ -41745,8 +41702,8 @@ function elecReportPdf(shared){
       line(en?"Voltage drop (limit 4 %)":"Caduta di tensione (limite 4 %)", 12, true, "#b45309", 6);
       var mx=Math.max.apply(null, V.map(function(x){ return x.d.tot!=null?x.d.tot:x.d.pct; })), incompleto=V.some(function(x){ return x.d.completo===false; });
       var notaI=en ? " Current = estimated connected load on the most loaded phase, not the board rating; loads still to be connected and loads without power are left out." : " Corrente = carico stimato collegato sulla fase più carica, non la portata del quadro; esclusi i carichi da collegare e quelli senza potenza.";
-      line(en ? ((incompleto ? "Maximum over the calculated run: " : "Maximum over the whole run: ")+elecPctTxt(mx)+(incompleto ? " (up to the board shown: the run from the supply is missing)." : ".")+" Copper, power factor 0,9, sizes as above (load cables: estimated from the current); conservative values."+notaI+" Estimate: to be verified by the designer.")
-              : ((incompleto ? "Massima sul percorso calcolato: " : "Massima sul percorso intero: ")+elecPctTxt(mx)+(incompleto ? " (fino al quadro indicato: manca la tratta dall'ingresso)." : ".")+" Rame, fattore di potenza 0,9, sezioni come sopra (per i carichi stimate dalla corrente); valori prudenti."+notaI+" Stima: la verifica spetta al progettista."), 9, false, null, 4.6);
+      line(en ? ((incompleto ? "Maximum over the calculated run: " : "Maximum over the whole run: ")+elecPctTxt(mx)+(incompleto ? " (up to "+elecDropQuadriTesta(T,true)+": the run from the supply is missing)." : ".")+" Copper, power factor 0,9, sizes as above (load cables: estimated from the current); conservative values."+notaI+" Estimate: to be verified by the designer.")
+              : ((incompleto ? "Massima sul percorso calcolato: " : "Massima sul percorso intero: ")+elecPctTxt(mx)+(incompleto ? " (fino al "+elecDropQuadriTesta(T,false)+": manca la tratta dall'ingresso)." : ".")+" Rame, fattore di potenza 0,9, sezioni come sopra (per i carichi stimate dalla corrente); valori prudenti."+notaI+" Stima: la verifica spetta al progettista."), 9, false, null, 4.6);
       var dett=V.filter(function(x){ return x.d.lvl==="warn" || x.d.lvl==="err"; }).sort(function(a,b){ return (b.d.tot!=null?b.d.tot:b.d.pct)-(a.d.tot!=null?a.d.tot:a.d.pct); });
       dett.slice(0,12).forEach(function(x){ line("• "+x.n+": "+elecPctTxt(x.d.pct)+(en?" over ":" su ")+Math.round(x.d.L)+" m. "+elecDropAdvice(x.d, en), 9, x.d.lvl==="err", x.d.lvl==="err"?"#dc2626":"#b45309", 4.6); });
       if(dett.length>12) line("+"+(dett.length-12)+(en?" more lines: see the power sheet.":" altre linee: vedi il foglio Alimentazioni."), 9, false, "#6b7280", 4.6);
@@ -41772,10 +41729,8 @@ function auditReportPdf(shared){
     if(shared) doc.addPage("a4","portrait");
     var W=210, M=16, y=0;
     function line(txt,size,bold,color,dy){ doc.setFontSize(size||10); doc.setFont("helvetica", bold?"bold":"normal"); doc.setTextColor(color||"#1f2937"); y=pdfACapo(doc, txt, M, y, W-2*M, dy||5); }
-    doc.setFillColor(col); doc.rect(0,0,W,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.text("STAGE PLOT — Audit progetto", M, 9);
-    doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(dataDocumento(), W-M, 9, {align:"right"});
-    y=24;
+    pdfTestata(doc, col, "STAGE PLOT — Audit progetto", dataDocumento(), M, W);
+    y=PDF_Y0;
     if(state.titolo||state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
     line("Prontezza: "+A.score+"/100  —  "+A.grade, 15, true, col, 8);
     line(A.errs+" errori · "+A.warns+" avvisi    ·    "+A.audioSrc+" ingressi · "+A.monitors+" mix monitor · "+(A.totW/1000).toFixed(1).replace(".",",")+" kW · cavo ~"+A.totCableM.toFixed(0)+" m"
@@ -42580,9 +42535,20 @@ function pdfTitoloLuogo(doc, M, y, passo){
    piena, continua sulla successiva. doc.text non va mai a capo da solo: l'avviso del report cablaggio arrivava a
    598 pt su un foglio da 595 e la fine della frase si perdeva (analisi esterna 08/11). Font e colore li ha già
    scelti chi chiama. Torna la y sotto l'ultima riga; una stringa vuota occupa comunque una riga. */
+/* Testata dei fogli A4/A3 (25/11/2026, «margini PDF»): la Ricoh dello studio taglia sotto i 15 mm, quindi fascia e testo stanno
+   TUTTI dentro il margine (fascia da 15 mm a 23 mm, larga quanto la pagina meno 15 mm per lato) e il contenuto parte da PDF_Y0.
+   Prima: fascia a filo carta 0-14 mm con titolo e data a 5 mm dal bordo. `col` colore fascia, `M` margine del foglio, `W` larghezza. */
+var PDF_TOP=15, PDF_Y0=30;
+function pdfTestata(doc, col, titolo, data, M, W){
+  var x0=Math.max(15, M-1), x1=W-x0;
+  doc.setFillColor(col); doc.rect(x0, PDF_TOP, x1-x0, 8, "F");
+  doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(titolo, x0+2, PDF_TOP+5.5);
+  doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(data, x1-2, PDF_TOP+5.3, {align:"right"});
+}
 function pdfACapo(doc, txt, x, y, larg, passo){
+  larg=Math.min(larg, doc.internal.pageSize.getWidth()-17.5-x);   /* testo mai oltre 17,5 mm dal bordo destro (margine 15 mm della Ricoh + tolleranza) */
   doc.splitTextToSize(String(txt), larg).forEach(function(r){
-    if(y>274){ doc.addPage("a4","portrait"); y=16; }
+    if(y>274){ doc.addPage("a4","portrait"); y=PDF_TOP+4; }
     doc.text(r, x, y); y+=passo;
   });
   return y;
@@ -45272,7 +45238,7 @@ function palcoEsterniFascia(doc, pw, M, d){
   var tit=doc.splitTextToSize(T.titolo, w);
   doc.setFont("helvetica","normal"); doc.setFontSize(10);
   var sub=doc.splitTextToSize(T.sub, w);
-  var h=4+tit.length*6.2+sub.length*4.8+2.5;
+  var h=4.9+tit.length*6.2+sub.length*4.8+2.5;   /* 4,9 (era 4): il titolo da 14 pt deve avere il bordo alto del testo a ≥ 15 mm dalla carta (25/11) */
   return {tit:tit, sub:sub, h:Math.round(h*100)/100};
 }
 /* foglio, orientamento e scala: quelli scelti nell'Esporta; con «Auto» vince il verso che stampa il palco più grande (a parità, orizzontale) */
@@ -45311,7 +45277,7 @@ function buildPdfPalcoEsterni(paperKey, scaleSel, orientSel){
         var barra=pdfScaleBarPosa(b2, N, {blockDims:!scena.noBlockDims, quoteJs:pdfQuoteFuoriDalDisegno(box)});
         pdfScaleBar(doc, barra.x, barra.y, N);
         /* la fascia in alto: titolo · luogo, «Stage plot vN · data», e una riga sotto */
-        var T=palcoEsterniTesti(d), y=M+4.2;
+        var T=palcoEsterniTesti(d), y=M+5.1;
         doc.setFont("helvetica","bold"); doc.setFontSize(14); doc.setTextColor(17,24,39);
         F.tit.forEach(function(r){ doc.text(r, M, y); y+=6.2; });
         doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(55,65,81);
