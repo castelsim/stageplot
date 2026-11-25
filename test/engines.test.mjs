@@ -41758,6 +41758,32 @@ t("Versioni L3 · palco temporaneo: «Crea elemento» e «cambio» sono due cose
     eq([A.paloTemporaneoAttivo(), A.custEditorAttivo(), A.cambioEditorAttivo()], [true, true, false], "«Crea elemento» resta com'era"); ok(/elemento che stai creando/.test(A.custEditorMsg()));
   } finally { A.__custEditor = null; A.__toast = t0; reset(); }
 }));
+t("Versioni L3 · C1: durante un cambio lo stato NON si cambia (telefono: tendina del menu) e nessuna versione diventa Superata; guardie dei blocchi su paloTemporaneoAttivo", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1, status: "revisione", statusAt: "2026-11-20" }, { versione: 2 }]); A.syncActiveVariant(); A.switchVariant("w1");
+  const toast = []; const t0 = A.__toast; A.__toast = (m) => { toast.push(m); };
+  try {
+    const stati = () => A.VARIANTS.map((v) => (v === A.VARIANTS[A.VARIANTS.length - 1] ? A.state : v.state).status || "bozza");
+    const prima = stati();
+    A.__custEditor = { cambio: { idx: 0, n: 1, vista: false }, salvato: {} };
+    A.setProjectStatus("revisione");
+    eq(A.state.status || "bozza", "bozza", "lo stato del palco temporaneo non cambia"); eq(stati(), prima, "nessuna versione messa in Superata");
+    ok(toast.length >= 1 && /cambio di palco/.test(toast[0]), "messaggio unico: " + toast[0]);
+    A.__custEditor = null; A.setProjectStatus("revisione"); eq(A.state.status, "revisione", "senza cambio funziona come prima");
+  } finally { A.__custEditor = null; A.__toast = t0; reset(); }
+  ok(/function setProjectStatus\(k, confermato\)\{\s*if\(paloTemporaneoAttivo\(\)\)\{ custEditorAvvisa\(\); renderStatusUI\(\); return; \}/.test(appjs), "prima riga di setProjectStatus");
+  ok(/if\(!paloTemporaneoAttivo\(\) \|\| !e\.target \|\| !e\.target\.closest\) return;\s*if\(e\.target\.closest\(CUST_BLOCCATI\)\)/.test(appjs), "blocco a clic su paloTemporaneoAttivo");
+  ok(/if\(paloTemporaneoAttivo\(\) && e\.target && e\.target\.closest && e\.target\.closest\("#titolo,#mTitle,#luogo,#projApprovedBy,#mVarStato"\)\)/.test(appjs), "blocco del fuoco su paloTemporaneoAttivo e con #mVarStato");
+}));
+t("Versioni L3 · C2: dentro un cambio syncNextId (⌘Z) non scende sotto minNext: un id nuovo non riprende quello di un elemento del palco base", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1, items: [itC("i1"), itC("i2", "batteria", 300, 200)] }]); A.syncActiveVariant();
+  try {
+    A.__custEditor = { cambio: { idx: 1, n: 2, vista: false, minNext: 5 }, salvato: {} };
+    A.syncNextId(); eq(A.nextId, 5, "stato temporaneo senza gli elementi alti: nextId resta al minimo salvato");
+    A.__custEditor.cambio.minNext = 3; A.syncNextId(); eq(A.nextId, 3, "con minNext più basso del massimo+1 vince il massimo");
+    A.__custEditor = null; A.syncNextId(); eq(A.nextId, 3, "fuori dal cambio: come prima");
+  } finally { A.__custEditor = null; reset(); }
+  ok(/cambio:\{idx:idx, n:idx\+1, vista:!!vista, minNext:minNext,/.test(appjs), "cambioEditorApri salva minNext in E.cambio");
+}));
 t("Versioni L3 · codice: i guardiani delle scritture usano paloTemporaneoAttivo; le parti SOLO di «Crea elemento» (griglia fine, scheda, strumenti) restano su custEditorAttivo", () => {
   ok(/function paloTemporaneoAttivo\(\)\{ return !!window\.__custEditor; \}/.test(appjs), "paloTemporaneoAttivo = qualsiasi palco temporaneo");
   ok(/function custEditorAttivo\(\)\{ return !!\(window\.__custEditor && !window\.__custEditor\.cambio\); \}/.test(appjs), "custEditorAttivo = solo il disegno dell'elemento");

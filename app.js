@@ -7207,7 +7207,8 @@ function itemIdNum(id){ var n=parseInt(String(id||"").replace(/\D/g,""),10); ret
 function syncNextId(){
   nextId=1;
   state.items.forEach(function(it){ var n=itemIdNum(it.id); if(n>=nextId) nextId=n+1; });
-  var _mc=cambiIdMax(state.cambi); if(_mc>=nextId) nextId=_mc+1;   /* Cambi di palco (L3): gli id degli elementi che entrano in un cambio non si riusano mai */
+  var _mc=cambiIdMax(state.cambi); if(_mc>=nextId) nextId=_mc+1;
+  var _E=window.__custEditor; if(_E&&_E.cambio&&_E.cambio.minNext>nextId) nextId=_E.cambio.minNext;   /* dentro un cambio, dopo ⌘Z: mai id del palco base o di altri cambi */   /* Cambi di palco (L3): gli id degli elementi che entrano in un cambio non si riusano mai */
 }
 function ensureItemIds(){
   var seen=Object.create(null), max=0;
@@ -13349,11 +13350,11 @@ function custBlocca(){ if(!custEditorAttivo()) return false; custEditorAvvisa();
 (function(){
   try{
     document.addEventListener("click", function(e){
-      if(!custEditorAttivo() || !e.target || !e.target.closest) return;
+      if(!paloTemporaneoAttivo() || !e.target || !e.target.closest) return;
       if(e.target.closest(CUST_BLOCCATI)){ e.preventDefault(); e.stopImmediatePropagation(); custEditorAvvisa(); }
     }, true);
     document.addEventListener("focusin", function(e){   /* il titolo e i campi del progetto: nemmeno il fuoco */
-      if(custEditorAttivo() && e.target && e.target.closest && e.target.closest("#titolo,#mTitle,#luogo,#projApprovedBy")){ try{ e.target.blur(); }catch(_e){} }
+      if(paloTemporaneoAttivo() && e.target && e.target.closest && e.target.closest("#titolo,#mTitle,#luogo,#projApprovedBy,#mVarStato")){ try{ e.target.blur(); }catch(_e){} }
     }, true);
   }catch(e){}
 })();
@@ -42680,6 +42681,7 @@ function statoVersioneOptions(cur){
   return ks.map(function(k){ return '<option value="'+k+'">'+esc(versioneStatoEtichetta(k))+'</option>'; }).join("");
 }
 function setProjectStatus(k, confermato){
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); renderStatusUI(); return; }   /* durante un cambio lo stato non si tocca: agirebbe sul palco temporaneo e sulle altre versioni */
   if(["bozza","revisione","approvato","superato"].indexOf(k)<0) return;
   var cur=state.status||"bozza";
   if(k===cur){ renderStatusUI(); return; }
@@ -42928,7 +42930,7 @@ function cambioEditorApri(idx, vista){
                                  venueAssets:venueHistoryAssets, activeVar:activeVar,
                                  venueCache:Object.prototype.hasOwnProperty.call(venueImgCache,vKey) ? Object.assign({},venueImgCache[vKey]) : null,
                                  adatta:{scena:adattaScena, rifai:adattaRifai, passo:adattaPasso}},
-                        cambio:{idx:idx, n:idx+1, vista:!!vista, prima:prima, ini:null, nome:c.nome||"", quando:c.quando||""} };
+                        cambio:{idx:idx, n:idx+1, vista:!!vista, minNext:minNext, prima:prima, ini:null, nome:c.nome||"", quando:c.quando||""} };
   adattaScena=null; adattaRifai=null; adattaPasso=null;
   try{
     var tmp=JSON.parse(window.__custEditor.salvato.attiva);
