@@ -41571,6 +41571,10 @@ t("Versioni L3 · cambiNorm: tipi e lunghezze garantiti, ≤30 cambi, id doppi o
   eq(c.sposta, [{ id: "i2", x: 11, y: 20, rot: 270 }], "numeri arrotondati, rotazione 0-359, valori non numerici e id doppi fuori");
   eq(A.cambiNorm(Array.from({ length: 40 }, (_, i) => ({ id: "c" + (i + 1) }))).length, 30, "al massimo 30 cambi");
   eq(A.cambiNorm([{ id: "c1" }])[0], { id: "c1", nome: "", quando: "", esce: [], entra: [], sposta: [] }, "un cambio vuoto è valido");
+  /* le forme dell'editor «Crea elemento» non entrano nei cambi nemmeno mentre l'editor le ammette (normalizeLoadedItems le lascerebbe passare) */
+  A.__custEditor = { salvato: {} }; A.__custShapeAmmesse = true;
+  try { eq(A.cambiNorm([{ id: "c1", entra: [{ id: "f1", type: "custshape", x: 1, y: 1, w: 10, d: 10, rot: 0, label: "" }, itC("i9", "cantante", 1, 1)] }])[0].entra.map((x) => x.id), ["i9"], "custshape fuori anche con l'editor aperto"); }
+  finally { A.__custEditor = null; A.__custShapeAmmesse = false; }
 });
 t("Versioni L3 · applicaCambi: esce → entra → sposta in ordine, cambio per cambio; non tocca l'ingresso; id che non esistono più si ignorano e si segnalano", () => {
   const base = [itC("i1", "cantante", 100, 100), itC("i2", "batteria", 300, 200), itC("i3", "astamic", 500, 100)];
@@ -41587,6 +41591,7 @@ t("Versioni L3 · applicaCambi: esce → entra → sposta in ordine, cambio per 
   const r3 = A.applicaCambi([itC("i1"), itC("i3", "astamic")], cs, 2);
   eq(r3.persi.map((p) => p.cambio + ":" + p.tipo + ":" + p.id), ["0:esce:i2"], "i2 non c'è più: segnalato, non rompe"); eq(r3.items.length, 2, "e il resto si applica (i9 entra e riesce, i1 e i3 restano)");
   eq(A.applicaCambi(base, [cambio("c1", { entra: [itC("i1", "tastiera")] })], 1).persi.map((p) => p.tipo), ["entra"], "un id che entra e c'è già: ignorato e segnalato (mai sovrascrive il palco base)");
+  eq(A.applicaCambi(base, [cambio("c1", { sposta: [{ id: "i77", x: 1, y: 1, rot: 0 }] })], 1).persi.map((p) => p.cambio + ":" + p.tipo + ":" + p.id), ["0:sposta:i77"], "uno spostamento di un elemento che non c'è più: segnalato");
   eq(A.applicaCambi(base, [], 3).items.length, 3, "nessun cambio: palco base"); eq(A.applicaCambi(undefined, undefined, 1).items, []);
 });
 t("Versioni L3 · cambioDelta: per id, esatto; applicandolo si ritrova il palco disegnato; soglie 0,5 cm e 0,5°; cambio di tipo = esce + entra", () => {
