@@ -39323,9 +39323,9 @@ function versioneUltimaId(){
   return best;
 }
 /* legge il cloud prima di creare: cb({esito:"ok"|"errore", condiviso:bool}); con conflitto, salvataggio non concluso, progetto bloccato o documento sostituito nell'attesa NON chiama cb */
-function allineaCloudPoi(cb){
+function allineaCloudPoi(cb, opz){
   if(custEditorAttivo()){ custEditorAvvisa(); return; }
-  if(window.__projLocked){ if(window.__toast) window.__toast("Il progetto è bloccato: sbloccalo per aggiungere una versione.", true); return; }
+  if(window.__projLocked && !(opz && opz.soloLettura)){ if(window.__toast) window.__toast("Il progetto è bloccato: sbloccalo per aggiungere una versione.", true); return; }
   var C=window.__cloud, ep=window.__docEpoch||0;
   if(!(C && typeof C.user==="function" && C.user() && typeof C.currentId==="function" && C.currentId() && typeof C.allinea==="function")){ cb({esito:"ok", condiviso:false}); return; }   /* senza account o progetto non ancora online: si lavora in locale */
   function leggi(){
@@ -39345,9 +39345,13 @@ function allineaCloudPoi(cb){
   } else leggi();
 }
 function confermaLinkAttivo(info, azione, verbo){
-  if(!info || !info.condiviso){ azione(); return; }
-  var ask={ icon:"warn", title:"Questo progetto ha un link di condivisione attivo", confirmText:verbo,
-    message:"Per ora il link mostra la versione su cui hai salvato per ultimo: la nuova versione nasce come Bozza e chi ha il link la vedrebbe subito. Vuoi continuare?" };
+  var nonVerificabile=!!(info && info.esito==="errore");
+  if(!info || (!info.condiviso && !nonVerificabile)){ azione(); return; }
+  var ask= nonVerificabile
+    ? { icon:"warn", title:"Non riesco a controllare il link di condivisione", confirmText:verbo,
+        message:"Non riesco a controllare se il progetto ha un link di condivisione attivo: se l'hai già mandato, chi ha il link vedrà questa Bozza. Vuoi continuare?" }
+    : { icon:"warn", title:"Questo progetto ha un link di condivisione attivo", confirmText:verbo,
+        message:"Per ora il link mostra la versione su cui hai salvato per ultimo: la nuova versione nasce come Bozza e chi ha il link la vedrebbe subito. Vuoi continuare?" };
   if(typeof window.confirmDialog==="function") window.confirmDialog(ask).then(function(ok){ if(ok) azione(); });
   else azione();
 }
@@ -39429,6 +39433,7 @@ function importaVersioneDaDocumento(prepared, nomeFile){
 }
 function importaComeNuovaVersione(){
   if(custEditorAttivo()){ custEditorAvvisa(); return; }
+  if(!window.jsonSoloCollegati()) return;   /* il JSON solo da collegati (decisione del 15/09) */
   var inp=document.getElementById("importVersionFile"); if(inp) inp.click();
 }
 function importaVersioneDaFile(f){
@@ -39481,7 +39486,7 @@ function duplicaVersioneComeProgetto(varId, titolo){
         activatePreparedProject(prepared); if(window.__toast) window.__toast("✓ Nuovo progetto: "+nome+" (solo su questo dispositivo: accedi per salvarlo online).");
       });
     }
-  });
+  }, { soloLettura:true });   /* duplicare non tocca l'originale: vale anche su un progetto bloccato */
 }
 function promptDuplicaVersione(varId){
   var v=null; VARIANTS.forEach(function(x){ if(x.id===varId) v=x; }); if(!v) return;
@@ -43802,7 +43807,7 @@ function proteggiVersioneChiusa(){
   var ban=document.getElementById("verBanner"); if(!ban) return;
   ban.addEventListener("click", function(e){
     var b=e.target.closest("[data-vb]"); if(!b) return;
-    if(b.getAttribute("data-vb")==="nuova") createVariant();
+    if(b.getAttribute("data-vb")==="nuova") nuovaVersione(activeVar);
     else if(b.getAttribute("data-vb")==="bozza") setProjectStatus("bozza");
   });
 })();

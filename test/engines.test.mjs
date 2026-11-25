@@ -41447,6 +41447,33 @@ t("Versioni L2 · invito «togliere vN dal titolo»: il numero resta com'era per
   eq(A.nomeFilePdf("a4", 1, "landscape", new Date(2026, 10, 25)), nomeP, "il nome del PDF non cambia");
   reset();
 }));
+t("Versioni L2 · correzioni della rilettura (C1-C4): banner → nuovaVersione; rete in errore chiede comunque; Importa solo da collegati; Duplica anche da bloccato", () => senzaForeign(() => {
+  /* C1: il «Nuova versione» del banner della versione chiusa passa dai controlli (cloud + link), non da createVariant diretto */
+  ok(/getAttribute\("data-vb"\)==="nuova"\) nuovaVersione\(activeVar\);/.test(appjs) && !/getAttribute\("data-vb"\)==="nuova"\) createVariant\(/.test(appjs), "C1: il banner chiama nuovaVersione(activeVar)");
+  /* C2: la lettura del cloud fallisce → la conferma del link compare lo stesso, con testo prudente; il no non crea */
+  const nv = () => A.VARIANTS.length; let chieste = []; 
+  reset(); docVersioni([{ versione: 1 }]); A.syncActiveVariant();
+  conCloud(cloudOk({ allinea: (cb) => cb({ esito: "errore", condiviso: false }) }), () => {
+    A.confirmDialog = (o) => { chieste.push(o); return { then: (f) => f(false) }; }; A.nuovaVersione(); eq([nv(), chieste.length], [1, 1], "C2: errore di rete, risposta no: chiede e non crea");
+    ok(/Non riesco a controllare/.test(chieste[0].message), "C2: testo prudente");
+    A.confirmDialog = (o) => { chieste.push(o); return { then: (f) => f(true) }; }; A.nuovaVersione(); eq([nv(), chieste.length], [2, 2], "C2: errore di rete, risposta sì: crea");
+  });
+  /* C2 bis: lettura riuscita e senza link → nessuna domanda come prima */
+  chieste = []; docVersioni([{ versione: 1 }]); A.syncActiveVariant();
+  conCloud(cloudOk(), () => { A.confirmDialog = (o) => { chieste.push(o); return { then: (f) => f(true) }; }; A.nuovaVersione(); eq([nv(), chieste.length], [2, 0], "senza link e lettura ok: nessuna conferma"); });
+  /* C3: Importa come nuova versione passa dal cancello «JSON solo da collegati» */
+  let cancello = 0; const jc = A.jsonSoloCollegati; A.jsonSoloCollegati = () => { cancello++; return false; };
+  try { A.importaComeNuovaVersione(); } finally { A.jsonSoloCollegati = jc; }
+  eq(cancello, 1, "C3: importaComeNuovaVersione chiede il cancello dei collegati");
+  /* C4: Duplica non si ferma su un progetto bloccato (non tocca l'originale) */
+  reset(); docVersioni([{ versione: 1, items: [itV("a")] }, { versione: 2, items: [itV("b")] }]); A.syncActiveVariant();
+  let creato = null; const cl = cloudOk({ creaProgetto: (spec, cb) => { creato = spec; cb("11111111-1111-1111-1111-111111111111"); }, open: () => {} });
+  conCloud(cl, () => { A.__projLocked = true; A.duplicaVersioneComeProgetto("w1", "Ridotto"); });
+  ok(creato && creato.title === "Ridotto", "C4: da bloccato Duplica crea comunque");
+  reset(); docVersioni([{ versione: 1 }]); A.syncActiveVariant();
+  conCloud(cloudOk(), () => { A.__projLocked = true; A.nuovaVersione(); eq(nv(), 1, "C4: Nuova versione resta bloccata sul progetto bloccato"); });
+  reset(); spegniCloud();
+}));
 t("Versioni L2 · interfaccia: voci nuove nel menu della versione, nel menu File e sul telefono; avviso nel pannello Condividi; frase dell'Esporta", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/data-vm="dup">Duplica come nuovo progetto…<\/button>/.test(html), "menu della scheda");
