@@ -2114,8 +2114,8 @@ svg.names-hidden .orc-name{display:none}
        da sempre, ma i loro stati non erano nell'elenco: si premeva la voce, il palco sbiadiva
        (`body.area-edit .item{opacity:.4}`) e non compariva NIENTE. Due funzioni raggiungibili e
        morte. Chi ne aggiunge una terza deve passare da qui. */
-    body.stage-edit #props,body.evento-edit #props,body.scaletta-edit #props,body.chan-edit #props,body.tech-open #props,body.area-edit #props,body.vers-edit #props,body.m-has-sel.props-expanded #props{display:block}
-    body.stage-edit main,body.evento-edit main,body.scaletta-edit main,body.chan-edit main,body.tech-open main,body.area-edit main,body.vers-edit main,body.m-has-sel.props-expanded main{bottom:calc(46vh + 53px + env(safe-area-inset-bottom,0px))}
+    body.stage-edit #props,body.evento-edit #props,body.scaletta-edit #props,body.cambi-edit #props,body.chan-edit #props,body.tech-open #props,body.area-edit #props,body.vers-edit #props,body.m-has-sel.props-expanded #props{display:block}
+    body.stage-edit main,body.evento-edit main,body.scaletta-edit main,body.cambi-edit main,body.chan-edit main,body.tech-open main,body.area-edit main,body.vers-edit main,body.m-has-sel.props-expanded main{bottom:calc(46vh + 53px + env(safe-area-inset-bottom,0px))}
     /* In «Punti di ripristino» resta solo la lista delle versioni, come fa già «Area stampa». */
     body.vers-edit #selProps,body.vers-edit #noSel,body.vers-edit #groupProps,body.vers-edit #eventoSec{display:none !important}
     /* LA TESTA DEL FOGLIO DELL'ELEMENTO (13/09): nome e misure, sotto quattro azioni scritte da 52 px.
@@ -2678,6 +2678,8 @@ body.ver-chiusa #inRows input,body.ver-chiusa #inRows select,body.ver-chiusa #in
 body.ver-chiusa #outRows input,body.ver-chiusa #outRows select,body.ver-chiusa #outRows textarea,body.ver-chiusa #outRows button,
 body.ver-chiusa #rdSedie,body.ver-chiusa #rdSistema,body.ver-chiusa #rdLuci,body.ver-chiusa #rdPersonale,body.ver-chiusa #rdNote,body.ver-chiusa #rdCamerini,body.ver-chiusa #rdParcheggi,
 body.ver-chiusa #rdMateriali,body.ver-chiusa #rdDistinta,body.ver-chiusa #rdLuciNoFumo,body.ver-chiusa #rdLuciSeparata,body.ver-chiusa #rdLuciLeggii,body.ver-chiusa #rdDotazioni input{pointer-events:none;opacity:.7}
+/* restano vivi: chiudere il pannello e l'area di stampa (è del documento, serve a ristampare) e, nei Cambi di palco (L3), «Vedi il palco» e «Fatto»: guardare una versione chiusa si può */
+body.ver-chiusa #props #cambiSec button{pointer-events:auto;opacity:1}
 /* restano vivi: chiudere il pannello e l'area di stampa (è del documento, serve a ristampare) */
 body.ver-chiusa #props #propsGrab,body.ver-chiusa #props #areaEditPanel input,body.ver-chiusa #props #areaEditPanel button,body.ver-chiusa #props #areaEditPanel select{pointer-events:auto;opacity:1}
 body.ver-chiusa #bUndo,body.ver-chiusa #bRedo,body.ver-chiusa #mUndo,body.ver-chiusa #mRedo{pointer-events:none;opacity:.5}
@@ -4450,3 +4452,54 @@ body.dark .pdf-export .px-det-b{color:#6fd3c6}
   .pdf-export .px-fuori::first-letter{text-transform:uppercase}
 }
 .pdf-export.px-compatti .pdf-exp-side{gap:6px}
+
+/* ── CAMBI DI PALCO (Versioni L3, 25/11/2026) ───────────────────────────────────────────────────
+   Pannello come «Scaletta»: con i cambi aperti la colonna (o il cassetto del telefono) mostra solo lui. */
+#props #cambiSec{display:none}
+body.cambi-edit #props #cambiSec{display:block}
+body.cambi-edit #selProps,body.cambi-edit #groupProps,body.cambi-edit #noSel,body.cambi-edit #stageEditPanel,body.cambi-edit #eventoSec,body.cambi-edit #scalettaSec{display:none !important}
+#props #cambiSec h3{margin-bottom:2px}
+#props #cambiSec .ev-intro{font-size:12px;color:var(--text-2);margin:0 0 10px;line-height:1.4}
+#props #cambiSec .sc-vuota{font-size:13px;color:var(--text-2);line-height:1.45;margin:4px 0 10px;padding:10px 12px;border:1px dashed var(--border-strong);border-radius:10px}
+#props #cambiSec .sc-vuota[hidden]{display:none}
+.cb-row{display:grid;grid-template-columns:26px minmax(0,1fr);gap:4px 8px;align-items:center;padding:9px 0;border-top:1px solid var(--border)}
+.cb-row:first-child{border-top:none}
+.cb-n{grid-row:1/3;align-self:start;width:24px;height:24px;border-radius:50%;background:var(--accent-tint);color:var(--accent);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center}
+.cb-row input{width:100%;box-sizing:border-box;min-width:0}
+.cb-sum,.cb-av,.cb-acts{grid-column:2}
+.cb-sum{font-size:12px;color:var(--text-2);line-height:1.45}
+.cb-sum b{color:var(--text)}
+.cb-av{font-size:11px;line-height:1.4;padding:5px 8px;border-radius:8px;background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--text)}
+.cb-acts{display:flex;gap:6px;flex-wrap:wrap}
+#props #cambiSec .cb-acts .btn,.cb-b{font-size:12px;padding:5px 10px;width:auto;height:auto;flex:0 0 auto;margin:0}
+#props #cambiSec .sc-add{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 4px}
+#props #cambiSec .sc-add .btn{width:auto;flex:0 0 auto;margin:0;font-size:12px;padding:6px 10px}
+#props #cambiSec .sc-tot{margin:12px 0 0;padding:9px 12px;border-radius:10px;background:var(--accent-tint);color:var(--text);font-size:12px;line-height:1.4}
+#props #cambiSec .sc-tot[hidden]{display:none}
+#props #cambiSec #bCambiDone{width:100%;margin-top:16px}
+body.cb-ro #props #cambiSec .sc-add{display:none}
+.cb-via{color:var(--danger)}
+body.cb-ro .cb-row input{opacity:.8}
+/* Il palco «dopo il cambio N»: lo stesso palco temporaneo di «Crea elemento», ma col palco vero. Banner in alto, sul palco, come quello delle versioni chiuse. */
+#cambioBanner{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:32;box-sizing:border-box;max-width:min(94%,760px);display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:7px 12px;border:1px solid var(--accent);border-radius:10px;background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:var(--text);font-size:13px;line-height:1.35;box-shadow:0 4px 14px rgba(0,0,0,.14)}
+#cambioBanner[hidden]{display:none}
+#cambioBanner .vb-dot{width:9px;height:9px;border-radius:50%;background:var(--accent);flex:0 0 auto}
+#cambioBanner .vb-testo{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1 1 220px}
+#cambioBanner .vb-testo span{font-size:12px;color:var(--text-2)}
+#cambioBanner .vb-az{display:flex;gap:6px;flex:0 0 auto}
+#cambioBanner button{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:7px;padding:5px 11px;font-weight:600;font-size:12px;cursor:pointer}
+#cambioBanner button[data-cb-b="fatto"],#cambioBanner[data-vista="1"] button[data-cb-b="annulla"]{background:var(--accent);border-color:var(--accent);color:#fff}
+#cambioBanner button[hidden]{display:none}
+@media (max-width:600px){ #cambioBanner{top:62px;padding:6px 9px;gap:6px}   /* sotto la barra del titolo, senza coprire il chip «Vista girata» */
+  #cambioBanner .vb-testo span{display:none} #cambioBanner button{padding:5px 8px} }
+/* durante il cambio: niente di ciò che agirebbe sul progetto vero (intestazione, versioni, file, esportazione, liste); il catalogo resta, per far ENTRARE elementi */
+body.cambio-editor #fileBtn, body.cambio-editor header .tbdiv, body.cambio-editor #titolo, body.cambio-editor #evChip,
+body.cambio-editor #variantBar, body.cambio-editor #projStatus, body.cambio-editor #projApprovedBy, body.cambio-editor #docState,
+body.cambio-editor header .hdr-actions, body.cambio-editor #vistaBanner, body.cambio-editor #funzBanner, body.cambio-editor #riapriBanner, body.cambio-editor #assunzioni,
+body.cambio-editor #chanlist, body.cambio-editor #areaEditPanel, body.cambio-editor #stageEditPanel, body.cambio-editor #eventoSec, body.cambio-editor #scalettaSec,
+body.cambio-editor #cambiSec, body.cambio-editor #verBanner{display:none !important}
+/* in un cambio contano solo uscite, entrate e spostamenti: misure, nome, modello e canali si spengono (la nota lo dice); resta viva la rotazione */
+body.cambio-editor #selProps input:not(#pRot),body.cambio-editor #selProps select,body.cambio-editor #selProps textarea,body.cambio-editor #selProps .chips button{pointer-events:none;opacity:.5}
+body.cambio-editor #selProps h3::after{content:"In un cambio si registrano solo uscite, entrate e spostamenti. Per cambiare nome, misure o modello usa il palco base.";display:block;font-size:11px;font-weight:400;line-height:1.4;color:var(--text-2);margin-top:3px}
+body.cambio-vista #catalog{pointer-events:none;opacity:.55}

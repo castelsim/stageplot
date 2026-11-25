@@ -5543,7 +5543,7 @@ t("Ordina come il service: Ripristina rimette la memoria dell'azione precedente;
   ok(/n=Math\.max\(0, Math\.min\(SERVIZIO_N_MAX, n\)\);\n\s*piano=servizioPiano\(n\);/.test(appjs), "il numero scelto è limitato a 0-8");
   ok(/go\.disabled=!piano\.ok;/.test(appjs), "«Applica» spento se il piano non entra");
   ok(/__servizioUndo=snap; stato\(false\);/.test(appjs), "dopo Applica si tiene lo snapshot per «Ripristina»");
-  ok(/if\(typeof custEditorAttivo==="function" && custEditorAttivo\(\)\)\{ custEditorAvvisa\(\); return; \}\n\s*var snap=servizioApplica/.test(appjs), "con l'editor «Crea elemento» aperto non si applica");
+  ok(/if\(typeof paloTemporaneoAttivo==="function" && paloTemporaneoAttivo\(\)\)\{ custEditorAvvisa\(\); return; \}\n\s*var snap=servizioApplica/.test(appjs), "con l'editor «Crea elemento» aperto non si applica");
   ok(/ann\.onclick=function\(\)\{ m\.hidden=true; \};/.test(appjs), "«Annulla» chiude senza scrivere");
   ok(/d\.className="svco-can"\+\(r\.da!==r\.a\?" cambia":""\);/.test(appjs) && /\(r\.da===r\.a\?"invariato":"era "\+r\.da\)/.test(appjs), "l'anteprima dice «era N» solo ai canali che cambiano");
 });
@@ -10389,7 +10389,7 @@ t("crea elemento: misure in metri con la virgola, passo della griglia 1/5/10 cm 
   eq(A.custMisura(120, 80), "1,20 × 0,80 m");
   eq(A.custMisura(1205, 7), "12,05 × 0,07 m");
   eq([0.1, 0.2, 0.3, 0.4, 0.6, 1, 1.5, 3].map(A.custPassoDa), [1, 1, 1, 5, 5, 10, 10, 10], "≈ 8 px di schermo al passo più vicino");
-  ok(/function snapVal\(\)\{ if\(window\.__custEditor\) return custAggancio \? custPasso\(\) : 0;/.test(appjs), "nell'editor l'aggancio usa la griglia fine");
+  ok(/function snapVal\(\)\{ if\(custEditorAttivo\(\)\) return custAggancio \? custPasso\(\) : 0;/.test(appjs), "nell'editor l'aggancio usa la griglia fine");
 });
 t("crea elemento: la scheda si riempie e si rilegge uguale (limiti della spec)", () => conCampi((campi) => {
   const v = A.custMostraScheda({ nome: "  Proiettore\n", desc: "x".repeat(300), watt: "2500", ins: { n: 3, tipo: "linea" }, backline: true });
@@ -35027,7 +35027,7 @@ t("Palco per esterni: il PDF è solo disegno + barra + fascia (struttura del cod
   ok(/pdfGateErrori\(function\(\)\{\s*be\.disabled=true;[\s\S]*?exportPalcoEsterni\(/.test(appjs), "passa dal gate sugli errori critici come gli altri export");
   ok(/palcoEsterniNomeFile\(\); pdfSave\(doc, nome\)/.test(appjs), "esce col suo nome");
   const ex = appjs.slice(appjs.indexOf("function exportPalcoEsterni"), appjs.indexOf("function exportPdf(paperKey"));
-  ok(/^function exportPalcoEsterni\(paperKey, scaleSel, orientSel\)\{\s*if\(custEditorAttivo\(\)\)\{ custEditorAvvisa\(\); return Promise\.resolve\(false\); \}/.test(ex), "con l'editor «Crea elemento» aperto non esporta");
+  ok(/^function exportPalcoEsterni\(paperKey, scaleSel, orientSel\)\{\s*if\(paloTemporaneoAttivo\(\)\)\{ custEditorAvvisa\(\); return Promise\.resolve\(false\); \}/.test(ex), "con l'editor «Crea elemento» aperto non esporta");
   ok(/segnaPdfEsportato\(\)/.test(ex) && /track\("export",\{format:"pdf-palco-esterni"\}\)/.test(ex), "segna l'export e lo conta");
   ok(/m\.cropped\?" warn":" ok"/.test(ex) && /parte centrale che ci sta/.test(ex), "se ritaglia lo dice, non un «✓» pulito");
   const ui = appjs.slice(appjs.indexOf('var be=document.getElementById("pdfEsterni")'), appjs.indexOf('document.getElementById("pdfGo").addEventListener'));
@@ -36431,7 +36431,7 @@ t("Foglio per il teatro: PDF A4 vettoriale «N di M» (pdfCredit), margini ≥ 1
   ok(/body:not\(\.f-esporta\) #pdfTeatroBox\{display:none !important\}/.test(stylesCss), "chiuso di serie: si vede solo con «Esporta avanzato»");
   ok(/pdfGateErrori\(function\(\)\{ bt\.disabled=true; exportFoglioTeatro\(\)/.test(appjs), "gate sugli errori critici, niente doppio clic");
   const ex = appjs.slice(appjs.indexOf("function exportFoglioTeatro"), appjs.indexOf("function exportPdf(paperKey"));
-  ok(/custEditorAttivo\(\)/.test(ex) && /segnaPdfEsportato\(\)/.test(ex) && /pdf-foglio-teatro/.test(ex), "come gli altri export: editor aperto, segna e conta");
+  ok(/paloTemporaneoAttivo\(\)/.test(ex) && /segnaPdfEsportato\(\)/.test(ex) && /pdf-foglio-teatro/.test(ex), "come gli altri export: editor aperto, segna e conta");
 });
 
 /* ───────── L6 · lunghezze sul percorso disegnato, «cavi per taglio», scheda cavi per il service (16/11/2026, proposta CAVI_SUL_PALCO § 4 L6) ─────────
@@ -41633,5 +41633,179 @@ t("Versioni L2b · «Superata»: etichetta, banner e rider coerenti; progetti se
   ok(/data-stato="superato"|setAttribute\("data-stato"/.test(appjs) && /#verBanner\[data-stato="superato"\]\{border-color:#94a3b8/.test(stylesCss), "banner Superata: stile grigio e quieto");
   ok(/\.vtab-st-superato \.vtab-stt\{[^}]*opacity/.test(stylesCss) || /vtab\.superata/.test(stylesCss), "scheda Superata: scritta più quieta");
 });
+/* ───────── VERSIONI, lotto 3 (25/11/2026): CAMBI DI PALCO — dati, motore, guardiani ───────── */
+console.log("\nVersioni L3 (25/11/2026):");
+const itC = (id, type, x, y, extra) => Object.assign({ id, type: type || "cantante", x: x == null ? 100 : x, y: y == null ? 100 : y, rot: 0, w: 70, d: 90, label: "El " + id }, extra || {});
+const cambio = (id, o) => Object.assign({ id, nome: "", quando: "", esce: [], entra: [], sposta: [] }, o || {});
+t("Versioni L3 · cambiNorm: tipi e lunghezze garantiti, ≤30 cambi, id doppi o non validi e forme (custshape) fuori, numeri arrotondati", () => {
+  eq(A.cambiNorm(undefined), [], "niente → niente"); eq(A.cambiNorm("x"), []); eq(A.cambiNorm([null, 3, "a", []]), [], "voci non oggetto fuori");
+  const r = A.cambiNorm([{ id: "c1", nome: "  Cambio   uno  ", quando: "x".repeat(200), esce: ["i1", "i1", "../x", 5, null], entra: [itC("i9", "cantante", 10.4, 20.6), { id: "i8", type: "tipo-che-non-esiste" }, { id: "i7", type: "custshape" }, itC("i9")],
+    sposta: [{ id: "i2", x: 10.6, y: "20", rot: -90 }, { id: "i3", x: "boh", y: 1 }, { id: "i2", x: 1, y: 1 }, { id: "../", x: 1, y: 1 }] },
+    { id: "c1", nome: "doppio" }, { nome: "senza id" }, { id: "bad id!" }]);
+  eq(r.length, 1, "id doppio, senza id e non valido: fuori"); const c = r[0];
+  eq(c.nome, "Cambio uno", "spazi ripuliti"); eq(c.quando.length, 60, "quando ≤ 60");
+  eq(c.esce, ["i1", "5"], "id doppi e non sicuri fuori, i numeri diventano stringhe");
+  eq(c.entra.map((x) => x.id), ["i9"], "tipo ignoto, forma custshape e id doppio fuori"); eq([c.entra[0].x, c.entra[0].y], [10, 21], "coordinate arrotondate");
+  eq(c.sposta, [{ id: "i2", x: 11, y: 20, rot: 270 }], "numeri arrotondati, rotazione 0-359, valori non numerici e id doppi fuori");
+  eq(A.cambiNorm(Array.from({ length: 40 }, (_, i) => ({ id: "c" + (i + 1) }))).length, 30, "al massimo 30 cambi");
+  eq(A.cambiNorm([{ id: "c1" }])[0], { id: "c1", nome: "", quando: "", esce: [], entra: [], sposta: [] }, "un cambio vuoto è valido");
+  /* le forme dell'editor «Crea elemento» non entrano nei cambi nemmeno mentre l'editor le ammette (normalizeLoadedItems le lascerebbe passare) */
+  A.__custEditor = { salvato: {} }; A.__custShapeAmmesse = true;
+  try { eq(A.cambiNorm([{ id: "c1", entra: [{ id: "f1", type: "custshape", x: 1, y: 1, w: 10, d: 10, rot: 0, label: "" }, itC("i9", "cantante", 1, 1)] }])[0].entra.map((x) => x.id), ["i9"], "custshape fuori anche con l'editor aperto"); }
+  finally { A.__custEditor = null; A.__custShapeAmmesse = false; }
+});
+t("Versioni L3 · applicaCambi: esce → entra → sposta in ordine, cambio per cambio; non tocca l'ingresso; id che non esistono più si ignorano e si segnalano", () => {
+  const base = [itC("i1", "cantante", 100, 100), itC("i2", "batteria", 300, 200), itC("i3", "astamic", 500, 100)];
+  const copia = JSON.stringify(base);
+  const cs = [cambio("c1", { esce: ["i2"], entra: [itC("i9", "tastiera", 400, 300)], sposta: [{ id: "i1", x: 150, y: 120, rot: 90 }] }),
+              cambio("c2", { esce: ["i9"], sposta: [{ id: "i3", x: 0, y: 0, rot: 0 }] })];
+  const r0 = A.applicaCambi(base, cs, 0); eq(r0.items.map((x) => x.id), ["i1", "i2", "i3"], "N=0: il palco base"); eq(r0.persi, []);
+  const r1 = A.applicaCambi(base, cs, 1); eq(r1.items.map((x) => x.id), ["i1", "i3", "i9"], "dopo il cambio 1: i2 esce, i9 entra (in fondo)");
+  eq([r1.items[0].x, r1.items[0].y, r1.items[0].rot], [150, 120, 90], "i1 spostato e ruotato");
+  const r2 = A.applicaCambi(base, cs, 2); eq(r2.items.map((x) => x.id), ["i1", "i3"], "dopo il cambio 2: i9 esce");
+  eq([r2.items[1].x, r2.items[1].y], [0, 0], "i3 spostato"); eq(A.applicaCambi(base, cs).items.length, 2, "senza N: tutti");
+  eq(JSON.stringify(base), copia, "l'ingresso non cambia"); r1.items[0].x = 1; eq(cs[0].sposta[0].x, 150, "e i cambi non si sporcano");
+  /* id perso: l'elemento è stato tolto dal palco base dopo aver scritto il cambio */
+  const r3 = A.applicaCambi([itC("i1"), itC("i3", "astamic")], cs, 2);
+  eq(r3.persi.map((p) => p.cambio + ":" + p.tipo + ":" + p.id), ["0:esce:i2"], "i2 non c'è più: segnalato, non rompe"); eq(r3.items.length, 2, "e il resto si applica (i9 entra e riesce, i1 e i3 restano)");
+  eq(A.applicaCambi(base, [cambio("c1", { entra: [itC("i1", "tastiera")] })], 1).persi.map((p) => p.tipo), ["entra"], "un id che entra e c'è già: ignorato e segnalato (mai sovrascrive il palco base)");
+  eq(A.applicaCambi(base, [cambio("c1", { sposta: [{ id: "i77", x: 1, y: 1, rot: 0 }] })], 1).persi.map((p) => p.cambio + ":" + p.tipo + ":" + p.id), ["0:sposta:i77"], "uno spostamento di un elemento che non c'è più: segnalato");
+  eq(A.applicaCambi(base, [], 3).items.length, 3, "nessun cambio: palco base"); eq(A.applicaCambi(undefined, undefined, 1).items, []);
+});
+t("Versioni L3 · cambioDelta: per id, esatto; applicandolo si ritrova il palco disegnato; soglie 0,5 cm e 0,5°; cambio di tipo = esce + entra", () => {
+  const prima = [itC("i1", "cantante", 100, 100), itC("i2", "batteria", 300, 200), itC("i3", "astamic", 500, 100, { rot: 30 })];
+  const dopo = JSON.parse(JSON.stringify(prima)); dopo[0].x = 160; dopo[2].rot = 90; dopo.splice(1, 1); dopo.push(itC("i7", "tastiera", 50, 50));
+  const d = A.cambioDelta(prima, dopo);
+  eq(d.esce, ["i2"]); eq(d.entra.map((x) => x.id), ["i7"]); eq(d.sposta, [{ id: "i1", x: 160, y: 100, rot: 0 }, { id: "i3", x: 500, y: 100, rot: 90 }]);
+  const rit = A.applicaCambi(prima, [cambio("c1", d)], 1).items; eq(rit.map((x) => [x.id, x.x, x.y, x.rot]).sort(), dopo.map((x) => [x.id, x.x, x.y, x.rot]).sort(), "il roundtrip restituisce il palco disegnato");
+  const q = JSON.parse(JSON.stringify(prima)); q[0].x = 100.4; q[1].rot = 359.6; eq(A.cambioDelta(prima, q), { esce: [], entra: [], sposta: [] }, "sotto 0,5 cm / 0,5° non è uno spostamento");
+  q[0].x = 100.6; eq(A.cambioDelta(prima, q).sposta.length, 1, "oltre sì");
+  const t2 = JSON.parse(JSON.stringify(prima)); t2[0] = itC("i1", "chitarra", 100, 100); const dt = A.cambioDelta(prima, t2);
+  eq([dt.esce, dt.entra.map((x) => x.type)], [["i1"], ["chitarra"]], "stesso id, altro tipo: esce e rientra (applicaCambi esce prima)");
+  eq(A.applicaCambi(prima, [cambio("c1", dt)], 1).items.find((x) => x.id === "i1").type, "chitarra");
+  eq(A.cambioDelta(prima, prima.concat([{ id: "f1", type: "custshape", x: 1, y: 1 }])), { esce: [], entra: [], sposta: [] }, "le forme dell'editor «Crea elemento» non sono elementi del palco");
+  eq(A.cambioVuoto(cambio("c1")), true); eq(A.cambioVuoto(cambio("c1", { esce: ["i1"] })), false);
+});
+t("Versioni L3 · cambioAltreModifiche: conta solo ciò che un cambio NON registra (nome, misure…), mai posizione e rotazione", () => {
+  const a = [itC("i1"), itC("i2", "batteria", 300, 200)], b = JSON.parse(JSON.stringify(a));
+  eq(A.cambioAltreModifiche(a, b), 0); b[0].x = 999; b[0].rot = 45; eq(A.cambioAltreModifiche(a, b), 0, "spostare e ruotare è registrato");
+  b[1].label = "Altro"; eq(A.cambioAltreModifiche(a, b), 1, "il nome no"); b[0].w = 120; eq(A.cambioAltreModifiche(a, b), 2, "le misure no");
+  b.push(itC("i5")); eq(A.cambioAltreModifiche(a, b), 2, "chi entra non conta"); eq(A.cambioAltreModifiche(a, a.slice(0, 1)), 0, "chi esce non conta");
+});
+t("Versioni L3 · nomi e riepilogo: ruolo del catalogo (mai l'etichetta libera, che può essere una persona), avvisi di id persi e di microfoni fuori lista", () => {
+  const base = [itC("i1", "cantante", 100, 100, { label: "Mario Rossi" }), itC("i2", "batteria", 300, 200, { label: "Gigi" })];
+  ok(!/Mario|Gigi/.test(A.cambioElencoNomi(base)), "mai le etichette libere: " + A.cambioElencoNomi(base));
+  ok(/\×2/.test(A.cambioElencoNomi([itC("a"), itC("b")])), "due uguali: «× 2»");
+  const cs = [cambio("c1", { esce: ["i2", "i77"], entra: [itC("i9", "cantante", 10, 10), itC("i1", "cantante", 0, 0)], sposta: [{ id: "i1", x: 1, y: 1, rot: 0 }] })];
+  const R = A.cambioRiepilogo(base, cs, 0);
+  eq(R.esce.map((x) => x.id), ["i2"], "chi esce, dal palco di partenza"); eq(R.sposta, 1); eq(R.persi >= 1, true, "i77 non esiste: segnalato");
+  eq(R.micFuoriLista, 1, "un cantante nuovo ha un microfono che la channel list base non ha (i1 c'è già nel base: non conta)"); eq(R.vuoto, false);
+  eq(A.cambioRiepilogo(base, [cambio("c1")], 0).vuoto, true, "cambio vuoto"); eq(A.cambioRiepilogo(base, [], 0), null);
+  eq(A.cambioIdNuovo([cambio("c1"), cambio("c7")]), "c8"); eq(A.cambioIdNuovo([]), "c1");
+});
+t("Versioni L3 · normalizeState: i progetti senza cambi NON portano la chiave; con cambi la ripulisce; stateToJSON senza cambi è identico", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1, items: [itC("i1")] }]); A.syncActiveVariant();
+  ok(!("cambi" in A.state), "nessuna chiave 'cambi'"); ok(!/"cambi"/.test(A.stateToJSON()), "nemmeno nel JSON salvato");
+  const st = A.normalizeState(Object.assign(JSON.parse(A.stateToJSON()), { cambi: [] })); ok(!("cambi" in st), "elenco vuoto: chiave tolta");
+  const st2 = A.normalizeState(Object.assign(JSON.parse(A.stateToJSON()), { cambi: [{ id: "c1", nome: "Uno", quando: "dopo il brano 3", esce: ["i1"], entra: [], sposta: [] }, { id: "../", nome: "rotto" }] }));
+  eq(st2.cambi.length, 1, "valido tenuto, rotto tolto"); eq(st2.cambi[0].esce, ["i1"]);
+  const st3 = A.normalizeState(Object.assign(JSON.parse(A.stateToJSON()), { cambi: "non una lista" })); ok(!("cambi" in st3), "valore sbagliato: chiave tolta");
+  reset();
+}));
+t("Versioni L3 · «Nuova versione» copia i cambi con gli stessi id; la firma li include (una versione chiusa non li cambia in silenzio) e due copie uguali restano uguali", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1, items: [itC("i1"), itC("i2", "astamic", 300, 200)] }]);
+  A.state.cambi = A.cambiNorm([cambio("c1", { quando: "dopo il brano 3", esce: ["i2"], entra: [itC("i9", "tastiera", 5, 5)], sposta: [{ id: "i1", x: 9, y: 9, rot: 0 }] })]);
+  A.syncActiveVariant(); const id = A.createVariant(); ok(id, "nuova versione creata");
+  eq(A.state.cambi, A.VARIANTS[0].state.cambi, "stessi id e stesso contenuto della sorgente"); eq(A.state.cambi[0].id, "c1");
+  A.state.cambi[0].sposta[0].x = 50; A.syncActiveVariant();
+  eq(A.VARIANTS[0].state.cambi[0].sposta[0].x, 9, "la copia è indipendente dalla sorgente");
+  const f0 = A.firmaScena(A.VARIANTS[0].state), f1 = A.firmaScena(A.VARIANTS[1].state); ok(f0 !== f1, "cambi diversi → firme diverse");
+  A.state.cambi[0].sposta[0].x = 9; A.syncActiveVariant(); eq(A.firmaScena(A.VARIANTS[0].state), A.firmaScena(A.VARIANTS[1].state), "cambi uguali → firme uguali");
+  reset();
+}));
+t("Versioni L3 · versione chiusa: i cambi fanno parte della scena e l'ultima rete li rimette com'erano", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1, status: "revisione", statusAt: "2026-11-20", items: [itC("i1"), itC("i2", "batteria", 300, 200)] }]);
+  A.state.cambi = [cambio("c1", { esce: ["i2"] })]; A.syncActiveVariant(); A.verChiusaChiave = ""; A.applicaVersioneChiusa(); eq(A.__verChiusa, true);
+  A.state.cambi[0].esce = []; A.state.cambi.push(cambio("c2", { esce: ["i1"] }));
+  eq(A.proteggiVersioneChiusa(), true, "la rete interviene sui cambi"); eq(A.state.cambi.length, 1, "il cambio aggiunto è sparito"); eq(A.state.cambi[0].esce, ["i2"], "e quello modificato è com'era");
+  A.state.status = "bozza"; A.applicaVersioneChiusa(); reset();
+}));
+t("Versioni L3 · nextId non riprende gli id degli elementi che entrano in un cambio (ensureItemIds); e un progetto senza cambi non cambia", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1, items: [itC("i1"), itC("i2", "batteria", 300, 200)] }]);
+  A.ensureItemIds(); eq(A.nextId, 3, "senza cambi come prima");
+  A.state.cambi = [cambio("c1", { entra: [itC("i9", "tastiera")], esce: ["i40"], sposta: [{ id: "i12", x: 0, y: 0, rot: 0 }] })];
+  A.ensureItemIds(); eq(A.nextId, 41, "dopo il più alto fra elementi e id citati dai cambi"); reset();
+}));
+t("Versioni L3 · impronta dei documenti: la chiave «cambi» c'è solo se ci sono cambi, e cambia quando cambiano", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1, items: [itC("i1")] }]);
+  ok(!("cambi" in A.impronteDocumenti()), "nessun cambio: impronte identiche a prima"); eq(A.DOC_NOMI.cambi, "cambi di palco");
+  A.state.cambi = [cambio("c1", { esce: ["i1"] })]; const h1 = A.impronteDocumenti().cambi; ok(h1, "con un cambio c'è");
+  A.state.cambi[0].esce = []; ok(A.impronteDocumenti().cambi !== h1, "e cambia"); reset();
+}));
+t("Versioni L3 · palco temporaneo: «Crea elemento» e «cambio» sono due cose; i guardiani fermano ENTRAMBI (cambio versione, nuova, elimina) con il messaggio giusto", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1 }, { versione: 2 }]); A.syncActiveVariant();
+  const toast = []; const t0 = A.__toast; A.__toast = (m) => { toast.push(m); };
+  try {
+    ok(!A.paloTemporaneoAttivo() && !A.custEditorAttivo() && !A.cambioEditorAttivo(), "tutto spento");
+    A.__custEditor = { cambio: { idx: 0, n: 1, vista: false }, salvato: {} };
+    eq([A.paloTemporaneoAttivo(), A.custEditorAttivo(), A.cambioEditorAttivo(), A.cambioVistaAttiva()], [true, false, true, false], "un cambio in modifica NON è «Crea elemento»");
+    A.switchVariant("w1"); eq(A.activeVar, "w0", "non si cambia versione"); eq(A.createVariant(), null, "né si crea"); eq(A.deleteVariant("w1"), false, "né si elimina");
+    ok(toast.length >= 3 && toast.every((m) => /cambio di palco/.test(m)), "messaggio dei cambi, non «l'elemento che stai creando»: " + toast[0]);
+    A.__custEditor.cambio.vista = true; ok(A.cambioVistaAttiva()); ok(/palco base/.test(A.custEditorMsg()), "in vista dice di tornare al palco base");
+    eq(A.scenaChiusaDecidi({ status: "bozza" }, false), true, "la vista è in sola lettura come una versione chiusa"); eq(A.scenaChiusaDecidi({ status: "bozza" }, true), false, "ma non nel viewer");
+    eq(A.persistLocalState(), true, "con il palco temporaneo aperto nulla si scrive (stesso guardiano di «Crea elemento»)");
+    A.__custEditor = { rect: { x: 0, y: 0, w: 10, d: 10 }, salvato: {} };
+    eq([A.paloTemporaneoAttivo(), A.custEditorAttivo(), A.cambioEditorAttivo()], [true, true, false], "«Crea elemento» resta com'era"); ok(/elemento che stai creando/.test(A.custEditorMsg()));
+  } finally { A.__custEditor = null; A.__toast = t0; reset(); }
+}));
+t("Versioni L3 · C1: durante un cambio lo stato NON si cambia (telefono: tendina del menu) e nessuna versione diventa Superata; guardie dei blocchi su paloTemporaneoAttivo", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1, status: "revisione", statusAt: "2026-11-20" }, { versione: 2 }]); A.syncActiveVariant(); A.switchVariant("w1");
+  const toast = []; const t0 = A.__toast; A.__toast = (m) => { toast.push(m); };
+  try {
+    const stati = () => A.VARIANTS.map((v) => (v === A.VARIANTS[A.VARIANTS.length - 1] ? A.state : v.state).status || "bozza");
+    const prima = stati();
+    A.__custEditor = { cambio: { idx: 0, n: 1, vista: false }, salvato: {} };
+    A.setProjectStatus("revisione");
+    eq(A.state.status || "bozza", "bozza", "lo stato del palco temporaneo non cambia"); eq(stati(), prima, "nessuna versione messa in Superata");
+    ok(toast.length >= 1 && /cambio di palco/.test(toast[0]), "messaggio unico: " + toast[0]);
+    A.__custEditor = null; A.setProjectStatus("revisione"); eq(A.state.status, "revisione", "senza cambio funziona come prima");
+  } finally { A.__custEditor = null; A.__toast = t0; reset(); }
+  ok(/function setProjectStatus\(k, confermato\)\{\s*if\(paloTemporaneoAttivo\(\)\)\{ custEditorAvvisa\(\); renderStatusUI\(\); return; \}/.test(appjs), "prima riga di setProjectStatus");
+  ok(/if\(!paloTemporaneoAttivo\(\) \|\| !e\.target \|\| !e\.target\.closest\) return;\s*if\(e\.target\.closest\(CUST_BLOCCATI\)\)/.test(appjs), "blocco a clic su paloTemporaneoAttivo");
+  ok(/if\(paloTemporaneoAttivo\(\) && e\.target && e\.target\.closest && e\.target\.closest\("#titolo,#mTitle,#luogo,#projApprovedBy,#mVarStato"\)\)/.test(appjs), "blocco del fuoco su paloTemporaneoAttivo e con #mVarStato");
+}));
+t("Versioni L3 · C2: dentro un cambio syncNextId (⌘Z) non scende sotto minNext: un id nuovo non riprende quello di un elemento del palco base", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1, items: [itC("i1"), itC("i2", "batteria", 300, 200)] }]); A.syncActiveVariant();
+  try {
+    A.__custEditor = { cambio: { idx: 1, n: 2, vista: false, minNext: 5 }, salvato: {} };
+    A.syncNextId(); eq(A.nextId, 5, "stato temporaneo senza gli elementi alti: nextId resta al minimo salvato");
+    A.__custEditor.cambio.minNext = 3; A.syncNextId(); eq(A.nextId, 3, "con minNext più basso del massimo+1 vince il massimo");
+    A.__custEditor = null; A.syncNextId(); eq(A.nextId, 3, "fuori dal cambio: come prima");
+  } finally { A.__custEditor = null; reset(); }
+  ok(/cambio:\{idx:idx, n:idx\+1, vista:!!vista, minNext:minNext,/.test(appjs), "cambioEditorApri salva minNext in E.cambio");
+}));
+t("Versioni L3 · codice: i guardiani delle scritture usano paloTemporaneoAttivo; le parti SOLO di «Crea elemento» (griglia fine, scheda, strumenti) restano su custEditorAttivo", () => {
+  ok(/function paloTemporaneoAttivo\(\)\{ return !!window\.__custEditor; \}/.test(appjs), "paloTemporaneoAttivo = qualsiasi palco temporaneo");
+  ok(/function custEditorAttivo\(\)\{ return !!\(window\.__custEditor && !window\.__custEditor\.cambio\); \}/.test(appjs), "custEditorAttivo = solo il disegno dell'elemento");
+  for (const f of ["function switchVariant", "function createVariant", "function deleteVariant", "function nuovaVersione", "function importaComeNuovaVersione", "function duplicaVersioneComeProgetto", "function toggleScaletta", "function toggleChan", "function toggleEvento"]) {
+    const i = appjs.indexOf(f); ok(i > 0 && /paloTemporaneoAttivo\(\)/.test(appjs.slice(i, i + 700)), f + " ferma anche i cambi");
+  }
+  ok(/function snapVal\(\)\{ if\(custEditorAttivo\(\)\)/.test(appjs) && /function snapFine\(\)\{ if\(custEditorAttivo\(\)\)/.test(appjs), "la griglia fine dell'editor non si applica ai cambi");
+  ok(/f\("custScheda"\)\.hidden=!custEditorAttivo\(\)/.test(appjs), "la scheda di «Crea elemento» non compare nei cambi");
+  ok(/cl\.remove\("cambio-editor"\); cl\.remove\("cambio-vista"\)/.test(appjs), "spegnere il palco temporaneo toglie anche le classi dei cambi");
+  ok(/"Cambi di palco":1/.test(appjs) && /data-act="cambi"/.test(readFileSync(join(root, "index.template.html"), "utf8")), "ricerca e menu del telefono");
+  ok(/body\.cambi-edit #props/.test(stylesCss) && /#props #cambiSec\{display:none\}/.test(stylesCss), "pannello nel cassetto del telefono");
+  ok(/body\.ver-chiusa #props #cambiSec button\{pointer-events:auto/.test(stylesCss), "in una versione chiusa «Vedi il palco» e «Fatto» restano cliccabili (bug trovato nel browser: il blocco dei pulsanti del pannello li spegneva)");
+});
+t("Versioni L3 · in vista il tentativo di modifica spiega come fare; in una versione chiusa vale il messaggio di sempre", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1, status: "revisione", statusAt: "2026-11-20" }]);
+  const toast = []; const t0 = A.__toast; A.__toast = (m) => { toast.push(m); };
+  try {
+    A.verChiusaAvvisoAt = 0; A.verChiusaAvviso(); ok(/Inviata/i.test(toast[0]) || /chiusa|Inviata/.test(toast[0]), "versione chiusa: messaggio di sempre: " + toast[0]); ok(!/palco dopo il cambio/.test(toast[0]));
+    A.verChiusaAvvisoAt = 0; A.__custEditor = { cambio: { idx: 0, n: 1, vista: true }, salvato: {} }; A.verChiusaAvviso();
+    ok(/palco dopo il cambio/.test(toast[1]) && /Modifica/.test(toast[1]), "in vista: spiega di tornare al palco base e premere Modifica: " + toast[1]);
+  } finally { A.__custEditor = null; A.__toast = t0; A.verChiusaAvvisoAt = 0; reset(); }
+}));
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
