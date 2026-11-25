@@ -1030,5 +1030,33 @@
    "id": "s1",
    "piuRecente": true
   }
+ },
+ {
+  "nome": "nudo, progetto vecchio a più scene senza status: active come oggi",
+  "doc": {
+   "_doc": 1,
+   "active": "o1",
+   "variants": [
+    {
+     "id": "o1",
+     "name": "Prima parte",
+     "state": {
+      "label": "state-o1"
+     }
+    },
+    {
+     "id": "o2",
+     "name": "Variante 2",
+     "state": {
+      "label": "state-o2"
+     }
+    }
+   ]
+  },
+  "chiave": null,
+  "atteso": {
+   "id": "o1",
+   "piuRecente": false
+  }
  }
 ]
