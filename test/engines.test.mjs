@@ -30778,7 +30778,14 @@ ta("service worker: i file che non sono l'editor restano «prima la copia» (ven
 
 ta("service worker: il precache dell'installazione scarica dal server, non dalla cache HTTP", async () => {
   const B = swBanco({ rete: (v) => Promise.resolve(v("x")) });
-  const attese = []; B.handlers.install({ waitUntil: (p) => attese.push(p) }); /* ===== Rifiniture 25/11: nomi stereo senza trattino, margini dei PDF a 15 mm, note C1 ===== */
+  const attese = []; B.handlers.install({ waitUntil: (p) => attese.push(p) }); await Promise.all(attese);
+  ok(B.cache.precache && B.cache.precache.length >= 3, "precache fatto");
+  ok(B.cache.precache.every((r) => r.cache === "reload"), "ogni file con cache:reload");
+  ok(B.cache.precache.some((r) => r.url === "/app.js"), "fra cui app.js");
+});
+
+/* ===== Rifiniture 25/11: nomi stereo senza trattino, margini dei PDF a 15 mm, note C1 =====
+   (rilettura #234: erano finiti DENTRO il test del service worker, fra install() e la sua attesa) */
 taPdf("Rifiniture · nomi stereo SENZA trattino, tutti uguali (laptop, overhead, tastiere, timpani…)", async () => {
   reset();
   const lp = add("laptop", 300, 300); lp.label = "Laptop 1"; A.__cabRes = null;
@@ -30822,11 +30829,19 @@ taPdf("Rifiniture · note C1: «fino al quadro X» nomina il quadro; † (sezion
   ok(/\* = line number chosen by hand/.test(appjs) && /\* = numero linea scelto a mano/.test(appjs), "legenda del * (linea scelta a mano) in italiano e inglese");
   ok(!/\* = sezione stimata|\* = size estimated/.test(appjs), "l'asterisco non significa più «sezione stimata»");
 });
-
-await Promise.all(attese);
-  ok(B.cache.precache && B.cache.precache.length >= 3, "precache fatto");
-  ok(B.cache.precache.every((r) => r.cache === "reload"), "ogni file con cache:reload");
-  ok(B.cache.precache.some((r) => r.url === "/app.js"), "fra cui app.js");
+t("Rifiniture · CSV A&H: senza trattino il banco legge ancora la sorgente («Overhead», «Playback»), non lo strumento", () => {
+  /* rilettura #234: lo split(" - ") non toglieva più il nome dello strumento → «Batteri2», «Laptop 2», «Piano 12», «Organo 2» */
+  reset();
+  const lp = add("laptop", 200, 300); lp.label = "Laptop 1";
+  const bt = add("batteria", 400, 300); bt.label = "Batteria 1";
+  const pf = add("grancoda", 600, 300); pf.label = "Piano 1";
+  const hm = add("organohammond", 800, 300); hm.label = "Organo Hammond";
+  const tk = add("tastiera", 200, 500); tk.label = "Tastiera 1"; A.__cabRes = null;
+  ok(A.patchList().rows.some((r) => r.name === "Batteria 1 Overhead L") && A.patchList().rows.some((r) => r.name === "Laptop 1 Playback R"), "premessa: nomi stereo senza trattino");
+  const nomi = A.channelListCsv({ format: "ah" }).csv.split(/\r?\n/).slice(1).map((l) => l.split(",")[1]).filter(Boolean);
+  ["Playback", "Playbac2", "Overhead", "Overhea2", "Pianofor", "Pianofo2", "Kick"].forEach((n) => ok(nomi.includes(n), "manca «" + n + "»: " + nomi.join("|")));
+  ok(nomi.some((n) => /^Hammond/.test(n)) && nomi.some((n) => /^Tastier/.test(n)), "Hammond e la tastiera stereo (nome intero, come prima): " + nomi.join("|"));
+  ok(!nomi.some((n) => /^(Laptop 2|Batteri2|Piano 12|Organo 2|Organo H)$/.test(n)), "nessun nome che dice lo strumento al posto della sorgente: " + nomi.join("|"));
 });
 
 // ── PDF: SCRITTE NERE PER LA STAMPA (14/10/2026) ───────────────────────────────────────────────

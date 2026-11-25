@@ -39445,6 +39445,15 @@ function pdfSave(doc, name){ name=nomeConStato(name); doc.save(name); toastDownl
 function csvCell(v, sep){ v=(v==null?"":String(v)); return (v.indexOf(sep)>-1 || /["\n\r]/.test(v)) ? '"'+v.replace(/"/g,'""')+'"' : v; }
 /* nome canale per Allen & Heath: accenti rimossi, solo alfanumerici+spazio, max 8 caratteri (vincolo console) */
 function ahName(s){ return String(s==null?"":s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9 ]/g,"").trim().slice(0,8); }
+/* La parte del nome che dice COSA \u00e8 il canale, senza il nome dello strumento (rilettura #234, 25/11/2026): i nomi stereo
+   ora sono senza trattino (\u00abBatteria 1 Overhead L\u00bb) e lo split(" - ") non toglieva pi\u00f9 lo strumento: sul banco A&H si leggeva
+   \u00abBatteria\u00bb/\u00abBatteri2\u00bb, \u00abPiano 12\u00bb, \u00abOrgano 2\u00bb al posto di \u00abOverhead\u00bb, \u00abPianofor\u00bb, \u00abHammond\u00bb. Si toglie il nome dello
+   strumento; se resta solo il lato (\u00abL\u00bb, \u00abDI L\u00bb) vale il nome intero, come prima. */
+function ahCoda(r, byId){
+  var nm=String(r.name||""), it=(r.itemId!=null && byId) ? byId[r.itemId] : null, lb=String((it&&it.label)||"").trim();
+  if(lb && nm.indexOf(lb+" ")===0){ var resto=nm.slice(lb.length).replace(/^\s*-\s*/,"").trim(); if(resto && !/^(?:DI )?[LR]$/.test(resto)) return resto; }
+  return nm.split(" - ").pop();
+}
 /* CSV INJECTION (segnalazione 10/09). Excel ESEGUE una cella che comincia con = + - @ (o con un
    TAB / ritorno a capo) come se fosse una formula: un canale chiamato «=1+1» arriva al service e
    nel foglio si legge 2; con nomi meno innocenti si arriva a DDE e a comandi di sistema.
@@ -39553,10 +39562,10 @@ function channelListCsv(opts){
        troncando gli 8 caratteri dall'inizio uscivano otto canali chiamati tutti «Batteria», e il CSV
        serve proprio a NON ridigitare i nomi in console. Si prende la sigla (r.short, la stessa della
        colonna FOH del PDF) o l'ultimo segmento; gli omonimi residui prendono un progressivo (06/08). */
-    var ahSeen={};
+    var ahSeen={}, ahById={}; (state.items||[]).forEach(function(x){ if(x && x.id!=null) ahById[x.id]=x; });
     var ah=pl.rows.map(function(r){
       if(r.reserved) return ["yes","SPARE","-","-","-","-","-",r.p48?"yes":"no"];
-      var base=String(r.short||"").trim() || String(r.name||"").split(" - ").pop();
+      var base=String(r.short||"").trim() || ahCoda(r, ahById);
       var nm=ahName(base) || ahName(r.name) || "CH";
       if(ahSeen[nm]){ var k=++ahSeen[nm], sfx=String(k); nm=nm.slice(0,8-sfx.length)+sfx; }
       else ahSeen[nm]=1;
