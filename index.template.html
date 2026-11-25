@@ -85,6 +85,7 @@
 </head>
 <body>
 <div id="viewBar"><a class="vb-brand" href="/app/" target="_blank" rel="noopener" title="Crea il tuo stage plot gratis su stageplot.it">stageplot.it<span class="vb-cta">crea il tuo gratis →</span></a><strong id="viewRole">Sola lettura</strong><span class="vb-badge" id="viewBadge" hidden>Sola lettura</span><span class="vb-status" id="viewStatus" hidden></span><span id="viewMeta"></span><span id="viewToggle"><button id="vtPlot" type="button" class="vt-on">Stage plot</button><button id="vtChan" type="button">Channel list</button></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
+<div id="viewPiuRecente" role="note" hidden>Esiste una versione più recente di questo stage plot. Chiedi il link aggiornato a chi te l'ha mandato.</div>
 <div id="viewLists" aria-live="polite"></div><!-- T3: liste tecniche nel link condiviso (Input/Monitor/Carichi/RF/Backline) -->
 <!-- Il documento condiviso non è arrivato: prende il posto del disegno. Un palco vuoto disegnato bene
      si legge come «il gruppo non ha bisogno di niente», ed è la cosa peggiore da far credere a un
@@ -2207,8 +2208,9 @@
         <!-- Il testo lo scrive shareBadge(): i due link non sono la stessa cosa e non possono
              promettere la stessa cosa. Quello cloud è vivo e in sola lettura; quello senza account
              porta con sé una copia di oggi, che chi la riceve può modificare. -->
-        <div id="shareIntroTxt" style="flex:1;font-size:12px;color:var(--text-2);line-height:1.5">Chi apre il link vede il palco <b>in sola lettura</b>, sempre aggiornato all'ultima modifica.</div>
+        <div id="shareIntroTxt" style="flex:1;font-size:12px;color:var(--text-2);line-height:1.5">Chi apre il link vede il palco <b>in sola lettura</b>. Il link resta su questa versione: se ne mandi una nuova, chi ha il vecchio vede solo un avviso che esiste.</div>
       </div>
+      <div id="shareVersione" hidden style="margin:8px 0 0;font-size:12px;color:var(--text-2)"></div>
       <div id="shareUrlRow" style="display:flex;gap:8px;align-items:stretch;margin-top:12px">
         <input aria-label="Link da copiare" type="text" id="shareUrl" readonly onclick="this.select()" style="flex:1;min-width:0;font-size:13px;padding:10px 11px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-raised);color:var(--text)">
         <button class="btn" id="shareNative" hidden>Condividi…</button>
@@ -2238,8 +2240,6 @@
       </div>
       <!-- Dopo Condividi (24/11/2026): «Inviata» scatta qui, a un clic e mai da sola. Compare solo per una Bozza. -->
       <div id="shareInvitoInviata" class="share-invito" hidden><span>Hai mandato questa versione?</span><button type="button" class="btn" id="shareSegnaInviata">Segna come Inviata</button></div>
-      <!-- Versioni L2 (25/11/2026): il link NON è ancora fisso alla versione condivisa: mostra quella su cui si è salvato per ultimo, bozze comprese. -->
-      <div id="shareAvvisoVersioni" class="share-invito" hidden role="note"><span>Il link mostra la versione su cui hai salvato per ultimo, anche se è una Bozza: chi lo ha già vede subito le tue modifiche.</span></div>
       <div id="shareStatus" style="font-size:12px;color:var(--accent);min-height:14px;margin-top:8px"></div>
     </div>
     <!-- elementi nascosti usati dal pannello laterale -->
@@ -7425,7 +7425,7 @@ function docToJSON(){ syncActiveVariant(); return JSON.stringify(documentEnvelop
   VARIANTS.map(function(v){ return { id:v.id, name:v.name, state:v.state }; }))); }
 /* come docToJSON ma la variante attiva porta lo state COMPLETO con la planimetria (_dataUrl) — export su file.
    Le altre varianti condividono l'immagine per nome: all'import viene messa in cache e riagganciata al primo switch. */
-function docToJSONFull(){
+function docToJSONFull(opz){
   syncActiveVariant();
   /* La scena attiva porta la planimetria per intero; le gemelle — una scena nasce come copia
      dell'altra — la dichiarano con `_sameAs` invece di ripeterne il base64. È quello che il
@@ -7450,7 +7450,7 @@ function docToJSONFull(){
     if(padrone[sig]==null) padrone[sig]=String(v.id);
     scritte[String(v.id)]=sig;
   });
-  return JSON.stringify(documentEnvelope(activeVar,
+  var env=documentEnvelope(activeVar,
     VARIANTS.map(function(v){
       var full=JSON.parse(JSON.stringify(v.state)); reattachVenueImg(full,v.id); full._v=SCHEMA_VERSION;
       var sig=scritte[String(v.id)];
@@ -7459,7 +7459,9 @@ function docToJSONFull(){
         full.venue._sameAs=padrone[sig];
       }
       return { id:v.id, name:v.name, state:full };
-    })));
+    }));
+  if(opz && opz.senzaLink) togliChiaviCondivisione(env);   /* link fisso (25/11): i file esportati non portano le chiavi dei link di questo progetto */
+  return JSON.stringify(env);
 }
 /* applica uno stato piatto al `state` vivo (nessun undo, nessuno stacco id cloud): riuso guidato da chi chiama.
    I documenti persistiti passano SOLO dal normalizzatore versionato: sanitizeItems è riservato agli input AI grezzi
@@ -7478,7 +7480,8 @@ function applyVariantState(flat, allowCachedVenue, variantId){
    caso, come progetto vuoto). Qui si rimette ogni bitmap nello state.venue della sua scena (scala, posizione, opacità restano quelle
    del progetto): la strada dopo è identica a quella di un export completo. Niente `venue_image` o non valida → il documento passa
    com'è, senza errori; `venue_image` non entra mai nel progetto. Prende l'oggetto già letto dal file, restituisce quello da dare a prepareDoc. */
-function importaDocumentoDaFile(parsed){
+function importaDocumentoDaFile(parsed){ return togliChiaviCondivisione(importaDocumentoDaFileInterno(parsed)); }   /* link fisso (25/11): un file porta il lavoro, mai le chiavi dei link di un altro progetto */
+function importaDocumentoDaFileInterno(parsed){
   if(!parsed || typeof parsed!=="object" || Array.isArray(parsed)) return parsed;
   var haDoc=function(o){ return !!(o && typeof o==="object" && (o._doc===1 || Array.isArray(o.variants))); };
   var doc=parsed, vi=parsed.venue_image, avvolto=false;
@@ -8769,7 +8772,7 @@ function uscitaChiaveDaCancellare(k, area){
   k=String(k||"");
   if(area==="session"){
     if(USCITA_TIENI_SESSION[k]) return false;
-    return k==="cloudReopen" || k==="copyFromToken" || k==="orcOpenProject" || k.indexOf("copiaDi:")===0 ||
+    return k==="cloudReopen" || k==="copyFromToken" || k==="copyFromChiave" || k==="orcOpenProject" || k.indexOf("copiaDi:")===0 ||
       k==="sp_sid" || k==="sp_accesso_google" || k==="sp_google_accesso";
   }
   if(USCITA_TIENI_LOCAL[k]) return false;
@@ -31630,7 +31633,7 @@ function stateHasMeaningfulWork(s, ignoraPalco){
    viene scritta SEMPRE da prepareDoc (permesso unico del link), quindi contarla come contenuto
    renderebbe «pieno» ogni documento appena creato — e tornerebbero i gusci «Senza titolo»
    nell'elenco cloud che il ramo del documento vuoto esiste apposta per evitare. */
-var DOC_EXTRA_SERVIZIO={shareOpts:1, snap:1};   /* snap (13/10/2026): l'aggancio scelto, non lavoro */
+var DOC_EXTRA_SERVIZIO={shareOpts:1, snap:1, shareLinks:1, shareLegacy:1};   /* snap (13/10/2026): l'aggancio scelto, non lavoro */
 function docExtraHasWork(){
   return Object.keys(DOC_EXTRA||{}).some(function(k){ return !DOC_EXTRA_SERVIZIO[k]; });
 }
@@ -31666,7 +31669,7 @@ function downloadProjectCopy(){
   if(window.__docLoadBlocked && typeof window.__docLoadBlockedRaw==="string") return scaricaOriginaleBloccato();
   try{
     var name=((state.titolo||state.luogo||"stageplot").replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"").slice(0,40)||"stageplot")+".json";
-    var url=URL.createObjectURL(new Blob([docToJSONFull()],{type:"application/json"}));
+    var url=URL.createObjectURL(new Blob([docToJSONFull({senzaLink:true})],{type:"application/json"}));
     dl(url,name); setTimeout(function(){ URL.revokeObjectURL(url); },3000);
     if(window.__toast) window.__toast("Copia scaricata: "+name);
     return true;
@@ -38620,6 +38623,7 @@ function restoreVersion(idx){
     var sameCloud=!!(vs[idx].cloudId && current && vs[idx].cloudId===current);
     guardDocumentReplacement({reason:"ripristinare una versione",title:"Ripristinare «"+String(vs[idx].name||"Punto di ripristino").slice(0,60)+"»?",
       confirmText:"Ripristina"},function(){
+      if(sameCloud) unisciChiaviCondivisione(prepared.extra, DOC_EXTRA);   /* link fisso (25/11): tornare indietro non spegne i link già mandati */
       activatePreparedProject(prepared,{keepCloud:sameCloud,persist:false,autosave:false});
       if(versionVenue) replaceVenueImageBundle(versionVenue);
       reattachVenueImg(state,activeVar); resetHistory(); save();
@@ -39551,7 +39555,123 @@ function buildProjectJson(){
   };
 }
 /* Il link «vivo» di un progetto condiviso: lo stesso nella finestra Condividi e nel QR del PDF (10/10). */
-function linkVistaCondivisa(tok){ return location.origin+location.pathname+"?view="+encodeURIComponent(tok); }
+/* LINK FISSO ALLA VERSIONE (L2, 25/11/2026). `?view=<token>&v=<chiave>`: la chiave (DOC_EXTRA.shareLinks) lega il link a UNA versione; la funzione
+   get-shared-project serve solo quella. Senza chiave (link vecchio) vale la regola del link «nudo». Le funzioni qui sotto sono PURE e fanno le stesse
+   scelte di `sceltaVersioneCondivisa` in supabase/functions/_shared/project-sharing.ts: i due test leggono le STESSE fixture (test/fixtures/link-fisso/casi.json). */
+function linkVistaCondivisa(tok, chiave){ return location.origin+location.pathname+"?view="+encodeURIComponent(tok)+(chiave ? "&v="+encodeURIComponent(chiave) : ""); }
+var CHIAVE_VERSIONE_RE=/^[A-Za-z0-9_-]{16,64}$/;
+function lfRecord(x){ return typeof x==="object" && x!==null && !Array.isArray(x); }
+function lfNumero(v,i){   /* numero «visibile» di una versione: scritto, «vN» nel titolo, nome di serie = posizione; 0 = nessuno */
+  var st=lfRecord(v.state)?v.state:{}, n=st.versione;
+  if(typeof n==="number" && n%1===0 && n>=1 && n<=VERSIONE_MAX) return n;
+  var m=VERSIONE_FINALE_RE.exec(typeof st.titolo==="string"?st.titolo:""), dt=m?parseInt(m[1],10):0;
+  if(dt>=1 && dt<=VERSIONE_MAX) return dt;
+  var nome=String(v.name==null?"":v.name).trim();
+  return (!nome || /^(?:Variante|Versione)\s+\d+$/i.test(nome)) ? i+1 : 0;
+}
+function lfStato(v){ return lfRecord(v.state) && typeof v.state.status==="string" ? v.state.status : "bozza"; }
+function sceltaVersioneCondivisa(doc, opz){
+  var chiave=opz && opz.chiave;
+  if(!lfRecord(doc) || !Array.isArray(doc.variants)) return chiave ? {errore:"chiave_sconosciuta"} : {id:null, piuRecente:false};
+  var vars=doc.variants.filter(function(v){ return lfRecord(v) && lfRecord(v.state) && typeof v.id==="string"; });
+  function trova(id){ for(var i=0;i<vars.length;i++) if(vars[i].id===id) return vars[i]; return undefined; }
+  var scelta;
+  if(chiave){
+    var links=lfRecord(doc.shareLinks)?doc.shareLinks:null;
+    var voce=(links && CHIAVE_VERSIONE_RE.test(chiave) && Object.prototype.hasOwnProperty.call(links,chiave)) ? links[chiave] : null;
+    scelta=lfRecord(voce) ? trova(voce.v) : undefined;
+    if(!scelta) return {errore:"chiave_sconosciuta"};
+  } else if(doc.shareLegacy===false){ return {errore:"link_incompleto"};
+  } else if(typeof doc.shareLegacy==="string"){
+    scelta=trova(doc.shareLegacy); if(!scelta) return {errore:"chiave_sconosciuta"};
+  } else {
+    var migliore=-1;
+    vars.forEach(function(v,i){ var s=lfStato(v); if(s!=="revisione" && s!=="approvato") return; var n=lfNumero(v,i); if(n>=migliore){ migliore=n; scelta=v; } });   /* a pari numero, l'ultima */
+    if(!scelta) scelta=trova(doc.active);
+  }
+  if(!scelta) return {id:typeof doc.active==="string"?doc.active:null, piuRecente:false};
+  var mio=lfNumero(scelta, vars.indexOf(scelta));
+  var piu=lfStato(scelta)==="superato" || (mio>0 && vars.some(function(v,i){ if(v===scelta) return false; var s=lfStato(v); return (s==="revisione"||s==="approvato") && lfNumero(v,i)>mio; }));
+  return {id:scelta.id, piuRecente:piu};
+}
+/* L'ultima chiave creata per quella versione (o null). L'ordine delle chiavi nell'oggetto è quello di creazione. */
+function chiaveVersioneEsistente(doc, varId){
+  var links=lfRecord(doc) && lfRecord(doc.shareLinks) ? doc.shareLinks : null, tro=null;
+  if(links) Object.keys(links).forEach(function(k){ if(lfRecord(links[k]) && links[k].v===varId && CHIAVE_VERSIONE_RE.test(k)) tro=k; });
+  return tro;
+}
+/* Chiave del link per una versione: quella che c'è, o una nuova. Non tocca `doc`: restituisce {chiave, nuova, patch} — `patch` (se non è null) va applicato a DOC_EXTRA o al documento del cloud e SALVATO prima di mostrare il link.
+   - `shareLegacy` si FISSA alla prima chiave: progetto che aveva già il link nudo → la versione che quel link mostrava in quel momento (regola 3);
+     token creato adesso (nessun link nudo in giro) → false, e il link nudo dà «incompleto».
+   - `opz.tokenNuovo`: il token del progetto nasce in questo passaggio; `opz.genera`: generatore di chiavi (null = browser senza crypto → null). */
+function chiavePerVersione(doc, varId, opz){
+  opz=opz||{};
+  var esiste=chiaveVersioneEsistente(doc, varId);
+  if(esiste){   /* c'è già: si riusa; solo se il token è nuovo (link nudo vecchio non più in giro) si ferma `shareLegacy` a false */
+    var legacy=(opz.tokenNuovo && !(lfRecord(doc) && doc.shareLegacy===false)) ? {shareLegacy:false} : null;
+    return {chiave:esiste, nuova:false, patch:legacy};
+  }
+  var k=typeof opz.genera==="function" ? opz.genera() : null;
+  if(!k || !CHIAVE_VERSIONE_RE.test(k)) return null;
+  var links={}, src=lfRecord(doc) && lfRecord(doc.shareLinks) ? doc.shareLinks : {};
+  Object.keys(src).forEach(function(x){ links[x]=src[x]; });
+  links[k]={v:varId, at:String(opz.oggi||"").slice(0,10)};
+  var patch={shareLinks:links};
+  if(!Object.keys(src).length || opz.tokenNuovo){
+    if(opz.tokenNuovo) patch.shareLegacy=false;
+    else if(!(lfRecord(doc) && (typeof doc.shareLegacy==="string" || doc.shareLegacy===false))){
+      var senza={}; Object.keys(doc||{}).forEach(function(x){ if(x!=="shareLinks" && x!=="shareLegacy") senza[x]=doc[x]; });
+      var sc=sceltaVersioneCondivisa(senza,{});
+      patch.shareLegacy = sc && typeof sc.id==="string" ? sc.id : false;
+    }
+  }
+  return {chiave:k, nuova:true, patch:patch};
+}
+/* Le chiavi dei link appartengono a QUESTO progetto: Duplica, Importa, copia dal link ed export non le portano mai. */
+function togliChiaviCondivisione(o){ if(lfRecord(o)){ delete o.shareLinks; delete o.shareLegacy; } return o; }
+/* Ripristino di un punto precedente DELLO STESSO progetto: le chiavi create dopo quel punto restano valide (l'unione tiene anche quelle di prima) */
+function unisciChiaviCondivisione(dest, src){
+  if(!lfRecord(dest) || !lfRecord(src)) return dest;
+  if(lfRecord(src.shareLinks)){ var l=lfRecord(dest.shareLinks)?dest.shareLinks:{}; Object.keys(src.shareLinks).forEach(function(k){ l[k]=src.shareLinks[k]; }); dest.shareLinks=l; }
+  if(src.shareLegacy!==undefined) dest.shareLegacy=src.shareLegacy;
+  return dest;
+}
+function nuovaChiaveVersione(){
+  var c=window.crypto; if(!(c && typeof c.getRandomValues==="function")) return null;
+  var b=new Uint8Array(16); c.getRandomValues(b);
+  var s=""; for(var i=0;i<b.length;i++) s+=String.fromCharCode(b[i]);
+  return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");   /* 128 bit, base64url, 22 caratteri */
+}
+/* Chiave del link per la versione APERTA del progetto aperto. cb(chiave) solo quando la chiave è già nel cloud (il link non si mostra prima: darebbe 404);
+   cb(null, motivo) altrimenti: "bloccato" (col progetto bloccato il documento non si scrive), "chiave" (browser senza crypto), "salvataggio". */
+function assicuraChiaveVersioneAperta(tokenNuovo, cb){
+  var ep=window.__docEpoch||0, C=window.__cloud;
+  syncActiveVariant();
+  var doc=documentEnvelope(activeVar, VARIANTS.map(function(v){ return {id:v.id, name:v.name, state:v.state}; }));
+  var r=chiavePerVersione(doc, activeVar, {tokenNuovo:!!tokenNuovo, genera:nuovaChiaveVersione, oggi:new Date().toISOString().slice(0,10)});
+  if(!r){ cb(null,"chiave"); return; }
+  if(r.patch){
+    if(window.__projLocked){ cb(null,"bloccato"); return; }
+    DOC_EXTRA=DOC_EXTRA||{}; Object.keys(r.patch).forEach(function(k){ DOC_EXTRA[k]=r.patch[k]; });
+    try{ save(); }catch(_e){}
+    if(typeof window.scheduleCloudAutosave==="function") window.scheduleCloudAutosave();
+  }
+  var serve=!!(C && typeof C.user==="function" && C.user());
+  if(serve && typeof window.flushCloudAutosave==="function" && (r.patch || (window.__cloudNeedsFlush && window.__cloudNeedsFlush()))){
+    window.flushCloudAutosave(function(ok){
+      if((window.__docEpoch||0)!==ep) return;   /* nel frattempo si è aperto un altro progetto */
+      if(!ok){ cb(null,"salvataggio"); return; }
+      cb(r.chiave);
+    });
+  } else cb(r.chiave);
+}
+/* Che cosa dice chi apre un link che la funzione rifiuta (404/400 con `code`); null = errore generico di sempre */
+function linkFissoMessaggio(status, code){
+  if(code==="chiave_sconosciuta") return "Questa versione non è più condivisa: chiedi il link aggiornato a chi te l'ha mandato.";
+  if(code==="link_incompleto") return "Link incompleto: chiedi il link aggiornato a chi te l'ha mandato.";
+  if(status===400) return "Il link non è valido: chiedi il link aggiornato a chi te l'ha mandato.";
+  return null;
+}
 function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"stage-plot"; }
 /* ═══ VERSIONE DEL DOCUMENTO (12/11/2026; regola di Simone del 04/11: «mettiamole sempre le versioni in tutti i fogli») ═══
    Un numero nel progetto (`state.versione`, intero 1-999, assente = nessuna) che esce nel piè di ogni pagina («v3 · 12/11/2026»,
@@ -39637,7 +39757,7 @@ function confermaNumeraVersioni(){
 /* ═══ VERSIONI, LOTTO 2 (25/11/2026): Nuova versione «vera», Importa come nuova versione, Duplica come nuovo progetto ═══
    Regole (PROGETTO §4.2, §11): la sorgente di «+» è l'ULTIMA versione per numero, quella del menu è la scheda aperta; prima si allinea il cloud (un
    salvataggio in sospeso si completa, un conflitto ferma tutto); le versioni che c'erano non cambiano di un byte; un link di condivisione attivo
-   chiede un sì esplicito (il link non è ancora fisso alla versione condivisa). Nulla si scrive nel cloud da qui: crea l'autosave di sempre, condizionale. */
+   non chiede conferme sul link (dal 25/11 è fisso alla versione condivisa, lotto «link fisso»). Nulla si scrive nel cloud da qui: crea l'autosave di sempre, condizionale. */
 function versioneUltimaId(){
   var best=null, bn=-1; VARIANTS.forEach(function(v,i){ var n=versioneNumeroDi(v,i).n; if(n>=bn){ bn=n; best=v.id; } });   /* a pari numero, la scheda più a destra */
   return best;
@@ -39664,31 +39784,18 @@ function allineaCloudPoi(cb, opz){
     });
   } else leggi();
 }
-function confermaLinkAttivo(info, azione, verbo){
-  var nonVerificabile=!!(info && info.esito==="errore");
-  if(!info || (!info.condiviso && !nonVerificabile)){ azione(); return; }
-  var ask= nonVerificabile
-    ? { icon:"warn", title:"Non riesco a controllare il link di condivisione", confirmText:verbo,
-        message:"Non riesco a controllare se il progetto ha un link di condivisione attivo: se l'hai già mandato, chi ha il link vedrà questa Bozza. Vuoi continuare?" }
-    : { icon:"warn", title:"Questo progetto ha un link di condivisione attivo", confirmText:verbo,
-        message:"Per ora il link mostra la versione su cui hai salvato per ultimo: la nuova versione nasce come Bozza e chi ha il link la vedrebbe subito. Vuoi continuare?" };
-  if(typeof window.confirmDialog==="function") window.confirmDialog(ask).then(function(ok){ if(ok) azione(); });
-  else azione();
-}
 /* «+ Versione» (srcId vuoto: l'ultima per numero) e «Nuova versione da questa» (la scheda aperta) */
 function nuovaVersione(srcId){
   if(paloTemporaneoAttivo()){ custEditorAvvisa(); return; }
   if(versioneNumeroNuovo()>VERSIONE_MAX){ if(window.__toast) window.__toast("Hai raggiunto il numero massimo di versioni ("+VERSIONE_MAX+").", true); return; }
-  allineaCloudPoi(function(info){
-    confermaLinkAttivo(info, function(){
-      syncActiveVariant();
-      var da=srcId || versioneUltimaId(), id=createVariant(null, da);
-      if(id){
-        var src=null; VARIANTS.forEach(function(v,i){ if(v.id===da) src=versioneEtichettaScheda(v,i); });
-        if(window.__toast && src) window.__toast("✓ "+versioneEtichettaScheda(activeVarObj(), VARIANTS.indexOf(activeVarObj()))+" creata da «"+src+"».");
-        invitoTitoloVersione();
-      }
-    }, "Crea la versione");
+  allineaCloudPoi(function(){
+    syncActiveVariant();
+    var da=srcId || versioneUltimaId(), id=createVariant(null, da);
+    if(id){
+      var src=null; VARIANTS.forEach(function(v,i){ if(v.id===da) src=versioneEtichettaScheda(v,i); });
+      if(window.__toast && src) window.__toast("✓ "+versioneEtichettaScheda(activeVarObj(), VARIANTS.indexOf(activeVarObj()))+" creata da «"+src+"».");
+      invitoTitoloVersione();
+    }
   });
 }
 /* il «vN» in fondo al titolo non serve più: il numero sta nella versione. Un clic, mai da solo. */
@@ -39765,10 +39872,10 @@ function importaVersioneDaFile(f){
       prepared=prepareDoc(importaDocumentoDaFile(parsed));   /* valida tutto prima di toccare il progetto; con la planimetria se il file la porta (25/11) */
     }catch(err){ if(window.__toast) window.__toast("✗ "+((err && err.code && err.message) || "File non valido: non è un progetto Stage Plot."), true); return; }
     var nota=importaNota(prepared);
-    allineaCloudPoi(function(info){
+    allineaCloudPoi(function(){
       var ask={ icon:"info", title:"Aggiungere questa scena come nuova versione?", confirmText:"Aggiungi",
         message:"«"+String(f.name||"il file").slice(0,60)+"» diventa la Versione "+versioneNumeroNuovo()+" di «"+(state.titolo||"questo progetto")+"», in Bozza. Titolo, luogo e data restano quelli del progetto; le versioni che ci sono non cambiano."+(nota?" "+nota:"") };
-      function vai(){ confermaLinkAttivo(info, function(){ var id=importaVersioneDaDocumento(prepared, f.name); if(id){ if(window.__toast) window.__toast("✓ Versione aggiunta dal file."+(nota?" "+nota:"")); invitoTitoloVersione(); } }, "Aggiungi la versione"); }
+      function vai(){ var id=importaVersioneDaDocumento(prepared, f.name); if(id){ if(window.__toast) window.__toast("✓ Versione aggiunta dal file."+(nota?" "+nota:"")); invitoTitoloVersione(); } }
       if(typeof window.confirmDialog==="function") window.confirmDialog(ask).then(function(ok){ if(ok) vai(); }); else vai();
     });
   };
@@ -39784,7 +39891,7 @@ function docVersioneSola(varId, titolo){
   st.titolo=tt; st.versione=1; st.status="bozza"; delete st.statusAt; delete st.pdfEsportato; delete st.storico; st.approval={by:"",at:""};
   if(st.venue && st.venue._sameAs!==undefined) delete st.venue._sameAs;
   st._v=SCHEMA_VERSION;
-  var extra=JSON.parse(JSON.stringify(DOC_EXTRA||{}));
+  var extra=togliChiaviCondivisione(JSON.parse(JSON.stringify(DOC_EXTRA||{})));   /* niente chiavi del link: il nuovo progetto non ha link */
   return { titolo:tt, doc:documentEnvelope(v.id, [{ id:v.id, name:"Versione 1", state:st }], extra) };
 }
 function duplicaVersioneComeProgetto(varId, titolo){
@@ -39899,6 +40006,7 @@ function pdfNomeFileTesto(){
     return (t||l) ? (t+(t&&l?" · ":"")+l) : "Stage plot"; }   /* oggetto mail = titolo · luogo */
   function fillShareModal(url){
     urlEl.value=url; status("");
+    var _sv=document.getElementById("shareVersione"); if(_sv){ _sv.textContent=""; _sv.hidden=true; }   /* l'etichetta «Link della Versione N» la rimette showForProject */
     invitoInviataAggiorna(_shareIsCurrent);   /* solo quando si condivide il progetto aperto, non un altro dalla lista */
     document.getElementById("shareNative").hidden = !navigator.share;
     /* QR nascosto di default: si apre col pulsante "Mostra QR" (link-first) */
@@ -39929,7 +40037,7 @@ function pdfNomeFileTesto(){
      — è un'istantanea che viaggia dentro l'indirizzo e si apre come copia modificabile. Prometteva
      comunque la sincronia, e chi la riceveva aspettava aggiornamenti che non sarebbero mai arrivati. */
   var SHARE_INTRO={
-    vivo:'Chi apre il link vede il palco <b>in sola lettura</b>, sempre aggiornato all\'ultima modifica.',
+    vivo:'Chi apre il link vede il palco <b>in sola lettura</b>. Il link resta su questa versione: se ne mandi una nuova, chi ha il vecchio vede solo un avviso che esiste.',
     istantanea:'Il link porta con sé una <b>copia di oggi</b>: chi lo riceve può modificarla, ma le sue modifiche non tornano a te e non vedrà quelle che farai da adesso.'
   };
   /**
@@ -40056,7 +40164,7 @@ function pdfNomeFileTesto(){
   function showForProject(id,request){
     var seq=request||++shareRequestSeq;
     shareTargetId = id;
-    window.__cloud.ensureShareTokenFor(id, function(tok){
+    window.__cloud.ensureShareTokenFor(id, function(tok, tokenNuovo){
       if(!shareRequestCurrent(seq,id)) return;
       if(!tok){
         var C=window.__cloud;
@@ -40065,14 +40173,33 @@ function pdfNomeFileTesto(){
         } else status("Impossibile preparare il link. Riprova.");
         return;
       }
-      fillShareModal(linkVistaCondivisa(tok));
-      showUnshare(true);
+      /* Link fisso (25/11): il link porta la chiave della VERSIONE, e la chiave deve essere già nel cloud prima che il link compaia. */
+      /* Rilettura 25/11 (C1): «aperto» = è il progetto aperto in questa scheda, ANCHE quando Condividi parte dalla lista. Se passasse da
+         chiaveLinkProgettoChiuso la chiave starebbe solo nel cloud, non in DOC_EXTRA, e il primo autosave la cancellerebbe (link → 404). */
+      var C2=window.__cloud, aperto=!!(C2 && C2.currentId && C2.currentId()===id);
+      function fine(chiave, motivo){
+        if(!shareRequestCurrent(seq,id)) return;
+        if(!chiave){
+          status(motivo==="bloccato" ? "Il progetto è bloccato: sbloccalo per creare il link di questa versione."
+            : motivo==="conflitto" ? "Il progetto è cambiato altrove: aprilo e condividi da lì."
+            : motivo==="chiave" ? "Questo browser non sa generare un link sicuro: aggiornalo."
+            : "Condivisione sospesa: il link di questa versione non è ancora online. Riprova.");
+          return;
+        }
+        fillShareModal(linkVistaCondivisa(tok, chiave));
+        var et=document.getElementById("shareVersione"); if(et){ var av=aperto?activeVarObj():null; et.textContent=av ? "Link della "+versioneEtichettaScheda(av, VARIANTS.indexOf(av))+" (non cambia se ne crei una nuova)" : ""; et.hidden=!av; }
+        showUnshare(true);
+      }
+      if(aperto) assicuraChiaveVersioneAperta(!!tokenNuovo, fine);
+      else if(C2 && C2.chiaveLinkProgettoChiuso) C2.chiaveLinkProgettoChiuso(id, !!tokenNuovo, fine);
+      else fine(null,"errore");
     });
   }
   /* Aperto dal modulo cloud (icona Condividi per riga) con un progetto già salvato. */
   window.__shareUi = { showForProject: function(id){
     var request=++shareRequestSeq;
     modal.hidden=false; _shareIsCurrent=false; shareFillExtras(); status("Preparazione link…"); showUnshare(false);
+    urlEl.value="";
     showForProject(id,request);
   } };
   function openShare(){
@@ -40082,6 +40209,7 @@ function pdfNomeFileTesto(){
     _shareIsCurrent=true; shareFillExtras();
     if(C && C.user()){
       status("Preparazione link…"); showUnshare(false);
+      urlEl.value=""; { var _sv0=document.getElementById("shareVersione"); if(_sv0){ _sv0.textContent=""; _sv0.hidden=true; } }   /* link fisso (25/11): il link della volta prima non resta in vista se questo non arriva */
       save();   /* cattura anche l'ultimo input prima della pipeline */
       C.save(function(id){
         if(request!==shareRequestSeq || modal.hidden || sourceEpoch!==(window.__docEpoch||0)) return;
@@ -40328,7 +40456,7 @@ function pdfNomeFileTesto(){
   window.__devEsportaProgetto=function(){
     if(paloTemporaneoAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
     var name=((state.titolo||state.luogo||"stageplot").replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"").slice(0,40)||"stageplot")+".json";
-    var data=docToJSONFull();   /* T6: export = documento intero (tutte le varianti); l'attiva porta la planimetria (_dataUrl), nessun limite di dimensione */
+    var data=docToJSONFull({senzaLink:true});   /* T6: export = documento intero (tutte le varianti); l'attiva porta la planimetria (_dataUrl), nessun limite di dimensione */
     if(typeof window.showSaveFilePicker==="function" && !isMobile()){   /* apre il selettore "dove salvare" */
       window.showSaveFilePicker({ suggestedName:name, types:[{description:"Progetto Stage Plot", accept:{"application/json":[".json"]}}] })
         .then(function(h){ return h.createWritable().then(function(w){ return w.write(data).then(function(){ return w.close(); }); }).then(function(){ io("✓ Progetto salvato sul dispositivo."); }); })
@@ -44794,11 +44922,7 @@ function invitoInviataTesto(st, foreign){
   var n=versioneDaTitolo(st.titolo); n=(typeof st.versione==="number" && st.versione>=1) ? st.versione : n;
   return n ? "Segna la v"+n+" come Inviata" : "Segna come Inviata";
 }
-function avvisoVersioniAggiorna(corrente){
-  var box=document.getElementById("shareAvvisoVersioni"); if(box) box.hidden=!(corrente!==false && VARIANTS.length>1 && !foreignDoc());
-}
 function invitoInviataAggiorna(corrente){
-  avvisoVersioniAggiorna(corrente);
   var box=document.getElementById("shareInvitoInviata"); if(!box) return;
   var t=corrente===false ? "" : invitoInviataTesto(state, foreignDoc());
   box.hidden=!t; var b=document.getElementById("shareSegnaInviata"); if(b && t) b.textContent=t;
@@ -47481,9 +47605,10 @@ function pdfChannelPage(doc, L, paperKey){
      la finestra si è chiusa o riaperta, non vale più). */
   var qrChk=document.getElementById("pdfQr"), _qrUrl=null, _qrGiro=0;
   function pdfQrAvviso(msg){ var a=document.getElementById("pdfQrAvviso"); if(!a) return; a.textContent=msg||""; a.hidden=!msg; }
+  var _qrTok=null;
   function pdfQrInit(){
     var row=document.getElementById("pdfQrRow"), giro=++_qrGiro;
-    window.__pdfQr=null; _qrUrl=null;
+    window.__pdfQr=null; _qrUrl=null; _qrTok=null;
     if(qrChk){ qrChk.checked=false; qrChk.disabled=false; }
     pdfQrAvviso("");
     if(row) row.style.display="none";
@@ -47491,14 +47616,14 @@ function pdfChannelPage(doc, L, paperKey){
     if(!C || typeof C.shareTokenAttivo!=="function") return;
     C.shareTokenAttivo(function(tok){
       if(giro!==_qrGiro || modal.hidden || !tok) return;
-      _qrUrl=linkVistaCondivisa(tok);
+      /* Link fisso (25/11): il QR porta la chiave della versione che si esporta. L'export non attiva mai la condivisione (serve già il token),
+         ma la chiave, se manca, si crea quando si spunta il QR (si salva nel cloud prima di disegnarlo). */
+      _qrTok=tok;
+      try{ var k=chiaveVersioneEsistente({shareLinks:DOC_EXTRA&&DOC_EXTRA.shareLinks}, activeVar); if(k) _qrUrl=linkVistaCondivisa(tok,k); }catch(_e){}
       if(row) row.style.display="";
     });
   }
-  if(qrChk) qrChk.addEventListener("change", function(){
-    var giro=_qrGiro;
-    pdfQrAvviso("");
-    if(!qrChk.checked || !_qrUrl){ window.__pdfQr=null; refresh(); return; }
+  function pdfQrGenera(giro){
     var carica=window.__loadQrLib ? window.__loadQrLib() : Promise.reject(new Error("QR non disponibile"));
     qrChk.disabled=true;
     carica.then(function(){
@@ -47516,6 +47641,28 @@ function pdfChannelPage(doc, L, paperKey){
       pdfQrAvviso("Non riesco a caricare il generatore del QR: il PDF esce senza.");
       refresh();
     });
+  }
+  if(qrChk) qrChk.addEventListener("change", function(){
+    var giro=_qrGiro;
+    pdfQrAvviso("");
+    if(!qrChk.checked){ window.__pdfQr=null; refresh(); return; }
+    if(!_qrUrl && _qrTok){
+      qrChk.disabled=true;
+      assicuraChiaveVersioneAperta(false, function(chiave, motivo){
+        if(giro!==_qrGiro) return;
+        qrChk.disabled=false;
+        if(!chiave){
+          qrChk.checked=false; window.__pdfQr=null;
+          pdfQrAvviso(motivo==="bloccato" ? "Il progetto è bloccato: sbloccalo per creare il link di questa versione. Il PDF esce senza QR." : "Non riesco a preparare il link di questa versione: il PDF esce senza QR.");
+          refresh(); return;
+        }
+        _qrUrl=linkVistaCondivisa(_qrTok, chiave);
+        pdfQrGenera(giro);
+      });
+      return;
+    }
+    if(!_qrUrl){ window.__pdfQr=null; refresh(); return; }
+    pdfQrGenera(giro);
   });
   function _pdfExportModalCore(){ modal.hidden=false; prevIdx=0;
     var _ann=document.getElementById("pdfCancel"); if(_ann) _ann.textContent="Annulla";   /* dopo un export era diventato «Chiudi» */
@@ -47727,6 +47874,8 @@ function gallery(){
 (function(){
   var vt = new URLSearchParams(location.search).get("view");
   if(!vt) return;   /* flusso normale invariato */
+  var vk = new URLSearchParams(location.search).get("v");   /* link fisso (25/11): la chiave della versione; assente = link «nudo» di una volta */
+  var vkQuery = vk!==null ? "&v="+encodeURIComponent(vk) : "";
   /* Il bearer link è un confine documento già dal primo tick: rete/auth possono impiegare secondi.
      Senza questa marcatura sincrona, un click potrebbe persistere il foglio transitorio sopra
      l'ultimo progetto locale prima della risposta Edge. */
@@ -47765,12 +47914,12 @@ function gallery(){
   function togliAttesa(){ var w=document.getElementById("viewWait"); if(w&&w.remove) w.remove(); }
   mostraAttesa();
 
-  fetch(SB_URL+"/functions/v1/get-shared-project?token="+encodeURIComponent(vt))
-    .then(function(r){return r.json();})
+  fetch(SB_URL+"/functions/v1/get-shared-project?token="+encodeURIComponent(vt)+vkQuery)
+    .then(function(r){ return r.json().then(function(d){ if(d && typeof d==="object") d.__status=r.status; return d; }); })
     .then(function(d){
       rispostaArrivata=true;   /* da qui in poi un errore NON è la rete: dirlo come se lo fosse manda a cercare il wifi */
-      if(d.error){ viewerFailed("Il link non corrisponde a nessun progetto: può essere stato revocato o essere scaduto."); return; }
-      if(d.kind==="project"){ startSharedProject(vt, d); return; }   /* condivisione generica: read-only statico + copia */
+      if(d.error){ viewerFailed(linkFissoMessaggio(d.__status, d.code) || "Il link non corrisponde a nessun progetto: può essere stato revocato o essere scaduto."); return; }
+      if(d.kind==="project"){ startSharedProject(vt, d, vk); return; }   /* condivisione generica: read-only statico + copia */
       whenSupabase(function(){
         var sb=window.supabase.createClient(SB_URL, SB_ANON, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce"},
           global:{ fetch:function(u,o){ return fetchConTempo(u,o); } }});
@@ -47855,7 +48004,7 @@ function gallery(){
     document.addEventListener("visibilitychange",function(){ if(!document.hidden) refresh(); else meta("aggiornamenti in pausa"); });
   }
 
-  function startSharedProject(token, d){
+  function startSharedProject(token, d, chiave){
     if(!concludi()) return;
     document.body.classList.remove("consult-pending");
     document.body.classList.add("viewmode");
@@ -47868,6 +48017,12 @@ function gallery(){
     var role=document.getElementById("viewRole"); if(role) role.textContent=(d.title||"Progetto condiviso");
     var badge=document.getElementById("viewBadge"); if(badge) badge.hidden=false;
     var pres=document.getElementById("viewPresence"); if(pres) pres.textContent="";
+    var piu=document.getElementById("viewPiuRecente");   /* link fisso: solo l'avviso, mai il contenuto della versione più recente */
+    if(piu){
+      piu.hidden = d.piuRecente!==true; document.body.classList.toggle("view-piu", d.piuRecente===true);
+      var misuraPiu=function(){ try{ document.body.style.setProperty("--piu-h", (piu.hidden?0:piu.offsetHeight)+"px"); }catch(_m){} };
+      misuraPiu(); window.addEventListener("resize", misuraPiu);
+    }
     try{ document.body.classList.toggle("share-hidecontacts", !(state.shareOpts && state.shareOpts.contacts===true)); }catch(_e){}   /* contatti nel link: opt-in del proprietario */
     var cp=document.getElementById("viewCopy"); if(!cp) return;
     cp.hidden = !!(state.shareOpts && state.shareOpts.copy===false);   /* copia disattivabile dal proprietario */
@@ -47875,10 +48030,10 @@ function gallery(){
       var giaCopia=cp.getAttribute("data-copia"); if(giaCopia && window.__apriCopia){ window.__apriCopia(giaCopia); return; }   /* dopo la copia il pulsante apre quella */
       var C=window.__cloud;
       if(C && C.user()){
-        if(C.copySharedToken) C.copySharedToken(token);   /* INSERT remoto isolato: non tocca binding/mirror/slot locale */
+        if(C.copySharedToken) C.copySharedToken(token, chiave);   /* INSERT remoto isolato: non tocca binding/mirror/slot locale */
         else if(window.__toast) window.__toast("Copia non disponibile. Riprova dopo aver riaperto la pagina.",true);
       } else {
-        try{ sessionStorage.setItem("copyFromToken", token); }catch(e){}
+        try{ sessionStorage.setItem("copyFromToken", token); if(chiave) sessionStorage.setItem("copyFromChiave", chiave); else sessionStorage.removeItem("copyFromChiave"); }catch(e){}
         if(C && C.signIn) C.signIn();
       }
     });
@@ -48954,6 +49109,7 @@ function maybeAskStageSize(explicit){
     });
     confBar.querySelector("#cbCopy").addEventListener("click", function(){
       detachCloudDoc();   /* nuova identità: invalida INSERT/UPDATE e callback del progetto in conflitto */
+      togliChiaviCondivisione(DOC_EXTRA);   /* rilettura 25/11 (C2): la copia nata dal conflitto non porta le chiavi dei link del progetto di partenza */
       try{ state.titolo=((state.titolo||"Senza titolo")+" (copia)").slice(0,120); var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo; }catch(e){}
       exitConflict(); save();
       flushCloudAutosave(function(ok){
@@ -49573,23 +49729,24 @@ function maybeAskStageSize(explicit){
   function apriCopia(id){ if(!/^[0-9a-f-]{36}$/i.test(String(id||""))) return; location.href="/app/?p="+encodeURIComponent(id); }
   function segnaCopiaFatta(id){ var cp=document.getElementById("viewCopy"); if(cp){ cp.textContent="Apri la copia"; cp.setAttribute("data-copia", id); } }
   try{ window.__apriCopia=apriCopia; }catch(e){}
-  function completeCopyFromToken(token){
+  function completeCopyFromToken(token, chiaveV){
     var copyUserId=cloudUser&&cloudUser.id, copyAuth=authGeneration;
+    chiaveV=(typeof chiaveV==="string" && CHIAVE_VERSIONE_RE.test(chiaveV)) ? chiaveV : "";   /* link fisso: la copia è della versione del link */
     if(!copyUserId){ toast("Accedi per completare la copia.",true); return; }
     /* la chiave è per ACCOUNT (revisione 26/09: cambiando account nella stessa scheda il secondo si sentiva
        dire «hai già una copia» di una copia che non era sua); e se quella copia nel frattempo è stata
        eliminata, si ricopia invece di offrire un progetto che non c'è più */
-    var chiaveCopia="copiaDi:"+copyUserId+":"+token;
+    var chiaveCopia="copiaDi:"+copyUserId+":"+token+(chiaveV?":"+chiaveV:"");
     var giaFatta=null; try{ giaFatta=sessionStorage.getItem(chiaveCopia); }catch(e){}
     if(giaFatta && cloudProjectsStato==="letta" && !cloudProjects.some(function(p){ return p.id===giaFatta; })){
       try{ sessionStorage.removeItem(chiaveCopia); }catch(e){} giaFatta=null;
     }
     if(giaFatta){   /* seconda pressione sullo stesso link: niente doppione, si offre quella già fatta */
-      try{ sessionStorage.removeItem("copyFromToken"); }catch(e){}
+      try{ sessionStorage.removeItem("copyFromToken"); sessionStorage.removeItem("copyFromChiave"); }catch(e){}
       toast("Hai già una copia di questo progetto nel tuo account.", false, {label:"Apri la copia", neutra:true, run:function(){ apriCopia(giaFatta); }});
       segnaCopiaFatta(giaFatta); return;
     }
-    fetch(SUPABASE_URL+"/functions/v1/get-shared-project?token="+encodeURIComponent(token))
+    fetch(SUPABASE_URL+"/functions/v1/get-shared-project?token="+encodeURIComponent(token)+(chiaveV?"&v="+encodeURIComponent(chiaveV):""))
       .then(function(r){ return r.json(); })
       .then(function(d){
         if(!authStill(copyUserId,copyAuth)) return;
@@ -49597,7 +49754,7 @@ function maybeAskStageSize(explicit){
           toast("Impossibile completare la copia.", true); return;
         }
         if(d.data.shareOpts && d.data.shareOpts.copy===false){
-          try{ sessionStorage.removeItem("copyFromToken"); }catch(e){}
+          try{ sessionStorage.removeItem("copyFromToken"); sessionStorage.removeItem("copyFromChiave"); }catch(e){}
           toast("Il proprietario non consente più di creare una copia.", true); return;
         }
         var prepared, copyTitle=("Copia di "+(d.title||"progetto")).slice(0,120), copyData, copyVenue;
@@ -49607,6 +49764,7 @@ function maybeAskStageSize(explicit){
           if(active) active.state.titolo=copyTitle;
           copyData=JSON.parse(JSON.stringify(documentEnvelope(prepared.active,prepared.variants,prepared.extra),stateReplacer));
           if(typeof senzaNotaPdf==="function") senzaNotaPdf(copyData);   /* la copia non è mai stata esportata */
+          togliChiaviCondivisione(copyData);   /* link fisso (25/11): nessuna chiave dei link altrui */
           /* Progetti legacy: se la colonna dedicata è vuota, recupera le bitmap ancora inline nel blob. */
           copyVenue=safeVenueImageField(d.venue_image,venueImageBundleFromVariants(prepared.variants,prepared.active),prepared.active);
         }catch(e){ toast("Copia non valida.", true); return; }
@@ -49616,7 +49774,7 @@ function maybeAskStageSize(explicit){
           data:copyData,thumbnail:null,venue_image:copyVenue}).select().single().then(function(r){
           if(!authStill(copyUserId,copyAuth)) return;
           if(r.error||!r.data||!r.data.id){ toast("Impossibile creare la copia. Riproveremo al prossimo accesso.",true); return; }
-          try{ sessionStorage.removeItem("copyFromToken"); }catch(e){}   /* non ritentare un insert già riuscito */
+          try{ sessionStorage.removeItem("copyFromToken"); sessionStorage.removeItem("copyFromChiave"); }catch(e){}   /* non ritentare un insert già riuscito */
           try{ sessionStorage.setItem(chiaveCopia, r.data.id); }catch(e){}
           /* Revisione 25/09: prima diceva solo «il progetto locale è rimasto aperto» e lasciava la pagina com'era;
              chi voleva lavorare sulla copia ripremeva il pulsante — 5 copie in 6 minuti, dato reale. La copia NON
@@ -49740,7 +49898,7 @@ function maybeAskStageSize(explicit){
       if(!authStill(requestUser,requestAuth)) return;
       if(r.error || !r.data){ toast("Duplicazione non riuscita.", true); return; }
       var t=(((r.data.title||"Senza titolo")+" — copia")).slice(0,120);
-      sb.from("stageplot_projects").insert({ user_id:requestUser, schema_version:SCHEMA_VERSION, title:t, data:(typeof senzaNotaPdf==="function"?senzaNotaPdf(r.data.data):r.data.data), venue_image:r.data.venue_image||null }).select("id").single().then(function(w){   /* la copia tiene la planimetria */
+      sb.from("stageplot_projects").insert({ user_id:requestUser, schema_version:SCHEMA_VERSION, title:t, data:togliChiaviCondivisione(typeof senzaNotaPdf==="function"?senzaNotaPdf(r.data.data):r.data.data), venue_image:r.data.venue_image||null }).select("id").single().then(function(w){   /* la copia tiene la planimetria */
         if(!authStill(requestUser,requestAuth)) return;
         if(w.error){ toast("Duplicazione non riuscita: "+w.error.message, true); return; }
         toast("Copia creata: "+t);
@@ -49944,6 +50102,7 @@ function maybeAskStageSize(explicit){
     if(!sb || !cloudUser){ toast("Accedi per duplicare.", true); return; }
     if(window.applyProjLock) window.applyProjLock(false);   /* la copia è editabile: sblocca l'editor + nascondi la barra */
     detachCloudDoc();   /* nuova identità: invalida anche callback/INSERT senza ID ancora in volo */
+    togliChiaviCondivisione(DOC_EXTRA);   /* link fisso (25/11): la copia non eredita le chiavi dei link del progetto di partenza */
     try{ state.titolo=((state.titolo||"Senza titolo")+" — copia").slice(0,120); var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo; }catch(e){}
     exitConflict(); save();
     flushCloudAutosave(function(ok){
@@ -49981,7 +50140,7 @@ function maybeAskStageSize(explicit){
       var tok=tokenCondivisione();
       if(!tok){ toast("Questo browser non sa generare un link sicuro: aggiornalo."); cb(null); return; }
       updateProjectMetadataCas(id,{share_token:tok},"updated_at,share_token",function(data){
-        if(data){ window.__sendEvent({event:"share_created",props:{}}); try{ window.usoConta("share_created"); }catch(_u){} cb(data.share_token||tok); }
+        if(data){ window.__sendEvent({event:"share_created",props:{}}); try{ window.usoConta("share_created"); }catch(_u){} cb(data.share_token||tok, true); }   /* 2° argomento: il token nasce adesso (link fisso: nessun link nudo in giro) */
         else cb(null);
       },r.data&&r.data.updated_at);
     });
@@ -49996,6 +50155,32 @@ function maybeAskStageSize(explicit){
       if(!authStill(requestUser,requestAuth) || cloudCurrentId!==id || !r || r.error || !r.data){ cb(null); return; }
       cb(typeof r.data.share_token==="string" && r.data.share_token ? r.data.share_token : null);
     }, function(){ cb(null); });
+  }
+  /* Link fisso (25/11): chiave del link per un progetto che NON è aperto (lista «I miei progetti»). Se il documento ha già dei link, l'ultimo creato; se no la chiave
+     della versione che il link nudo mostrava (regola 3). Scrive `data` con CAS su updated_at: conflitto = «apri il progetto e condividi da lì». cb(chiave) o cb(null, motivo). */
+  function chiaveLinkProgettoChiuso(id, tokenNuovo, cb){
+    if(!sb || !id || !cloudUser){ cb(null,"errore"); return; }
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
+    sb.from("stageplot_projects").select("data,updated_at,is_locked").eq("id",id).single().then(function(r){
+      if(!authStill(requestUser,requestAuth)){ cb(null,"errore"); return; }
+      if(r.error || !r.data || !r.data.data || typeof r.data.data!=="object" || Array.isArray(r.data.data) || !Array.isArray(r.data.data.variants)){ cb(null,"errore"); return; }
+      var doc=r.data.data, links=doc.shareLinks && typeof doc.shareLinks==="object" ? doc.shareLinks : {}, ultima=null;
+      Object.keys(links).forEach(function(k){ if(CHIAVE_VERSIONE_RE.test(k) && links[k] && typeof links[k].v==="string" && doc.variants.some(function(v){ return v && v.id===links[k].v; })) ultima=k; });
+      var bozza=null;
+      if(ultima){ bozza=chiavePerVersione(doc, links[ultima].v, {tokenNuovo:tokenNuovo, genera:nuovaChiaveVersione}); }
+      else {
+        var senza={}; Object.keys(doc).forEach(function(x){ if(x!=="shareLinks" && x!=="shareLegacy") senza[x]=doc[x]; });
+        var sc=sceltaVersioneCondivisa(senza,{}), vid=sc && typeof sc.id==="string" ? sc.id : (typeof doc.active==="string" ? doc.active : null);
+        if(!vid){ cb(null,"errore"); return; }
+        bozza=chiavePerVersione(doc, vid, {tokenNuovo:tokenNuovo, genera:nuovaChiaveVersione, oggi:new Date().toISOString().slice(0,10)});
+      }
+      if(!bozza){ cb(null,"chiave"); return; }
+      if(!bozza.patch){ cb(bozza.chiave); return; }
+      if(r.data.is_locked){ cb(null,"bloccato"); return; }
+      if(id===cloudCurrentId){ cb(null,"errore"); return; }   /* rilettura 25/11 (C1): il progetto aperto qui passa da DOC_EXTRA (assicuraChiaveVersioneAperta), mai da una scrittura diretta di `data` */
+      var nuovo={}; Object.keys(doc).forEach(function(x){ nuovo[x]=doc[x]; }); Object.keys(bozza.patch).forEach(function(x){ nuovo[x]=bozza.patch[x]; });
+      updateProjectMetadataCas(id,{data:nuovo},"updated_at",function(d){ if(d) cb(bozza.chiave); else cb(null,"conflitto"); }, r.data.updated_at);
+    },function(){ cb(null,"errore"); });
   }
   function clearShareTokenFor(id, cb){
     if(!sb || !id){ if(cb) cb(false); return; }
@@ -50280,6 +50465,7 @@ function maybeAskStageSize(explicit){
     unlockCurrent: unlockCurrent,   /* usato dalla barra "🔒 Progetto bloccato — Sblocca" */
     dupOpenCurrent: dupOpenCurrent,   /* usato dalla barra "Progetto bloccato — Duplica" */
     ensureShareTokenFor: ensureShareTokenFor,
+    chiaveLinkProgettoChiuso: chiaveLinkProgettoChiuso,
     shareTokenAttivo: shareTokenAttivo,
     clearShareTokenFor: clearShareTokenFor,
     copySharedToken: completeCopyFromToken,
@@ -50411,10 +50597,10 @@ function maybeAskStageSize(explicit){
         openModal();
       }
       orcSeatsSync();
-      var copyTok=null; try{ copyTok=sessionStorage.getItem("copyFromToken"); }catch(e){}
+      var copyTok=null, copyCh=""; try{ copyTok=sessionStorage.getItem("copyFromToken"); copyCh=sessionStorage.getItem("copyFromChiave")||""; }catch(e){}
       if(copyTok && cloudUser){
         try{ sessionStorage.removeItem("cloudReopen"); }catch(e){}   /* copyFromToken resta finché l'INSERT non è confermato */
-        completeCopyFromToken(copyTok);
+        completeCopyFromToken(copyTok, copyCh);
         return;
       }
       var reopen=false; try{ reopen=sessionStorage.getItem("cloudReopen")==="1"; }catch(e){}

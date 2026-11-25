@@ -2531,6 +2531,11 @@ body.viewmode #viewBar {
   padding: 8px 14px; background: #111827; color: #fff; font-size: 14px;
 }
 body.viewmode main { position: fixed; inset: 44px 0 0 0; }
+/* Link fisso (25/11/2026): fascia sotto la barra del lettore quando esiste una versione più recente. Solo l'avviso, mai il contenuto. */
+#viewPiuRecente{position:fixed;top:44px;left:0;right:0;z-index:49;padding:7px 14px;background:#fef3c7;color:#78350f;border-bottom:1px solid #fcd34d;font-size:13px;line-height:1.35;font-family:var(--font-ui)}
+#viewPiuRecente[hidden]{display:none}
+body.view-piu.viewmode main{inset:calc(44px + var(--piu-h,0px)) 0 0 0}
+
 
 /* Documento condiviso non arrivato: al posto del disegno, non sopra. Finché il palco resta visibile
    sotto un avviso, c'è sempre chi legge il palco e non l'avviso. */
@@ -4595,6 +4600,7 @@ body.cambio-vista #catalog{pointer-events:none;opacity:.55}
 </head>
 <body>
 <div id="viewBar"><a class="vb-brand" href="/app/" target="_blank" rel="noopener" title="Crea il tuo stage plot gratis su stageplot.it">stageplot.it<span class="vb-cta">crea il tuo gratis →</span></a><strong id="viewRole">Sola lettura</strong><span class="vb-badge" id="viewBadge" hidden>Sola lettura</span><span class="vb-status" id="viewStatus" hidden></span><span id="viewMeta"></span><span id="viewToggle"><button id="vtPlot" type="button" class="vt-on">Stage plot</button><button id="vtChan" type="button">Channel list</button></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
+<div id="viewPiuRecente" role="note" hidden>Esiste una versione più recente di questo stage plot. Chiedi il link aggiornato a chi te l'ha mandato.</div>
 <div id="viewLists" aria-live="polite"></div><!-- T3: liste tecniche nel link condiviso (Input/Monitor/Carichi/RF/Backline) -->
 <!-- Il documento condiviso non è arrivato: prende il posto del disegno. Un palco vuoto disegnato bene
      si legge come «il gruppo non ha bisogno di niente», ed è la cosa peggiore da far credere a un
@@ -6717,8 +6723,9 @@ body.cambio-vista #catalog{pointer-events:none;opacity:.55}
         <!-- Il testo lo scrive shareBadge(): i due link non sono la stessa cosa e non possono
              promettere la stessa cosa. Quello cloud è vivo e in sola lettura; quello senza account
              porta con sé una copia di oggi, che chi la riceve può modificare. -->
-        <div id="shareIntroTxt" style="flex:1;font-size:12px;color:var(--text-2);line-height:1.5">Chi apre il link vede il palco <b>in sola lettura</b>, sempre aggiornato all'ultima modifica.</div>
+        <div id="shareIntroTxt" style="flex:1;font-size:12px;color:var(--text-2);line-height:1.5">Chi apre il link vede il palco <b>in sola lettura</b>. Il link resta su questa versione: se ne mandi una nuova, chi ha il vecchio vede solo un avviso che esiste.</div>
       </div>
+      <div id="shareVersione" hidden style="margin:8px 0 0;font-size:12px;color:var(--text-2)"></div>
       <div id="shareUrlRow" style="display:flex;gap:8px;align-items:stretch;margin-top:12px">
         <input aria-label="Link da copiare" type="text" id="shareUrl" readonly onclick="this.select()" style="flex:1;min-width:0;font-size:13px;padding:10px 11px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-raised);color:var(--text)">
         <button class="btn" id="shareNative" hidden>Condividi…</button>
@@ -6748,8 +6755,6 @@ body.cambio-vista #catalog{pointer-events:none;opacity:.55}
       </div>
       <!-- Dopo Condividi (24/11/2026): «Inviata» scatta qui, a un clic e mai da sola. Compare solo per una Bozza. -->
       <div id="shareInvitoInviata" class="share-invito" hidden><span>Hai mandato questa versione?</span><button type="button" class="btn" id="shareSegnaInviata">Segna come Inviata</button></div>
-      <!-- Versioni L2 (25/11/2026): il link NON è ancora fisso alla versione condivisa: mostra quella su cui si è salvato per ultimo, bozze comprese. -->
-      <div id="shareAvvisoVersioni" class="share-invito" hidden role="note"><span>Il link mostra la versione su cui hai salvato per ultimo, anche se è una Bozza: chi lo ha già vede subito le tue modifiche.</span></div>
       <div id="shareStatus" style="font-size:12px;color:var(--accent);min-height:14px;margin-top:8px"></div>
     </div>
     <!-- elementi nascosti usati dal pannello laterale -->
