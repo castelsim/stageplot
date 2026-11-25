@@ -2453,6 +2453,11 @@ body.viewmode #viewBar {
   padding: 8px 14px; background: #111827; color: #fff; font-size: 14px;
 }
 body.viewmode main { position: fixed; inset: 44px 0 0 0; }
+/* Link fisso (25/11/2026): fascia sotto la barra del lettore quando esiste una versione più recente. Solo l'avviso, mai il contenuto. */
+#viewPiuRecente{position:fixed;top:44px;left:0;right:0;z-index:49;padding:7px 14px;background:#fef3c7;color:#78350f;border-bottom:1px solid #fcd34d;font-size:13px;line-height:1.35;font-family:var(--font-ui)}
+#viewPiuRecente[hidden]{display:none}
+body.view-piu.viewmode main{inset:calc(44px + var(--piu-h,0px)) 0 0 0}
+
 
 /* Documento condiviso non arrivato: al posto del disegno, non sopra. Finché il palco resta visibile
    sotto un avviso, c'è sempre chi legge il palco e non l'avviso. */

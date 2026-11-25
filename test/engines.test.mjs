@@ -4733,7 +4733,7 @@ t("progetto da link: il cartiglio non prende il nome di chi guarda, e il titolo 
   eq(A.state.titolo, "Tributo 10x10", "il titolo della colonna vince su quello nel file");
   A.titoloDelLink({ title: "   ", data: {} });
   eq(A.state.titolo, "Tributo 10x10", "colonna vuota: resta quello che c'è");
-  const f1 = appjs.slice(appjs.indexOf("function startSharedProject(token, d){"), appjs.indexOf("function startSharedProject(token, d){") + 500);
+  const f1 = appjs.slice(appjs.indexOf("function startSharedProject(token, d, chiave){"), appjs.indexOf("function startSharedProject(token, d, chiave){") + 500);
   ok(/importProject\(JSON\.stringify\(d\.data\)[^;]*;\s*titoloDelLink\(d\);/.test(f1), "link di sola visione: titolo applicato dopo l'import");
   const f2 = appjs.slice(appjs.indexOf("function startSession(sb, token, d, isEditor){"), appjs.indexOf("function startSession(sb, token, d, isEditor){") + 900);
   ok(/importProject\(JSON\.stringify\(d\.data\)[^;]*;\s*titoloDelLink\(d\);/.test(f2), "consulenza: titolo applicato dopo l'import");
@@ -16717,8 +16717,8 @@ t("il nome del musicista non si ripete sulla sua spia", () => {
 /* Revisione 25/09: «Crea una copia» dal link creava la copia e lasciava la pagina com'era — chi voleva
    lavorarci ripremeva il pulsante: 5 copie dello stesso progetto in 6 minuti (dato reale). */
 t("la copia da link si offre di aprirsi e non si duplica", () => {
-  const f = appjs.slice(appjs.indexOf("function completeCopyFromToken(token){"), appjs.indexOf("function loadProjects(){"));
-  ok(/var chiaveCopia="copiaDi:"\+copyUserId\+":"\+token;/.test(f), "la copia fatta si ricorda per account");
+  const f = appjs.slice(appjs.indexOf("function completeCopyFromToken(token, chiaveV){"), appjs.indexOf("function loadProjects(){"));
+  ok(/var chiaveCopia="copiaDi:"\+copyUserId\+":"\+token\+\(chiaveV\?":"\+chiaveV:""\);/.test(f), "la copia fatta si ricorda per account");
   ok(/giaFatta=sessionStorage\.getItem\(chiaveCopia\)/.test(f) && /if\(giaFatta\)\{[\s\S]{0,300}toast\("Hai già una copia/.test(f), "un secondo clic crea un'altra copia invece di offrire quella fatta");
   ok(/!cloudProjects\.some\(function\(p\)\{ return p\.id===giaFatta; \}\)/.test(f), "se la copia è stata eliminata si può ricopiare");
   ok(/sessionStorage\.setItem\(chiaveCopia, r\.data\.id\)/.test(f), "la copia fatta non viene ricordata");
@@ -26602,7 +26602,7 @@ t("una risposta in ritardo non riscrive la schermata già letta", () => {
   /* Tutte e tre le uscite passano di lì: fallimento, sessione live, progetto condiviso statico. */
   ok(/function viewerFailed\(perche\)\{\s*if\(!concludi\(\)\) return;/.test(appjs), "il fallimento");
   ok(/function startSession\(sb, token, d, isEditor\)\{\s*if\(!concludi\(\)\) return;/.test(appjs), "la sessione live");
-  ok(/function startSharedProject\(token, d\)\{\s*if\(!concludi\(\)\) return;/.test(appjs), "il link di sola lettura");
+  ok(/function startSharedProject\(token, d, chiave\)\{\s*if\(!concludi\(\)\) return;/.test(appjs), "il link di sola lettura");
 });
 
 t("anche la richiesta al musicista ha un tempo massimo", () => {
@@ -41515,8 +41515,7 @@ t("Versioni L2 · «Nuova versione»: prima allinea il cloud; con conflitto, sal
   });
   docVersioni([{ versione: 1 }]); A.syncActiveVariant();
   conCloud(cloudOk({ allinea: (cb) => cb({ esito: "ok", condiviso: true }) }), () => {
-    A.confirmDialog = () => ({ then: (f) => f(false) }); A.nuovaVersione(); eq(nv(), 1, "link attivo, risposta no: non si crea");
-    A.confirmDialog = () => ({ then: (f) => f(true) }); A.nuovaVersione(); eq(nv(), 2, "link attivo, risposta sì: si crea");
+    let chiesto = 0; A.confirmDialog = () => { chiesto++; return { then: (f) => f(false) }; }; A.nuovaVersione(); eq([nv(), chiesto], [2, 0], "link fisso (25/11): con un link attivo la versione nasce senza conferma provvisoria");
   });
   reset(); spegniCloud();
 }));
@@ -41608,9 +41607,7 @@ t("Versioni L2 · correzioni della rilettura (C1-C4): banner → nuovaVersione; 
   const nv = () => A.VARIANTS.length; let chieste = []; 
   reset(); docVersioni([{ versione: 1 }]); A.syncActiveVariant();
   conCloud(cloudOk({ allinea: (cb) => cb({ esito: "errore", condiviso: false }) }), () => {
-    A.confirmDialog = (o) => { chieste.push(o); return { then: (f) => f(false) }; }; A.nuovaVersione(); eq([nv(), chieste.length], [1, 1], "C2: errore di rete, risposta no: chiede e non crea");
-    ok(/Non riesco a controllare/.test(chieste[0].message), "C2: testo prudente");
-    A.confirmDialog = (o) => { chieste.push(o); return { then: (f) => f(true) }; }; A.nuovaVersione(); eq([nv(), chieste.length], [2, 2], "C2: errore di rete, risposta sì: crea");
+    A.confirmDialog = (o) => { chieste.push(o); return { then: (f) => f(false) }; }; A.nuovaVersione(); eq([nv(), chieste.length], [2, 0], "link fisso (25/11): errore di rete nel controllo del link, nessuna conferma provvisoria");
   });
   /* C2 bis: lettura riuscita e senza link → nessuna domanda come prima */
   chieste = []; docVersioni([{ versione: 1 }]); A.syncActiveVariant();
@@ -41634,7 +41631,7 @@ t("Versioni L2 · interfaccia: voci nuove nel menu della versione, nel menu File
   ok(/data-vm="imp">Importa come nuova versione…<\/button>/.test(html) && !/data-file="import-version"/.test(html), "menu della scheda; il menu File resta a sette voci");
   ok(/data-act="var-dup"[^>]*>Duplica come nuovo progetto/.test(html) && /data-act="var-imp"[^>]*>Importa come nuova versione/.test(html), "telefono");
   ok(/id="importVersionFile" accept="application\/json,\.json" hidden/.test(html), "il selettore di file dedicato");
-  ok(/id="shareAvvisoVersioni"/.test(html) && /id="shareAvvisoVersioni"[^>]*hidden/.test(html), "avviso Condividi");
+  ok(!/shareAvvisoVersioni/.test(html) && !/shareAvvisoVersioni|confermaLinkAttivo|avvisoVersioniAggiorna/.test(appjs), "link fisso (25/11): né la nota in Condividi né la conferma provvisoria");
   ok(/La versione attiva è la v/.test(appjs) && /Duplica come nuovo progetto\./.test(appjs), "frase dell'Esporta aggiornata");
   ok(/createVariant\(null, *versioneUltimaId\(\)\)|nuovaVersione\(\)/.test(appjs) && !/vtab-add"\)\)\{ chiudiMenu\(\); chiudiTutte\(\); createVariant\(\)/.test(appjs), "il «+» passa da nuovaVersione");
   ok(/a==="new"\) nuovaVersione\(activeVar\)/.test(appjs), "«Nuova versione da questa» parte dalla scheda aperta");
@@ -42455,6 +42452,125 @@ t("C1 sezione dei carichi · stima PRUDENTE: 1,5 mm² fino a 16 A, 4 mm² fino a
   const R = A.elecResult(true), a = R.loadLinks.filter((l) => l.load.it.id === "A")[0], b = R.loadLinks.filter((l) => l.load.it.id === "B")[0];
   eq(a.drop.S, 1.5, "10 A → 1,5 mm²"); eq(b.drop.S, 4, "24 A → 4 mm²"); ok(a.drop.stim && b.drop.stim, "marcate stimate");
   ok(/sezione stimata/.test(A.elecDropRighe(a.drop)[0][1]), "e il pannello lo dice");
+});
+
+console.log("\nLink fisso L2 (25/11/2026):");
+const casiLF = JSON.parse(readFileSync(join(root, "test/fixtures/link-fisso/casi.json"), "utf8"));
+t("Link fisso L2 · la scelta della versione fa quello che fa la funzione: stesse " + casiLF.length + " fixture di casi.json", () => {
+  casiLF.forEach((c) => {
+    const r = A.sceltaVersioneCondivisa(JSON.parse(JSON.stringify(c.doc)), { chiave: c.chiave });
+    eq(c.atteso.errore ? { errore: r.errore } : { id: r.id, piuRecente: r.piuRecente }, c.atteso, c.nome);
+  });
+});
+const V3 = () => ({ _doc: 1, active: "a3", variants: [
+  { id: "a1", name: "Versione 1", state: { status: "superato", versione: 1 } }, { id: "a2", name: "Versione 2", state: { status: "revisione", versione: 2 } },
+  { id: "a3", name: "Versione 3", state: { status: "bozza", versione: 3 } }] });
+const gen = (k) => () => k;
+t("Link fisso L2 · chiavePerVersione: prima chiave su progetto con link già in giro → shareLegacy = la versione che il link nudo mostrava; le chiavi dopo non lo toccano", () => {
+  const doc = V3(), r = A.chiavePerVersione(doc, "a2", { tokenNuovo: false, genera: gen("K2222222222222222222"), oggi: "2026-11-25" });
+  eq([r.chiave, r.nuova, r.patch.shareLegacy], ["K2222222222222222222", true, "a2"], "il link nudo mostrava l'ultima Inviata (v2), non la bozza v3");
+  eq(r.patch.shareLinks, { K2222222222222222222: { v: "a2", at: "2026-11-25" } });
+  eq(doc.shareLinks, undefined, "il documento passato non si tocca");
+  Object.assign(doc, r.patch);
+  const r2 = A.chiavePerVersione(doc, "a3", { genera: gen("K3333333333333333333"), oggi: "2026-11-26" });
+  eq(r2.patch.shareLegacy, undefined, "seconda chiave: shareLegacy resta com'è"); eq(Object.keys(r2.patch.shareLinks), ["K2222222222222222222", "K3333333333333333333"], "le chiavi vecchie restano, in ordine di creazione");
+  Object.assign(doc, r2.patch); eq(doc.shareLegacy, "a2");
+  const r3 = A.chiavePerVersione(doc, "a2", { genera: () => { throw new Error("non deve generare"); } });
+  eq([r3.chiave, r3.nuova, r3.patch], ["K2222222222222222222", false, null], "stessa versione: si riusa la chiave, niente da salvare");
+});
+t("Link fisso L2 · chiavePerVersione: token nato adesso → shareLegacy:false (il link nudo dà «incompleto»); senza generatore → null; chiave malformata → null", () => {
+  const r = A.chiavePerVersione(V3(), "a3", { tokenNuovo: true, genera: gen("K3333333333333333333") });
+  eq(r.patch.shareLegacy, false);
+  const d = V3(); d.shareLegacy = "a1"; d.shareLinks = { K1111111111111111111: { v: "a1", at: "x" } };
+  eq(A.chiavePerVersione(d, "a1", { tokenNuovo: true }).patch, { shareLegacy: false }, "chiave già c'è ma il token è nuovo: solo shareLegacy:false");
+  eq(A.chiavePerVersione(V3(), "a3", { genera: () => null }), null, "browser senza crypto");
+  eq(A.chiavePerVersione(V3(), "a3", { genera: gen("corta") }), null, "forma non ammessa dalla funzione");
+  const dopo = JSON.parse(JSON.stringify(V3())); Object.assign(dopo, r.patch);
+  eq(A.sceltaVersioneCondivisa(dopo, {}), { errore: "link_incompleto" }); eq(A.sceltaVersioneCondivisa(dopo, { chiave: "K3333333333333333333" }).id, "a3", "il link con chiave funziona");
+});
+t("Link fisso L2 · la chiave generata ha la forma che la funzione accetta (22 caratteri base64url, 128 bit) e non si ripete", () => {
+  const c0 = A.crypto; A.crypto = { getRandomValues: (b) => { for (let i = 0; i < b.length; i++) b[i] = Math.floor(Math.random() * 256); return b; } };
+  A.btoa = (x) => Buffer.from(x, "latin1").toString("base64");
+  try { const set = new Set(); for (let i = 0; i < 50; i++) { const k = A.nuovaChiaveVersione(); ok(/^[A-Za-z0-9_-]{22}$/.test(k), "forma: " + k); set.add(k); } eq(set.size, 50, "mai uguali"); }
+  finally { A.crypto = c0; }
+  A.crypto = undefined; eq(A.nuovaChiaveVersione(), null, "senza crypto: niente chiave debole");
+});
+t("Link fisso L2 · linkVistaCondivisa: &v= solo con la chiave; shareLinks/shareLegacy sono chiavi di servizio (non contano come lavoro)", () => {
+  A.location = { origin: "https://x.it", pathname: "/app/", search: "" };
+  eq(A.linkVistaCondivisa("tok"), "https://x.it/app/?view=tok", "senza chiave: link nudo come prima");
+  eq(A.linkVistaCondivisa("tok", "K1111111111111111111"), "https://x.it/app/?view=tok&v=K1111111111111111111");
+  reset(); A.DOC_EXTRA = { shareLinks: { K1111111111111111111: { v: "a", at: "x" } }, shareLegacy: false, shareOpts: { copy: true, contacts: false } };
+  eq(A.docExtraHasWork(), false, "un documento con le sole chiavi non è «pieno»"); A.DOC_EXTRA = {};
+});
+t("Link fisso L2 · messaggi: chiave sconosciuta, link incompleto e richiesta non valida hanno ciascuno il suo; altri errori restano generici", () => {
+  ok(/non è più condivisa/.test(A.linkFissoMessaggio(404, "chiave_sconosciuta")), "404 chiave");
+  ok(/incompleto/.test(A.linkFissoMessaggio(404, "link_incompleto")), "404 incompleto");
+  ok(/non è valido/.test(A.linkFissoMessaggio(400)), "400");
+  eq(A.linkFissoMessaggio(404, undefined), null, "404 senza codice: messaggio di sempre (revocato/scaduto)"); eq(A.linkFissoMessaggio(500), null);
+});
+t("Link fisso L2 · le chiavi non escono: Duplica come nuovo progetto, export JSON, importa da file e copia dal link non le portano", () => {
+  reset(); docVersioni([{ versione: 1, status: "revisione" }, { versione: 2 }]); A.syncActiveVariant();
+  A.DOC_EXTRA.shareLinks = { K1111111111111111111: { v: "w0", at: "x" } }; A.DOC_EXTRA.shareLegacy = "w0";
+  const d = A.docVersioneSola("w0", "Ridotto"); eq([d.doc.shareLinks, d.doc.shareLegacy], [undefined, undefined], "Duplica come nuovo progetto");
+  eq(A.DOC_EXTRA.shareLegacy, "w0", "…e l'originale le tiene");
+  const intero = JSON.parse(A.docToJSONFull()); eq(intero.shareLegacy, "w0", "il salvataggio nel cloud/punti di ripristino le tiene");
+  const esport = JSON.parse(A.docToJSONFull({ senzaLink: true })); eq([esport.shareLinks, esport.shareLegacy, esport.variants.length], [undefined, undefined, 2], "l'export non le porta");
+  const imp = A.importaDocumentoDaFile(JSON.parse(JSON.stringify(intero))); eq([imp.shareLinks, imp.shareLegacy], [undefined, undefined], "importa da file");
+  const imp2 = A.importaDocumentoDaFile({ data: JSON.parse(JSON.stringify(intero)), venue_image: null }); eq([imp2.shareLinks, imp2.shareLegacy], [undefined, undefined], "importa dalla riga del cloud");
+  ok(/togliChiaviCondivisione\(copyData\)/.test(appjs), "copia dal link");
+  ok(/data:togliChiaviCondivisione\(typeof senzaNotaPdf/.test(appjs), "Duplica dalla lista");
+  ok(/togliChiaviCondivisione\(DOC_EXTRA\);   \/\* link fisso/.test(appjs), "Duplica del progetto bloccato (dupOpenCurrent)");
+  ok((appjs.match(/docToJSONFull\(\{senzaLink:true\}\)/g) || []).length === 2, "i due export su file");
+  A.DOC_EXTRA = {}; reset();
+});
+t("Link fisso L2 · punto di ripristino dello stesso progetto: le chiavi create dopo restano valide", () => {
+  const dest = { shareLinks: { K1111111111111111111: { v: "a", at: "x" } }, shareLegacy: "a" };
+  A.unisciChiaviCondivisione(dest, { shareLinks: { K2222222222222222222: { v: "b", at: "y" } }, shareLegacy: false });
+  eq([Object.keys(dest.shareLinks), dest.shareLegacy], [["K1111111111111111111", "K2222222222222222222"], false]);
+  ok(/if\(sameCloud\) unisciChiaviCondivisione\(prepared\.extra, DOC_EXTRA\)/.test(appjs), "usata dal ripristino, solo sullo stesso progetto");
+});
+const cloudLF = (extra) => Object.assign({ user: () => ({ id: "u" }), currentId: () => "p1" }, extra || {});
+t("Link fisso L2 · Condividi sul progetto aperto: la chiave della versione APERTA entra nel documento, si salva nel cloud e solo dopo compare", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1, status: "revisione" }, { versione: 2 }]); A.syncActiveVariant(); A.switchVariant("w1");
+  A.DOC_EXTRA = {}; A.location = { origin: "https://x.it", pathname: "/app/", search: "" };
+  let ctr = 0; A.crypto = { getRandomValues: (b) => { ctr++; for (let i = 0; i < b.length; i++) b[i] = (i + 1) * ctr % 256; return b; } }; A.btoa = (x) => Buffer.from(x, "latin1").toString("base64");
+  const fl0 = A.flushCloudAutosave, sc0 = A.scheduleCloudAutosave, C0 = A.__cloud; let flush = 0, esito = true; const ordine = [];
+  A.__cloud = cloudLF(); A.scheduleCloudAutosave = () => ordine.push("sched"); A.flushCloudAutosave = (cb) => { flush++; ordine.push("flush"); cb(esito); };
+  try {
+    let got; A.assicuraChiaveVersioneAperta(false, (k, m) => { got = [k, m]; });
+    ok(/^[A-Za-z0-9_-]{22}$/.test(got[0]), "chiave: " + JSON.stringify(got)); eq(A.DOC_EXTRA.shareLinks[got[0]].v, "w1", "legata alla versione aperta (v2), non alla prima");
+    eq(A.DOC_EXTRA.shareLegacy, "w0", "il link nudo restava sulla v1, l'unica Inviata"); ok(ordine.includes("sched") && ordine[ordine.length - 1] === "flush" && flush === 1, "prima si programma e si scrive nel cloud, poi si risponde: " + ordine.join(","));
+    const k1 = got[0]; A.assicuraChiaveVersioneAperta(false, (k) => { got = [k]; }); eq(got[0], k1, "seconda volta: la stessa chiave"); eq(flush, 1, "…e niente da riscrivere");
+    A.switchVariant("w0"); A.assicuraChiaveVersioneAperta(false, (k) => { got = [k]; }); ok(got[0] !== k1, "altra versione: altra chiave"); eq(Object.keys(A.DOC_EXTRA.shareLinks).length, 2);
+    esito = false; A.switchVariant("w1"); A.DOC_EXTRA.shareLinks = {}; delete A.DOC_EXTRA.shareLegacy; A.assicuraChiaveVersioneAperta(false, (k, m) => { got = [k, m]; });
+    eq(got, [null, "salvataggio"], "salvataggio non concluso: nessun link, perché darebbe 404");
+    esito = true; A.__projLocked = true; A.DOC_EXTRA.shareLinks = {}; A.assicuraChiaveVersioneAperta(false, (k, m) => { got = [k, m]; });
+    eq(got, [null, "bloccato"], "progetto bloccato: il documento non si scrive, quindi niente chiave nuova");
+  } finally { A.flushCloudAutosave = fl0; A.scheduleCloudAutosave = sc0; A.__cloud = C0; A.__projLocked = false; A.crypto = undefined; A.DOC_EXTRA = {}; reset(); }
+}));
+t("Link fisso L2 · lettore: la chiave del link si legge e si manda alla funzione; fascia «versione più recente» solo con piuRecente:true; messaggi per 404/400", () => {
+  const v = appjs.slice(appjs.indexOf('var vt = new URLSearchParams(location.search).get("view");'), appjs.indexOf("function startSession(sb, token, d, isEditor){"));
+  ok(/get\("v"\)/.test(v) && /"&v="\+encodeURIComponent\(vk\)/.test(v), "legge ?v= e lo passa");
+  ok(/get-shared-project\?token="\+encodeURIComponent\(vt\)\+vkQuery/.test(v), "la richiesta pubblica porta la chiave");
+  ok(/linkFissoMessaggio\(d\.__status, d\.code\)/.test(v), "messaggio specifico per 404/400");
+  ok(/piu\.hidden = d\.piuRecente!==true/.test(appjs), "fascia solo con true");
+  ok(/startSharedProject\(vt, d, vk\)/.test(v) && /copySharedToken\(token, chiave\)/.test(appjs), "«Crea una copia» passa la chiave");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/<div id="viewPiuRecente" role="note" hidden>Esiste una versione più recente di questo stage plot\. Chiedi il link aggiornato a chi te l'ha mandato\.<\/div>/.test(html), "testo della fascia (senza numeri né nomi della versione più recente)");
+});
+t("Link fisso L2 · il QR del PDF porta la chiave della versione esportata; l'export non attiva mai la condivisione", () => {
+  const q = appjs.slice(appjs.indexOf("function pdfQrInit(){"), appjs.indexOf("function _pdfExportModalCore(){"));
+  ok(/C\.shareTokenAttivo\(/.test(q) && !/ensureShareTokenFor/.test(q), "serve il token già esistente, mai crearlo");
+  ok(/linkVistaCondivisa\(tok,k\)/.test(q) && /assicuraChiaveVersioneAperta\(false,/.test(q) && /linkVistaCondivisa\(_qrTok, chiave\)/.test(q), "URL con la chiave, creata allo spunto se manca");
+});
+t("Link fisso L2 · Condividi e lista: il link nasce con la chiave; progetto non aperto: ultimo link creato, o la versione del link nudo, con CAS", () => {
+  const sh = appjs.slice(appjs.indexOf("function showForProject(id,request){"), appjs.indexOf("window.__shareUi"));
+  ok(/linkVistaCondivisa\(tok, chiave\)/.test(sh) && /assicuraChiaveVersioneAperta\(!!tokenNuovo, fine\)/.test(sh) && /chiaveLinkProgettoChiuso\(id, !!tokenNuovo, fine\)/.test(sh), "aperto / lista");
+  ok(!/fillShareModal\(linkVistaCondivisa\(tok\)\)/.test(appjs), "nessun link senza chiave da Condividi");
+  const cl = appjs.slice(appjs.indexOf("function chiaveLinkProgettoChiuso"), appjs.indexOf("function clearShareTokenFor"));
+  ok(/updateProjectMetadataCas\(id,\{data:nuovo\},"updated_at"/.test(cl) && /r\.data\.updated_at/.test(cl), "scrittura con CAS su updated_at");
+  ok(/is_locked/.test(cl) && /"conflitto"/.test(cl), "bloccato e conflitto sono casi a parte");
+  ok(/cb\(data\.share_token\|\|tok, true\)/.test(appjs), "il token nuovo lo dice (shareLegacy:false)");
 });
 
 await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
