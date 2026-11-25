@@ -5282,6 +5282,40 @@ function applyVariantState(flat, allowCachedVenue, variantId){
 }
 /* Valida e normalizza senza toccare lo stato globale: usato anche dai flussi cloud che devono
    completare una scrittura remota prima di sostituire il documento locale. */
+/* IMPORTA CON LA PLANIMETRIA (25/11/2026, «PICCOLI 25-11»). Il cloud tiene la planimetria in una colonna a parte (`venue_image`):
+   un file preso da lì, {data, venue_image}, o un documento con `venue_image` accanto, apriva il progetto SENZA sfondo (o, nel primo
+   caso, come progetto vuoto). Qui si rimette ogni bitmap nello state.venue della sua scena (scala, posizione, opacità restano quelle
+   del progetto): la strada dopo è identica a quella di un export completo. Niente `venue_image` o non valida → il documento passa
+   com'è, senza errori; `venue_image` non entra mai nel progetto. Prende l'oggetto già letto dal file, restituisce quello da dare a prepareDoc. */
+function importaDocumentoDaFile(parsed){
+  if(!parsed || typeof parsed!=="object" || Array.isArray(parsed)) return parsed;
+  var haDoc=function(o){ return !!(o && typeof o==="object" && (o._doc===1 || Array.isArray(o.variants))); };
+  var doc=parsed, vi=parsed.venue_image, avvolto=false;
+  if(!haDoc(parsed) && parsed.data && typeof parsed.data==="object" && !Array.isArray(parsed.data) && (haDoc(parsed.data) || Object.prototype.hasOwnProperty.call(parsed,"venue_image"))){
+    doc=parsed.data; avvolto=true;   /* la riga del cloud */
+  }
+  if(!avvolto && !Object.prototype.hasOwnProperty.call(parsed,"venue_image")) return parsed;
+  if(!avvolto || Object.prototype.hasOwnProperty.call(doc,"venue_image")){ if(vi==null) vi=doc.venue_image; }
+  var copia={}; Object.keys(doc).forEach(function(k){ if(k!=="venue_image") copia[k]=doc[k]; });
+  var bundle=null;
+  try{ bundle=(vi!=null && vi!=="") ? normalizeVenueImageBundle(vi, haDoc(copia)&&copia.variants&&copia.variants[0]&&copia.variants[0].id!=null ? String(copia.active||copia.variants[0].id) : "") : null; }catch(e){ bundle=null; }
+  if(!bundle) return copia;
+  var chiavi=Object.keys(bundle.images), unica=chiavi.length===1 ? bundle.images[chiavi[0]] : null;
+  function metti(st, id, solo){
+    var ve=st && st.venue; if(!ve || typeof ve!=="object" || ve._dataUrl) return st;
+    var rec=bundle.images[String(id)] || (solo ? unica : null); if(!rec) return st;
+    var nv={}; Object.keys(ve).forEach(function(k){ nv[k]=ve[k]; }); nv._dataUrl=rec._dataUrl; nv._imgW=rec._imgW; nv._imgH=rec._imgH;
+    var ns={}; Object.keys(st).forEach(function(k){ ns[k]=st[k]; }); ns.venue=nv; return ns;
+  }
+  if(haDoc(copia) && Array.isArray(copia.variants)){
+    copia.variants=copia.variants.map(function(v){
+      if(!v || typeof v!=="object" || !v.state) return v;
+      var n={}; Object.keys(v).forEach(function(k){ n[k]=v[k]; }); n.state=metti(v.state, v.id, copia.variants.length===1); return n;
+    });
+    return copia;
+  }
+  return metti(copia, copia.active!=null ? copia.active : "", true);   /* stato piatto: l'unica immagine è la sua */
+}
 function prepareDoc(parsed){
   var nextVariants, nextActive, nextExtra={}, isDoc=!!(parsed && typeof parsed==="object" &&
     (parsed._doc===1 || Object.prototype.hasOwnProperty.call(parsed,"variants")));
@@ -7332,7 +7366,7 @@ function importProject(json, opts){
   if(paloTemporaneoAttivo()) throw new Error(custEditorMsg());   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
   var s=JSON.parse(json);                                   /* lancia se non è JSON valido */
   if(!s || typeof s!=="object") throw new Error("Formato non valido");
-  activatePreparedProject(prepareDoc(s),opts);   /* valida tutto prima del primo side effect */
+  activatePreparedProject(prepareDoc(importaDocumentoDaFile(s)),opts);   /* valida tutto prima del primo side effect */
 }
 function normalizeChannelRow(r){
   r=r||{};
@@ -9578,15 +9612,16 @@ function fuoriPalcoEquivoco(){
    cm del palco. Il nome dove lo mette itemMarkup: sotto il disegno, o SOPRA per le postazioni con sedia e gli
    elementi personalizzati (lblSopraDi), alla linea di base vera (lblBaseY) e col corpo della stampa (a 1:200 è il
    doppio di quello a 1:100); con la seconda riga (label2) e la riga del montaggio; tutto girato con l'elemento. */
-function ingombroStampa(it, k){
+function ingombroStampa(it, k, stretto){   /* stretto (25/11): SOLO il rettangolo del nome, senza il posto di riserva sotto (null se non ha nome): per chi cerca un urto vero e non dimensiona il foglio */
   k=k>0 ? k : 1;
   var t=TYPES[it.type]||{}, r=ingombroMondo(it);
   var fsz=lblSizeOf(it), _ltq=lblTesti(it), t1=_ltq[0], t2=_ltq[1];
-  if(t.innerLabel || GAZ_TYPES[it.type] || !(fsz>0) || (!t1 && !t2)) return r;
+  if(t.innerLabel || GAZ_TYPES[it.type] || !(fsz>0) || (!t1 && !t2)) return stretto ? null : r;
+  if(stretto) r={x0:Infinity, x1:-Infinity, y0:Infinity, y1:-Infinity};
   var fk=fsz*k, w=Math.max(lblTextW(t1, fk), lblTextW(t2, fk)), ly=lblBaseY(it, fk), sopra=lblSopraDi(it);
   var righe=(t1 && t2 ? 2 : 1) + (mountNote(it) ? 1 : 0), alto=fk*1.15*(righe-1);
   /* rettangolo del testo nelle coordinate dell'elemento (prima della rotazione) */
-  var y0=sopra ? ly-fk*0.85-alto : ly-fk*0.85, y1=sopra ? ly+fk*0.3 : ly+fk*0.3+alto+fk*0.6;   /* sotto: posto anche per la scesa di lblNudges */
+  var y0=sopra ? ly-fk*0.85-alto : ly-fk*0.85, y1=sopra ? ly+fk*0.3 : ly+fk*0.3+alto+(stretto ? 0 : fk*0.6);   /* sotto: posto anche per la scesa di lblNudges */
   var a=(it.rot||0)*Math.PI/180, c=Math.cos(a), sn=Math.sin(a);
   [[-w/2,y0],[w/2,y0],[w/2,y1],[-w/2,y1]].forEach(function(p){
     var X=it.x+p[0]*c-p[1]*sn, Y=it.y+p[0]*sn+p[1]*c;
@@ -9946,7 +9981,7 @@ function adattaAvvertenzaPosto(testo, via){
   }catch(_e){}
   function libero(q){ return !ost.some(function(r){ return r.x0<q.x1-1 && q.x0<r.x1-1 && r.y0<q.y1-1 && q.y0<r.y1-1; }); }
   function dentro(q){ return q.x0>=pa.x0 && q.y0>=pa.y0 && q.x1<=pa.x1 && q.y1<=pa.y1; }
-  var cand=[], top=D+32+zonaGapCm(), fondo=Math.min(D+79+zonaGapCm(), pa.y1-1);   /* PUBBLICO ha la base a D+38 e niente discendenti */
+  var cand=[], top=D+32+zonaGapCm()+zonaUrtoExtra(1).p, fondo=Math.min(D+79+zonaGapCm()+zonaUrtoExtra(1).p, pa.y1-1);   /* PUBBLICO ha la base a D+38 e niente discendenti */
   var sx0=Math.max(-70, pa.x0+10), sx1=Math.min(W+70, pa.x1-10);   /* un'area di stampa scelta a mano può essere più stretta */
   [[sx0, sx1],[sx0, W/2-50],[W/2+50, sx1]].forEach(function(f){
     if(f[1]-f[0]<100) return;
@@ -20544,17 +20579,45 @@ function stageEmptyHintMarkup(){
   return '<text class="stage-empty-hint" x="'+(W/2)+'" y="'+(D/2)+'" text-anchor="middle" dominant-baseline="middle">'+esc(testo)+'</text>';
 }
 function stageLayerMarkup(){
-  var W=state.stage.w, D=state.stage.d, zg=zonaGapCm();
+  var W=state.stage.w, zy=zonaYSchermo();   /* mai sopra un nome (25/11) */
   return stageFloorMarkup()+stageDimsMarkup()
-    +'<text class="zone-lbl" x="'+(W/2)+'" y="'+(-42-zg)+'" text-anchor="middle">'+docZona("FONDO PALCO")+'</text>'
-    +'<text class="zone-lbl" x="'+(W/2)+'" y="'+(D+38+zg)+'" text-anchor="middle">'+docZona("PUBBLICO")+'</text>'
-    +stageEmptyHintMarkup()+latiTeatroMarkup(-42-zg, 1, 'class="zone-lbl zone-lato"');
+    +'<text class="zone-lbl" x="'+(W/2)+'" y="'+zy.f+'" text-anchor="middle">'+docZona("FONDO PALCO")+'</text>'
+    +'<text class="zone-lbl" x="'+(W/2)+'" y="'+zy.p+'" text-anchor="middle">'+docZona("PUBBLICO")+'</text>'
+    +stageEmptyHintMarkup()+latiTeatroMarkup(zy.f, 1, 'class="zone-lbl zone-lato"');
 }
 /* DISTANZA DELLE SCRITTE (24/11/2026, Simone, dall'analisi del progetto di un utente: FONDO PALCO e PUBBLICO erano coperte da
    rack e casse vicini al bordo, e l'utente ci aveva sovrapposto le icone). `state.zonaGap` = centimetri in più rispetto a
    -42 e D+38, scelti nel pannello Palco; assente = come sempre (progetti e PDF esistenti identici). Sposta SOLO le due scritte
    (e giardino/corte sulla riga di FONDO PALCO), mai gli elementi; vista, riquadro di stampa e PDF seguono. Tetto 200 cm. */
 function zonaGapCm(){ var g=Math.round(+(state && state.zonaGap)); return g>0 ? Math.min(g,200) : 0; }
+/* SCRITTE DI ZONA MAI SOPRA I NOMI (25/11/2026, «PICCOLI 25-11»): su un palco stretto (un carro da 2 m) i nomi degli elementi sul
+   bordo davanti («SX», «DX», «SUB SX 2x18») finivano sotto «PUBBLICO», a schermo e in PDF. Se la scritta (al corpo k, 1 a schermo,
+   pdfTextK in stampa) urta il rettangolo del NOME di un elemento (ingombroStampa «stretto»: il corpo dell'elemento non conta), scende (FONDO PALCO: sale) quanto basta per
+   passargli oltre, con 4 cm d'aria; senza urto la posizione resta quella di sempre, quindi progetti e PDF esistenti non cambiano.
+   Non contano FOH, platea e sedie del pubblico (stanno in sala), l'avvertenza di Adatta (sta sotto «PUBBLICO» apposta), gli
+   apparecchi in un rack. Tetto ZONA_URTO_MAX: oltre non si insegue (un elemento enorme non porta la scritta a metri di distanza). */
+var ZONA_URTO_MAX=120;
+function zonaEvitaNomi(y0, k, nome, giu){
+  if(custEditorAttivo()) return y0;
+  k=k>0 ? k : 1;
+  var W=state.stage.w||0, fp=16*k, w=lblTextW(docZona(nome), fp)+8*2*k, x0=W/2-w/2, x1=W/2+w/2, aria=4, y=y0, i, n;
+  var rr=[]; (state.items||[]).forEach(function(it){ if(it && !FUORI_OK[it.type] && !it.avvertenza && !it.rackId) { var q=ingombroStampa(it, k, true); if(q) rr.push(q); } });
+  for(i=0;i<12;i++){
+    var t0=y-0.75*fp, t1=y+0.25*fp, ny=y;
+    for(n=0;n<rr.length;n++){ var r=rr[n];
+      if(r.x0<x1 && x0<r.x1 && r.y0<t1 && t0<r.y1) ny = giu ? Math.max(ny, r.y1+0.75*fp+aria) : Math.min(ny, r.y0-0.25*fp-aria);
+    }
+    if(ny===y) break;
+    y=ny;
+  }
+  return giu ? Math.min(Math.round(y*10)/10, y0+ZONA_URTO_MAX) : Math.max(Math.round(y*10)/10, y0-ZONA_URTO_MAX);
+}
+function zonaYSchermo(){ var D=state.stage.d, zg=zonaGapCm(); return {f:zonaEvitaNomi(-42-zg, 1, "FONDO PALCO", false), p:zonaEvitaNomi(D+38+zg, 1, "PUBBLICO", true)}; }
+/* di quanto scendono PUBBLICO (p) e salgono FONDO PALCO (f) rispetto alla posizione scelta (0 senza urti): servono ai margini */
+function zonaUrtoExtra(k){
+  var D=state.stage.d||0, zg=zonaGapCm();
+  return { f:Math.max(0, (-42-zg)-zonaEvitaNomi(-42-zg, k, "FONDO PALCO", false)), p:Math.max(0, zonaEvitaNomi(D+38+zg, k, "PUBBLICO", true)-(D+38+zg)) };
+}
 function zonaGapImposta(m){
   var cm=Math.round((+String(m).replace(",","."))*100);
   if(cm>0) state.zonaGap=Math.min(cm,200); else delete state.zonaGap;
@@ -28358,8 +28421,8 @@ function stageDecorBounds(){
   var W=state.stage.w||0, D=state.stage.d||0, half=65, side=45;
   /* «Crea elemento»: niente scritte fuori dal palco; resta il posto del righello (in alto e a sinistra) */
   if(custEditorAttivo()){ var rg=Math.max(W,D)*0.09; return {x0:-rg, y0:-rg, x1:W+rg*0.4, y1:D+rg*0.4}; }
-  var zg=zonaGapCm();
-  return { x0:Math.min(-side, W/2-half), y0:-58-zg, x1:Math.max(W+side, W/2+half), y1:D+42+zg };
+  var zg=zonaGapCm(), ue=zonaUrtoExtra(1);   /* ue: quanto le scritte scendono/salgono per non coprire un nome (25/11) */
+  return { x0:Math.min(-side, W/2-half), y0:-58-zg-ue.f, x1:Math.max(W+side, W/2+half), y1:D+42+zg+ue.p };
 }
 /* riquadro di TUTTO il contenuto (palco + scritte/quote + elementi) per "vedere sempre tutto" */
 function contentBounds(){
@@ -38544,7 +38607,7 @@ function importaVersioneDaFile(f){
     var prepared;
     try{
       var parsed=JSON.parse(String(rd.result)); if(!parsed || typeof parsed!=="object") throw new Error("Formato non valido");
-      prepared=prepareDoc(parsed);   /* valida tutto prima di toccare il progetto */
+      prepared=prepareDoc(importaDocumentoDaFile(parsed));   /* valida tutto prima di toccare il progetto; con la planimetria se il file la porta (25/11) */
     }catch(err){ if(window.__toast) window.__toast("✗ "+((err && err.code && err.message) || "File non valido: non è un progetto Stage Plot."), true); return; }
     var nota=importaNota(prepared);
     allineaCloudPoi(function(info){
@@ -39135,7 +39198,7 @@ function pdfNomeFileTesto(){
       try{
         var parsed=JSON.parse(String(rd.result));
         if(!parsed||typeof parsed!=="object") throw new Error("Formato non valido");
-        prepared=prepareDoc(parsed);   /* valida interamente prima di chiedere di sostituire il documento */
+        prepared=prepareDoc(importaDocumentoDaFile(parsed));   /* valida interamente prima di chiedere di sostituire il documento; porta con sé la planimetria (25/11) */
       }catch(err){
         /* prepareDoc sa già DIRE cosa non va («richiede una versione più recente», «la variante 1 non
            è valida»…): buttare la diagnosi mandava a cestinare file buoni salvati da una versione più
@@ -39565,9 +39628,9 @@ function cartHForHeader(header, titleW){
    → {A, F, R, dentro, esclusi}: chi sta fuori ed entra nel riquadro, e chi ne resta fuori. */
 var __printSoloPalco=false;
 function printScene(k, opz){
-  var A=printArea(), DM=printDM(k), DMy=DM+zonaGapCm();   /* sopra FONDO PALCO e sotto PUBBLICO la distanza scelta si aggiunge; ai lati no */
+  var A=printArea(), DM=printDM(k), DMy=DM+zonaGapCm(), ue=zonaUrtoExtra(k), DMt=DMy+ue.f, DMb=DMy+ue.p;   /* sopra FONDO PALCO e sotto PUBBLICO la distanza scelta si aggiunge (e quanto serve a non coprire un nome); ai lati no */
   if(!A.custom){
-    var F0={x:A.x-DM, y:A.y-DMy, w:A.w+2*DM, h:A.h+2*DMy};
+    var F0={x:A.x-DM, y:A.y-DMt, w:A.w+2*DM, h:A.h+DMt+DMb};
     if(__printSoloPalco) return {A:A, F:F0, R:F0, dentro:[], esclusi:[]};
     opz=opz||{};
     var lim=opz.lim, entra = opz.tutti ? null : lim ? function(G){ return G.w<=lim.w+1e-6 && G.h<=lim.h+1e-6; } : entraSenzaScala(F0);
@@ -39576,8 +39639,8 @@ function printScene(k, opz){
   }
   var W=state.stage.w||0, D=state.stage.d||0, e=1, x0=A.x, y0=A.y, x1=A.x+A.w, y1=A.y+A.h;
   var traX=x0<W && x1>0, traY=y0<D && y1>0;   /* l'area incrocia il palco in orizzontale / in verticale */
-  if(traX && y0<=e && y1>0)  y0=Math.min(y0, -DMy);      /* contiene il bordo di fondo → FONDO PALCO e la quota sopra */
-  if(traX && y1>=D-e && y0<D) y1=Math.max(y1, D+DMy);   /* il bordo verso il pubblico → PUBBLICO */
+  if(traX && y0<=e && y1>0)  y0=Math.min(y0, -DMt);      /* contiene il bordo di fondo → FONDO PALCO e la quota sopra */
+  if(traX && y1>=D-e && y0<D) y1=Math.max(y1, D+DMb);   /* il bordo verso il pubblico → PUBBLICO */
   if(traY && x0<=e && x1>0)  x0=Math.min(x0, -DM);      /* il lato sinistro → profondità e altezza */
   if(traY && x1>=W-e && x0<W) x1=Math.max(x1, W+DM);   /* il lato destro (e il disegno resta centrato sul palco) */
   return {A:A, F:{x:x0, y:y0, w:x1-x0, h:y1-y0}, R:{x:A.x, y:A.y, w:A.w, h:A.h}, dentro:[], esclusi:[]};
@@ -39598,7 +39661,7 @@ function printNeeds(S, k){
     else if(!inBlocco(q.x+q.w+4, my) && q.x+q.w>=W-1) r=Math.max(r, quota);
   });
   /* sopra e sotto: dove zoneLblY mette FONDO PALCO e PUBBLICO quando sullo stesso bordo c'è una quota */
-  var zg=zonaGapCm(), fondo=Math.max(42+zg, 16+0.75*14*k+aria), pubblico=Math.max(38+zg, 22+0.25*14*k+aria+0.75*16*k);
+  var zg=zonaGapCm(), ue=zonaUrtoExtra(k), fondo=Math.max(42+zg+ue.f, 16+0.75*14*k+aria), pubblico=Math.max(38+zg+ue.p, 22+0.25*14*k+aria+0.75*16*k);
   return { t:Math.min(R.y-F.y, fondo+0.8*16*k+aria), b:Math.min(F.y+F.h-R.y-R.h, pubblico+0.25*16*k+aria),
            l:Math.min(R.x-F.x, l), r:Math.min(F.x+F.w-R.x-R.w, r) };
 }
@@ -40083,6 +40146,7 @@ function zoneLblY(dims, k, D, zgOv){
     else if(y>D) p=Math.max(p, y+0.25*14*k+aria+0.75*16*k);  /* quota sotto il palco: PUBBLICO sotto di lei */
     return tag;
   });
+  f=zonaEvitaNomi(f, k, "FONDO PALCO", false); p=zonaEvitaNomi(p, k, "PUBBLICO", true);   /* mai sopra il nome di un elemento (25/11) */
   return {f:Math.round(f*10)/10, p:Math.round(p*10)/10};
 }
 /* Come zoneLblY, ma in STAMPA la distanza scelta non porta mai le scritte fuori dal ritaglio del foglio (vb): se il disegno
