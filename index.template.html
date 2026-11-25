@@ -19619,6 +19619,85 @@ var ELEC_SECTIONS = [[16,"2,5 mm²"],[32,"6 mm²"],[63,"16 mm²"],[125,"35 mm²"
 function elecIsDistro(it){ return !!ELEC_DISTRO[it.type]; }
 function elecIsGen(it){ return GEN_KVA[it.type]!=null; }
 function elecSection(a){ for(var i=0;i<ELEC_SECTIONS.length;i++){ if(a<=ELEC_SECTIONS[i][0]) return ELEC_SECTIONS[i][1]; } return "95 mm²"; }
+/* CADUTA DI TENSIONE (25/11/2026, lotto C1 dello studio cablaggi — STAGEPLOT/analisi/2026-11-24_STUDIO_CABLAGGI/fonti/ELETTRICO.md).
+   ΔU = m·I·L·(R·cosφ + X·sinφ): m = 2 monofase / √3 trifase, R = 25/S Ω/km (rame caldo: prudente), X = 0,1 Ω/km, cosφ 0,9; ΔU% su 230 V (mono) o 400 V (tri).
+   Limite 4 % tra consegna e carico (CEI 64-8, letto dalla dispensa S2: sui fissi, per un palco temporaneo è un obiettivo prudente); sul disegno non compare
+   (le etichette delle linee restano quelle di sempre, quindi PNG/SVG identici): vive nel pannello della linea, nel tooltip, nella Lista carichi e nei fogli elettrici.
+   NON entra in `issues`: l'audit, «Prima di esportare» e il collaudo sui progetti veri restano quelli di prima. Verificata sulle tabelle CEI UNEL della dispensa: ±3,5 %, per eccesso. */
+var ELEC_DROP={ giallo:3, rosso:4, cosfi:0.9, rho:25, x:0.1 };
+var ELEC_DROP_SEZIONI=[1.5,2.5,4,6,10,16,25,35,50,70,95,120,150,185,240];
+function elecSezNum(txt){ var m=String(txt==null?"":txt).replace(",",".").match(/\d+(\.\d+)?/); var v=m?parseFloat(m[0]):NaN; return v>0?v:null; }
+function elecSezTxt(sx){ return String(sx).replace(".",",")+" mm²"; }
+function elecPctTxt(p){ return (Math.round(p*10)/10).toFixed(1).replace(".",",")+" %"; }
+function elecDropPct(I,L,S,tri,cosfi){
+  function pos(v){ return typeof v==="number" && isFinite(v) && v>0; }
+  if(!pos(I) || !pos(L) || !pos(S)) return null;
+  var c=(typeof cosfi==="number" && cosfi>0 && cosfi<=1) ? cosfi : ELEC_DROP.cosfi, sn=Math.sqrt(1-c*c);
+  var m=tri ? Math.sqrt(3) : 2, R=ELEC_DROP.rho/S;
+  return m*I*(L/1000)*(R*c+ELEC_DROP.x*sn)/(tri?400:230)*100;
+}
+function elecDropLevel(p){ if(p==null || !isFinite(p)) return "nd"; return p>ELEC_DROP.rosso ? "err" : (p>ELEC_DROP.giallo ? "warn" : "ok"); }
+/* d = {I, L (m), S (mm²), tri, stim}; tot = caduta del percorso intero (la riempie l'annotazione), altrimenti quella della tratta */
+function elecDropCalcola(d){
+  var out={I:d.I, L:d.L, S:d.S, tri:!!d.tri, stim:!!d.stim, pct:null, tot:null, lvl:"nd", manca:""};
+  out.pct=elecDropPct(d.I, d.L, d.S, d.tri);
+  if(out.pct==null) out.manca = !(d.L>0) ? "lunghezza" : (!(d.I>0) ? "corrente" : "sezione");
+  out.tot=out.pct; out.lvl=elecDropLevel(out.pct);
+  return out;
+}
+/* La frase che dice cosa fare: sezione standard più piccola che riporta il PERCORSO sotto il 3 %, altrimenti cavo più corto / quadro più vicino. */
+function elecDropAdvice(d, en){
+  if(!d || (d.lvl!=="warn" && d.lvl!=="err") || d.pct==null) return "";
+  var tot=(d.tot!=null?d.tot:d.pct), fine="", i;
+  for(i=0;i<ELEC_DROP_SEZIONI.length;i++){ var s2=ELEC_DROP_SEZIONI[i]; if(s2<=d.S) continue;
+    var p2=elecDropPct(d.I, d.L, s2, d.tri); if(p2!=null && tot-d.pct+p2<=ELEC_DROP.giallo){ fine=en ? (" Use a "+elecSezTxt(s2)+" cable ("+elecPctTxt(p2)+" on this run) or a shorter one.") : (" Usa un cavo da "+elecSezTxt(s2)+" ("+elecPctTxt(p2)+" su questa linea) oppure uno più corto."); break; } }
+  var testa = en ? (d.lvl==="err" ? "Over the 4 % limit." : "Close to the 4 % limit.") : (d.lvl==="err" ? "Oltre il limite del 4 %." : "Vicina al limite del 4 %.");
+  return testa + (fine || (en ? " No standard size is enough on its own: shorten the cable or bring the board closer to the load." : " Nessuna sezione standard basta da sola: accorcia il cavo o porta il quadro più vicino al carico."));
+}
+/* righe già pronte per pannello, tooltip e fogli: [etichetta, testo, classe] (+ «Cosa fare» quando c'è da dire) */
+function elecDropRighe(d){
+  if(!d) return [];
+  var cls = d.lvl==="err" ? "drop-err" : (d.lvl==="warn" ? "drop-warn" : "");
+  if(d.pct==null) return [["Caduta di tensione", "— (manca la "+(d.manca||"un dato")+")", ""]];
+  var t=elecPctTxt(d.pct)+" su "+Math.round(d.L)+" m · "+elecSezTxt(d.S)+(d.stim?" (sezione stimata)":"");
+  if(d.tot!=null && Math.abs(d.tot-d.pct)>0.05) t+=" · percorso intero "+elecPctTxt(d.tot);
+  var r=[["Caduta di tensione", t, cls]], f=elecDropAdvice(d); if(f) r.push(["Cosa fare", f, cls]);
+  return r;
+}
+/* Annotazione (alla fine del motore, con le lunghezze già allineate al disegno): ogni linea riceve `drop`.
+   Carico: corrente e lunghezza della linea, sezione STIMATA con la stessa tabella delle dorsali (l'app non la mostra); dorsale e alimentazione: sezione e lunghezza che
+   mostrano già. Il totale del carico somma le tratte fino all'ingresso; dorsale e alimentazione prendono il totale del percorso peggiore che le attraversa. */
+function elecDropAnnota(loadLinks, uplinks, feeds){
+  function corrente(d){ var n=d.ph>1 ? d.ph : 1, mx=0, i; for(i=0;i<n;i++) mx=Math.max(mx, (d.phLoad&&d.phLoad[i])||0); return mx; }
+  loadLinks.forEach(function(l){ l.drop=elecDropCalcola({I:l.load.a, L:l.lenM, S:elecSezNum(elecSection(Math.max(16,Math.ceil(l.load.a)))), tri:false, stim:true}); });
+  uplinks.forEach(function(u){ u.drop=elecDropCalcola({I:corrente(u.from), L:u.lenM, S:elecSezNum(u.section), tri:u.from.ph>1}); u.drop.peggiore=null; });
+  feeds.forEach(function(f){ f.drop=elecDropCalcola({I:corrente(f.distro), L:f.lenM, S:elecSezNum(f.section), tri:f.distro.ph>1}); f.drop.peggiore=null; });
+  loadLinks.forEach(function(l){
+    var tratte=[l.drop], d=l.distro, visti=[], up, fd;
+    while(d && visti.indexOf(d)<0){
+      visti.push(d); up=null; uplinks.forEach(function(u){ if(!up && u.from===d) up=u; });
+      if(up){ tratte.push(up.drop); d=up.to; continue; }
+      fd=null; feeds.forEach(function(f){ if(!fd && f.distro===d) fd=f; });
+      if(fd) tratte.push(fd.drop);
+      break;
+    }
+    var tot=0, parz=false; tratte.forEach(function(t){ if(t.pct==null) parz=true; else tot+=t.pct; });
+    l.drop.tot = tot>0||!parz ? tot : null; l.drop.parz=parz; if(l.drop.pct==null) l.drop.tot=null;
+    l.drop.lvl = l.drop.pct==null ? "nd" : elecDropLevel(l.drop.tot);
+    tratte.forEach(function(t,i){ if(i>0 && !parz && (t.peggiore==null || tot>t.peggiore)) t.peggiore=tot; });
+  });
+  uplinks.concat(feeds).forEach(function(x){ var dr=x.drop; if(dr.pct==null) return;
+    dr.tot = dr.peggiore!=null ? dr.peggiore : dr.pct; dr.lvl=elecDropLevel(dr.tot); });
+}
+/* elenco piatto delle tratte con la loro caduta, per i fogli: alimentazione, dorsali, poi i carichi */
+function elecDropTratte(R){
+  var out=[];
+  var en=docEn();   /* nei fogli la freccia è «  ->  » (l'Helvetica non ha «→») e il traduttore spezza lì */
+  (R.feeds||[]).forEach(function(f){ if(f.drop) out.push({n:(en?"Feed: input":"Alimentazione: ingresso")+"  ->  "+(f.distro.letter||(en?"board":"quadro")), d:f.drop}); });
+  (R.uplinks||[]).forEach(function(u){ if(u.drop) out.push({n:(en?"Feeder ":"Dorsale ")+(u.from.letter||"?")+"  ->  "+((u.to&&u.to.letter)||"?"), d:u.drop}); });
+  (R.loadLinks||[]).forEach(function(l){ if(l.drop) out.push({n:loadName(l.load.it)+"  ->  "+(l.distro.letter||(en?"board":"quadro")), d:l.drop}); });
+  return out;
+}
 /* F4: connettore della linea — dedotto (audio rack → PowerCON, >16A → CEE, altrimenti Schuko) o override */
 var ELEC_POWERCON={ rack:1, amprack:1, finale:1 };
 /* Il powerCON è un connettore da 20 A (TRUE1: 16 A) — sopra quella soglia non esiste, e un rack ampli
@@ -20111,6 +20190,7 @@ function electricEngine(){
       ? {lvl:"err", msg:pendingE.length+" carichi da collegare, ma "+(_troppo.length===1?"uno non ci sta":_troppo.length+" non ci stanno")+" su nessun quadro: il più libero ha "+Math.max(0,_capLibera).toFixed(0)+" A liberi. Aggiungi un quadro con più portata o dividi i carichi."}
       : {lvl:"info", msg:pendingE.length+" carichi da collegare: seleziona l'elemento e trascina dal pallino ambra a un distro."});
   }
+  elecDropAnnota(loadLinks, uplinks, feeds);   /* caduta di tensione: solo un numero in più su ogni linea, mai in `issues` (C1, 25/11) */
   /* attivi senza consumo noto: fuori dai totali, ma si dicono (23/11/2026) */
   var senzaW=(state.items||[]).filter(function(it){ return ELEC_SENZA_W[it.type] && !elecIsDistro(it) && !elecIsGen(it) && !(wattOf(it)>0); });
   return {loads:loads, distros:distros, loadLinks:loadLinks, feeds:feeds, uplinks:uplinks, unassigned:unassigned, pending:pendingE, supply:supply, senzaW:senzaW,
@@ -22458,7 +22538,7 @@ function selectedCableInfo(){
                  ["Fase", "L"+((ll.phase||0)+1)],
                  ["Linea", "#"+(ll.line||"?")+(ll.linePinned?" (fissa)":"")],
                  ["Connettore", (ll.conn&&ll.conn.label)||"Schuko"],
-                 ["Lunghezza", _cpLen(ll.lenM, ll.cut)]];
+                 ["Lunghezza", _cpLen(ll.lenM, ll.cut)]].concat(elecDropRighe(ll.drop));
       var em=(state.elec.manual||{})[selElec]||{};
       return { title:"Linea elettrica", sub:_cpName(ll.load.it)+" → "+(ll.distro.letter||"quadro"), rows:rowsE,
         hasPts:!!(em.pts&&em.pts.length), from:ll.load.it, to:ll.distro.it||null,
@@ -22473,7 +22553,7 @@ function selectedCableInfo(){
               ["Ingresso corrente", (Re.supply&&Re.supply.name)||"\u2014"],
               ["Corrente", Math.round(fl.a)+" A"],
               ["Sezione", fl.section||"\u2014"],
-              ["Lunghezza", _cpLen(fl.lenM, null)]],
+              ["Lunghezza", _cpLen(fl.lenM, null)]].concat(elecDropRighe(fl.drop)),
         hasPts:!!(fo2&&fo2.pts&&fo2.pts.length), from:fl.distro.it||null, to:null,
         resetPtsLabel:"Ripristina percorso automatico",
         resetPts:function(){ var v=(state.elec.feeds||{})[fid]; if(v){ delete v.pts; delete v.seg; elecFeedPulisci(fid); } __elecRes=null; },
@@ -22484,7 +22564,7 @@ function selectedCableInfo(){
       var rowsU=[["Dorsale", (ul.from.letter||"quadro")+" → "+(ul.to&&ul.to.letter?ul.to.letter:"alimentazione")],
                  ["Corrente", Math.round(ul.a)+" A"],
                  ["Sezione", ul.section||"—"],
-                 ["Lunghezza", _cpLen(ul.lenM, null)]];
+                 ["Lunghezza", _cpLen(ul.lenM, null)]].concat(elecDropRighe(ul.drop));
       var uid=ul.from.it?ul.from.it.id:null, uo=uid?((state.elec.uplinks||{})[uid]||null):null;
       return { title:"Dorsale elettrica", sub:(ul.from.letter||"Q?")+" → alimentazione", rows:rowsU,
         hasPts:!!(uo&&uo.pts&&uo.pts.length), from:ul.from.it||null, to:(ul.to&&ul.to.it)||null,
@@ -22530,9 +22610,10 @@ function renderCablePanel(info){
   document.getElementById("cabPropsSub").textContent=info.sub||"";
   var host=document.getElementById("cabPropsRows"); host.innerHTML="";
   info.rows.forEach(function(r){
+    if(r[0]==="Cosa fare" && r[2]){ var hf=document.createElement("div"); hf.className="prop-hint "+r[2]; hf.setAttribute("data-drop","1"); hf.textContent=r[1]; host.appendChild(hf); return; }   /* caduta di tensione (C1): la frase va a capo, non in una colonna stretta */
     var d=document.createElement("div"); d.className="r";
     var k=document.createElement("span"); k.className="k"; k.textContent=r[0];
-    var v=document.createElement("span"); v.className="v"; v.textContent=r[1];
+    var v=document.createElement("span"); v.className="v"+(r[2]?" "+r[2]:""); v.textContent=r[1];
     d.appendChild(k); d.appendChild(v); host.appendChild(d);
   });
   var acts=document.getElementById("cabPropsActs"); acts.innerHTML="";
@@ -28337,6 +28418,7 @@ function cabHoverTip(e){
     txt = (lE.distro && !lE.load && !lE.from) ? "Linea di alimentazione principale: dall\u2019ingresso corrente al distro "+lE.distro.letter+" \u00b7 "+lE.a.toFixed(0)+" A \u00b7 "+lE.section+" \u00b7 "+lE.lenM.toFixed(0)+" m. Clic per selezionarla; trascina un lato per spostarla, doppio clic per aggiungere un angolo."
       : lE.from ? (lE.from.letter+" → "+lE.to.letter+" · "+lE.a.toFixed(0)+" A · "+lE.section+" · "+lE.lenM.toFixed(0)+" m")
       : (lE.load.it.label||TYPES[lE.load.it.type].nome)+" → "+lE.distro.letter+" · L"+(lE.phase+1)+" · "+elecKW(lE.load.w)+" · "+(lE.cut?lE.cut+" m":"oltre 50 m")+(lE.cee?" · CEE":"");
+    if(lE.drop && lE.drop.pct!=null) txt += " · caduta "+elecPctTxt(lE.drop.pct)+(lE.drop.lvl==="err"?" ⚠ oltre il 4 %":(lE.drop.lvl==="warn"?" ⚠ vicina al 4 %":""));   /* C1: solo il numero, il disegno non cambia */
   }
   if(!__cabTip){ __cabTip=document.createElement("div"); __cabTip.className="cab-tip"; document.body.appendChild(__cabTip); }
   __cabTip.textContent=txt;
@@ -37543,7 +37625,7 @@ function loadList(){
   var R=elecResult(true), rows=[], n=0;
   R.loadLinks.forEach(function(l){ n++;
     rows.push({n:n, name:loadName(l.load.it), w:l.load.w, a:l.load.a, fonte:wattFonte(l.load.it), distro:l.distro.letter, phase:"L"+(l.phase+1), cee:l.cee, ok:true, linked:true,
-      line:l.line, linePinned:!!l.linePinned, conn:(l.conn&&l.conn.label)||"", connK:(l.conn&&l.conn.k)||"sk", loadId:l.load.it.id}); });
+      line:l.line, linePinned:!!l.linePinned, conn:(l.conn&&l.conn.label)||"", connK:(l.conn&&l.conn.k)||"sk", loadId:l.load.it.id, drop:l.drop||null}); });
   /* Anche il carico NON ancora collegato dichiara la sua spina (29/07): il connettore si deduce
      dall'elemento e dall'assorbimento, non dalla linea — chi allestisce vuole sapere che serve una
      CEE PRIMA di tirare il cavo, non dopo. Stessa funzione del motore: nessun secondo criterio. */
@@ -37627,6 +37709,7 @@ function renderLoadPanel(){
       + '<span class="pload"><span class="pw">'+pot+'</span>'
         + '<b class="pamp" title="'+esc(wattFonteTxt(r.fonte))+'">'+r.a.toFixed(1).replace(".",",")+' A</b>'
         + (r.conn?'<span class="pconn">'+esc(r.conn)+'</span>':'')
+        + ((r.drop && (r.drop.lvl==="warn"||r.drop.lvl==="err"))?'<span class="pdrop drop-'+r.drop.lvl+'" title="'+esc(elecDropRighe(r.drop).map(function(x){ return x[1]; }).join(" — "))+'">⚠ '+esc(elecPctTxt(r.drop.tot!=null?r.drop.tot:r.drop.pct))+'</span>':'')   /* C1: solo se giallo o rosso */
       + '</span>'
       + '<span class="pact"></span>';
     if(!r.ok) row.querySelector(".ppatch").title="Nessun quadro con capienza per questo carico";
@@ -41824,6 +41907,32 @@ function netListPdf(shared){
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
+/* CADUTA DI TENSIONE nel foglio «Alimentazioni» (C1): tabella per tratta, poi «Cosa fare» per le sole linee gialle o rosse. */
+function elecDropBloccoPdf(doc, R, M, getY, setY){
+  var T=elecDropTratte(R); if(!T.some(function(x){ return x.d.pct!=null; })) return;
+  var en=docEn(), y=getY(), cx=[M, M+96, M+112, M+128, M+146, M+166];
+  function colore(l){ return l==="err" ? "#dc2626" : (l==="warn" ? "#b45309" : "#111827"); }
+  function riga(a,b,c,d,e,f,bold,col){ if(y>274){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(8.5); doc.setTextColor(col||"#111827");
+    [a,b,c,d,e,f].forEach(function(t,i){ doc.text(String(t), cx[i], y); }); y+=5; }
+  if(y>236){ doc.addPage(); y=18; }
+  y+=2; doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#b45309"); doc.text(en?"VOLTAGE DROP (limit 4 %)":"CADUTA DI TENSIONE (limite 4 %)", M, y); y+=6;
+  doc.setDrawColor("#d97706"); doc.setLineWidth(0.4); doc.line(M, y-3.5, 194, y-3.5);
+  riga(en?"RUN":"TRATTA","A","mm²","m",en?"RUN":"LINEA",en?"TOTAL":"PERCORSO", true, "#b45309");
+  T.forEach(function(x){ var d=x.d, nome=String(x.n); while(nome.length>2 && doc.getTextWidth(nome)>92){ nome=nome.slice(0,-2); }
+    if(d.pct==null){ riga(nome, "—", "—", d.L>0?Math.round(d.L):"—", "—", "—", false, "#6b7280"); return; }
+    riga(nome, d.I.toFixed(1).replace(".",","), String(d.S).replace(".",",")+(d.stim?"*":""), Math.round(d.L), elecPctTxt(d.pct), elecPctTxt(d.tot!=null?d.tot:d.pct), d.lvl!=="ok", colore(d.lvl)); });
+  var visti={}, n=0;
+  T.forEach(function(x){ var f=elecDropAdvice(x.d, en); if(!f || n>=10) return; var k=x.n+f; if(visti[k]) return; visti[k]=1; n++;
+    if(y>272){ doc.addPage(); y=18; } doc.setFont("helvetica", x.d.lvl==="err"?"bold":"normal"); doc.setFontSize(8.5); doc.setTextColor(colore(x.d.lvl));
+    var rr=doc.splitTextToSize("• "+x.n+": "+f, 178); doc.text(rr, M, y); y+=rr.length*4; });
+  if(y>268){ doc.addPage(); y=18; }
+  doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor("#6b7280");
+  var nota=doc.splitTextToSize(en
+    ? "Calculation: copper, power factor 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (conservative values, within 3,5 % of the CEI UNEL tables, on the high side). Limit 4 % from the supply point to the load (CEI 64-8), yellow above 3 %. * = size estimated from the current: load cables have no size written in the project. Estimate: to be verified by the designer."
+    : "Calcolo: rame, fattore di potenza 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (valori prudenti, entro il 3,5 % dalle tabelle CEI UNEL, per eccesso). Limite 4 % dal punto di consegna al carico (CEI 64-8), giallo oltre il 3 %. * = sezione stimata dalla corrente: i cavi dei carichi non hanno una sezione scritta nel progetto. Stima: la verifica spetta al progettista.", 178);
+  doc.text(nota, M, y); y+=nota.length*3.4+2;
+  setY(y);
+}
 function elecLinesPdf(shared){
   var R; try{ R=elecResult(true); }catch(_e){ R={distros:[],loadLinks:[]}; }
   var distros=(R.distros||[]).filter(function(d){ return (R.loadLinks||[]).some(function(l){ return l.distro===d; }); });
@@ -41849,6 +41958,7 @@ function elecLinesPdf(shared){
       });
       y+=4;
     });
+    elecDropBloccoPdf(doc, R, M, function(){ return y; }, function(v){ y=v; });   /* C1: blocco in coda, le righe sopra restano quelle di sempre */
     doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#9a948b");
     if(y>274){ doc.addPage(); y=18; }
     doc.text("* = numero linea scelto a mano. Magnetotermici e differenziali = dati di targa del quadro.", M, y);
@@ -42477,7 +42587,7 @@ function elecReportPdf(shared){
     y=22;
     if(state.titolo||state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
     /* M-06 onestà tecnica: i valori sono STIME preliminari, non un progetto esecutivo. Assunzioni esplicite. */
-    (function(){ var d="STIMA PRELIMINARE — non è un progetto elettrico esecutivo. Linee calcolate sull'assorbimento tipico con assunzioni fisse (230 V, fattore di potenza 1, nessun derating, spunto, duty cycle, caduta di tensione o dislivello); prese e generatore sul massimo (audio a 1/3 della potenza, generatore con fattore di potenza 0,8). Dimensionamento, protezioni e sicurezza vanno verificati da un elettricista qualificato. "+ELEC_DISCLAIMER_LEGGE;
+    (function(){ var d="STIMA PRELIMINARE — non è un progetto elettrico esecutivo. Linee calcolate sull'assorbimento tipico con assunzioni fisse (230 V, fattore di potenza 1, nessun derating, spunto, duty cycle"+(elecDropTratte(R).some(function(x){ return x.d.pct!=null; })?" o dislivello; la caduta di tensione è calcolata a parte, più sotto":", caduta di tensione o dislivello")+"); prese e generatore sul massimo (audio a 1/3 della potenza, generatore con fattore di potenza 0,8). Dimensionamento, protezioni e sicurezza vanno verificati da un elettricista qualificato. "+ELEC_DISCLAIMER_LEGGE;
       doc.setFontSize(8); doc.setFont("helvetica","italic"); var dl=doc.splitTextToSize(d, W-2*M-6), dh=dl.length*3.5+4;
       doc.setFillColor("#fff7ed"); doc.setDrawColor("#f59e0b"); doc.roundedRect(M, y-3, W-2*M, dh, 1.5, 1.5, "FD");
       doc.setTextColor("#92400e"); doc.text(dl, M+3, y+1); y+=dh+4; })();
@@ -42502,6 +42612,17 @@ function elecReportPdf(shared){
       line("Da collegare: "+R.pending.length+(R.pending.length===1?" carico":" carichi")+" ("+elecKW(_pw)+" stimati dal catalogo): i quadri mostrano solo ciò che è già collegato.", 9, false, "#b45309", 4.6); }
     var _swR=elecSenzaWTxt(R); if(_swR) line(_swR, 9, false, "#6b7280", 4.6);
     y+=4;
+    (function(){   /* C1: caduta di tensione, in coda ai dettagli; non fa parte delle criticità dell'audit */
+      var T=elecDropTratte(R), V=T.filter(function(x){ return x.d.pct!=null; }), en=docEn(); if(!V.length) return;
+      line(en?"Voltage drop (limit 4 %)":"Caduta di tensione (limite 4 %)", 12, true, "#b45309", 6);
+      var mx=Math.max.apply(null, V.map(function(x){ return x.d.tot!=null?x.d.tot:x.d.pct; }));
+      line(en ? ("Maximum over the whole run: "+elecPctTxt(mx)+". Copper, power factor 0,9, sizes as above (load cables: estimated from the current); conservative values. Estimate: to be verified by the designer.")
+              : ("Massima sul percorso intero: "+elecPctTxt(mx)+". Rame, fattore di potenza 0,9, sezioni come sopra (per i carichi stimate dalla corrente); valori prudenti. Stima: la verifica spetta al progettista."), 9, false, null, 4.6);
+      var dett=V.filter(function(x){ return x.d.lvl==="warn" || x.d.lvl==="err"; });
+      dett.slice(0,12).forEach(function(x){ line("• "+x.n+": "+elecPctTxt(x.d.pct)+(en?" over ":" su ")+Math.round(x.d.L)+" m. "+elecDropAdvice(x.d, en), 9, x.d.lvl==="err", x.d.lvl==="err"?"#dc2626":"#b45309", 4.6); });
+      if(!dett.length) line(en?"All lines within 3 %.":"Tutte le linee entro il 3 %.", 9, false, "#0d9488", 4.6);
+      var nd=T.length-V.length; if(nd) line(en ? (nd+(nd===1?" line":" lines")+" without length or size: drop not calculated.") : (nd+(nd===1?" linea senza":" linee senza")+" lunghezza o sezione: caduta non calcolata."), 9, false, "#6b7280", 4.6);
+      y+=4; })();
     line("Criticità", 12, true, "#b45309", 6);
     if(R.issues.length) R.issues.forEach(function(i){ line("• "+i.msg, 9, i.lvl==="err", i.lvl==="err"?"#dc2626":(i.lvl==="warn"?"#b45309":"#6b7280"), 4.6); });
     else line("Nessuna criticità rilevata.", 10, false, "#0d9488", 5);

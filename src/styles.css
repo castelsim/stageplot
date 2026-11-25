@@ -1335,6 +1335,11 @@
   .pload>.pamp{flex:0 0 auto}
   .pload>.pconn{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .pload>.pconn::before{content:"· "}
+  /* caduta di tensione (C1, 25/11/2026): solo se giallo o rosso */
+  .pload>.pdrop{flex:0 0 auto;font-size:11px;font-weight:600;white-space:nowrap;margin-left:6px}
+  .drop-warn{color:var(--warning)}
+  .drop-err{color:var(--danger)}
+  .prop-hint.drop-warn,.prop-hint.drop-err{font-weight:600}
   /* Fase più carica oltre la soglia: la capienza smette di essere un numero neutro. Ambra nel chrome
      vuol dire avviso e per la regola §13 del design system porta SEMPRE il triangolo (lo mette la
      resa, qui c'è solo il colore); oltre il nominale è rosso, perché lì il magnetotermico salta. */
