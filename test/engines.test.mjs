@@ -41532,6 +41532,17 @@ t("Versioni L2b · «Superata» automatica: quando una versione passa a Inviata,
     /* progetto con una versione sola: niente da fare, nessun toast di Superata */
     reset(); docVersioni([{ versione: 1 }]); A.syncActiveVariant(); toast.length = 0; A.setProjectStatus("revisione");
     eq(stati(), ["revisione"]); ok(!toast.some((m) => /Supera/.test(m)), "nessun avviso");
+    /* C1 (rilettura Opus): scene a nome libero SENZA numero visibile non vengono mai superate né citate */
+    reset(); docVersioni([{ name: "Primo tempo", status: "revisione", statusAt: "2026-11-10" }, { name: "Secondo tempo", items: [itV("b")] }]); A.syncActiveVariant(); A.switchVariant("w1"); toast.length = 0;
+    A.setProjectStatus("revisione");
+    eq(stati(), ["revisione", "revisione"], "senza numero visibile nessuna Superata"); ok(!toast.some((m) => /Supera/.test(m)), "nessun toast");
+    eq([A.versioneSuperataDa(A.VARIANTS[0], 0), A.versioneSuperataDa(A.VARIANTS[1], 1)], [null, null], "nessuna «Superata dalla vN» per scene senza numero");
+    /* scena con numero che ne supera una a nome libero senza numero: quella non entra */
+    reset(); docVersioni([{ name: "Primo tempo", status: "revisione", statusAt: "2026-11-10" }, { versione: 2, items: [itV("b")] }]); A.syncActiveVariant(); A.switchVariant("w1"); A.setProjectStatus("revisione");
+    eq(stati(), ["revisione", "revisione"], "la scena senza numero non viene superata");
+    /* «Variante 1/2» senza numero scritto: la scheda mostra «Versione 1/2», la regola vale */
+    reset(); docVersioni([{ status: "revisione", statusAt: "2026-11-10" }, { items: [itV("b")] }]); A.syncActiveVariant(); A.switchVariant("w1"); A.setProjectStatus("revisione");
+    eq(stati(), ["superato", "revisione"], "«Variante 1/2» senza numero: la regola vale");
   } finally { A.__toast = t0; reset(); }
 }));
 t("Versioni L2b · «Superata»: etichetta, banner e rider coerenti; progetti senza il nuovo stato invariati", () => {

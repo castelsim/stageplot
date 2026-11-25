@@ -43717,24 +43717,30 @@ function statusInfo(k){ for(var i=0;i<PROJECT_STATUSES.length;i++) if(PROJECT_ST
    Le Inviate/Approvate con numero più BASSO diventano Superate (con la data di oggi); Bozze e versioni più nuove non si toccano. Una Superata resta in
    sola lettura come una Inviata, e riportare a Bozza la versione che le ha superate NON le resuscita (lo si fa a mano dal menu Stato). Nessun campo nuovo:
    `status:"superato"` e `statusAt` esistevano già. Restituisce le etichette «v1», «v2»… delle versioni appena superate. */
+/* il numero conta solo se la scheda lo mostra (stesso criterio dell'etichetta): scritto/«vN» nel titolo, oppure nome di serie («Versione N»);
+   una scena a nome libero senza numero («Primo tempo») non ha un «più nuovo» e non entra mai nella regola. 0 = numero non visibile */
+function versioneNumeroVisibile(v, i){ var r=versioneNumeroDi(v, i); return (r.esplicito || versioneNomeDiSerie(v && v.name)) ? r.n : 0; }
 function versioniSuperaPrecedenti(){
   if(typeof VARIANTS==="undefined" || !state || VARIANTS.length<2) return [];
   var idx=-1; for(var i=0;i<VARIANTS.length;i++) if(VARIANTS[i].id===activeVar){ idx=i; break; }
   if(idx<0) return [];
-  var n=versioneNumeroDi({state:state}, idx).n, oggi=versioneOggiIso(), fatte=[];
+  var n=versioneNumeroVisibile({state:state, name:VARIANTS[idx].name}, idx), oggi=versioneOggiIso(), fatte=[];
+  if(!n) return [];
   for(var j=0;j<VARIANTS.length;j++){
     if(j===idx) continue;
     var st=VARIANTS[j].state; if(!st) continue;
-    if((st.status==="revisione" || st.status==="approvato") && versioneNumeroDi(VARIANTS[j], j).n<n){ st.status="superato"; st.statusAt=oggi; fatte.push("v"+versioneNumeroDi(VARIANTS[j], j).n); }
+    var m=versioneNumeroVisibile(VARIANTS[j], j);
+    if((st.status==="revisione" || st.status==="approvato") && m && m<n){ st.status="superato"; st.statusAt=oggi; fatte.push("v"+m); }
   }
   return fatte;
 }
 /* a quale versione si deve «Superata»: la più alta fra le Inviate/Approvate (numero maggiore del suo); null se non si trova */
 function versioneSuperataDa(v, i){
-  var n=versioneNumeroDi(v, i).n, migliore=null;
+  var n=versioneNumeroVisibile(v, i), migliore=null;
+  if(!n) return null;
   for(var j=0;j<VARIANTS.length;j++){
     var st=VARIANTS[j].state; if(!st || (st.status!=="revisione" && st.status!=="approvato")) continue;
-    var m=versioneNumeroDi(VARIANTS[j], j).n; if(m>n && (!migliore || m>migliore)) migliore=m;
+    var m=versioneNumeroVisibile(VARIANTS[j], j); if(m>n && (!migliore || m>migliore)) migliore=m;
   }
   return migliore;
 }
