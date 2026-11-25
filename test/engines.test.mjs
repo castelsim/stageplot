@@ -30819,8 +30819,10 @@ taPdf("Rifiniture · PDF: testata dentro i 15 mm (nessun testo né fascia a filo
 });
 taPdf("Rifiniture · note C1: «fino al quadro X» nomina il quadro; † (sezione stimata) ≠ * (linea scelta a mano)", async () => {
   const T = [{ d: { pct: 1, completo: false, fino: "A" } }, { d: { pct: 2, completo: false, fino: "B" } }, { d: { pct: 1, completo: true, fino: "A" } }];
-  eq(A.elecDropQuadriTesta([T[0]], false), "quadro A", "un quadro (IT)");
-  eq(A.elecDropQuadriTesta(T, false), "quadri A, B", "più quadri (IT)");
+  eq(A.elecDropQuadriTesta([T[0]], false), "al quadro A", "un quadro (IT)");
+  eq(A.elecDropQuadriTesta(T, false), "ai quadri A, B", "più quadri (IT): «fino ai quadri», mai «fino al quadri» (rilettura #234)");
+  eq(A.elecDropQuadriTesta([{ d: { pct: 1, completo: false, fino: "" } }], false), "al quadro di testa", "senza nome: «fino al quadro di testa», mai «fino al il…»");
+  ok(!/fino al "\+elecDropQuadriTesta/.test(appjs) && (appjs.match(/fino "\+elecDropQuadriTesta\(T,false\)/g) || []).length === 2, "i due fogli scrivono «fino » + la frase con la sua preposizione");
   eq(A.elecDropQuadriTesta([T[0]], true), "board A", "un quadro (EN)");
   eq(A.elecDropQuadriTesta(T, true), "boards A, B", "più quadri (EN)");
   ok(!/quadro indicato|board shown/.test(appjs.replace(/\/\*[^]*?\*\//g, "")), "mai più «quadro indicato» / «board shown»");
@@ -30828,6 +30830,19 @@ taPdf("Rifiniture · note C1: «fino al quadro X» nomina il quadro; † (sezion
   ok(/(?:\\u2020|†) = sezione stimata/.test(appjs) && /(?:\\u2020|†) = size estimated/.test(appjs), "legenda del † in italiano e inglese");
   ok(/\* = line number chosen by hand/.test(appjs) && /\* = numero linea scelto a mano/.test(appjs), "legenda del * (linea scelta a mano) in italiano e inglese");
   ok(!/\* = sezione stimata|\* = size estimated/.test(appjs), "l'asterisco non significa più «sezione stimata»");
+});
+t("Rifiniture · PDF in inglese: i nomi stereo senza trattino si traducono come prima («Drums 1 Overhead L»)", () => {
+  /* rilettura #234: senza « - » il traduttore non spezzava più il nome e la channel list inglese restava in italiano */
+  reset(); A.state.docLang = "en";
+  const casi = { "Batteria 1 Overhead L": "Drums 1 Overhead L", "Vibrafono 1 Vibrafono R": "Vibraphone 1 Vibraphone R", "Organo Hammond Hammond L": "Hammond organ Hammond L",
+    "Piano verticale 88 Piano vert. R": "Upright piano 88 Upright R", "Stage piano 1 Tastiere L": "Stage piano 1 Keyboards L", "Mac portatile Playback L": "Mac laptop Playback L",
+    "Tastiera 1 L": "Keyboard 1 L", "Batteria 1 - Kick": "Drums 1 - Kick", "Laptop 1 Playback R": "Laptop 1 Playback R" };
+  try {
+    Object.keys(casi).forEach((k) => eq(A.docTesto(k), casi[k], k));
+    const ph = add("stagepiano", 300, 300); ph.label = "Phantom"; A.__cabRes = null;
+    eq(A.docTesto("Phantom Tastiere L"), "Phantom Keyboards L", "il nome scritto dall'utente resta, la sorgente si traduce");
+    A.state.docLang = "it"; eq(A.docTesto("Batteria 1 Overhead L"), "Batteria 1 Overhead L", "in italiano nulla cambia");
+  } finally { A.state.docLang = undefined; }
 });
 t("Rifiniture · CSV A&H: senza trattino il banco legge ancora la sorgente («Overhead», «Playback»), non lo strumento", () => {
   /* rilettura #234: lo split(" - ") non toglieva più il nome dello strumento → «Batteri2», «Laptop 2», «Piano 12», «Organo 2» */

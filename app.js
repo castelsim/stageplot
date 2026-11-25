@@ -5026,9 +5026,29 @@ function _docEnSemplice(s){
     return DOC_EN[k].replace(/#/g, function(){ var n=nums[i++]; return n==null ? "#" : n.replace(/(\d),(\d)/,"$1.$2"); })
       .replace(/@([a-z])@ m\b/g, function(_, c){ return mis[c.charCodeAt(0)-97]; }); }
   var e=docEnEtichetta(s); if(e!=null) return e;
+  if(!_docEnStereoDentro){ var st=_docEnStereo(s); if(st!=null) return st; }
   var c=/^(\d+\s?×\s?)(\D.*)$/.exec(s);   /* «3× asta giraffa»: il numero davanti e il resto dal dizionario */
   if(c){ var r=DOC_EN.hasOwnProperty(c[2]) ? DOC_EN[c[2]] : docEnEtichetta(c[2]); if(r!=null) return c[1]+r; }
   return null;
+}
+/* NOMI STEREO SENZA TRATTINO (rilettura #234, 25/11/2026): «Batteria 1 - Overhead L» si traduceva a pezzi sul « - »
+   («Drums 1» + «Overhead L»); dal 25/11 il nome arriva intero, «Batteria 1 Overhead L», e restava in italiano nei PDF inglesi.
+   Si cerca da destra il punto fra il nome dello strumento e la sorgente e si traducono i due pezzi come prima:
+   «Drums 1 Overhead L», «Vibraphone 1 Vibraphone L», «Hammond organ Hammond L». I testi scritti dall'utente restano com'erano. */
+var _docEnStereoDentro=false;
+function _docEnStereo(s){
+  var w=String(s).split(" "); if(w.length<3 || !/^(?:L|R)$/.test(w[w.length-1])) return null;
+  var U=__docUtente||{};
+  /* ogni pezzo come il «a pezzi» di _docEnTrad: testo dell'utente intatto, poi dizionario (anche coi numeri), poi regole */
+  var tr=function(x){ if(U[x]) return x; var t=_docEnSemplice(x); if(t==null) t=_docEnRegola(x); return t==null ? x : t; };
+  _docEnStereoDentro=true;
+  try{
+    for(var k=w.length-2;k>=1;k--){
+      var a=w.slice(0,k).join(" "), b=w.slice(k).join(" "), ta=tr(a), tb=tr(b);
+      if(ta!==a || tb!==b) return ta+" "+tb;
+    }
+    return null;
+  } finally { _docEnStereoDentro=false; }
 }
 /* pezzi con dentro una misura già in piedi («12 da 6' 7" × 3' 3"»), che il modello italiano non può prevedere */
 var _docEnNome=function(x){ var e=docEnEtichetta(x); return e==null ? x : e; };
@@ -41013,11 +41033,12 @@ function netListPdf(shared){
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
-/* Quadro di testa delle tratte «incomplete» (25/11): «fino al quadro A», mai «fino al quadro indicato». Una lettera o più (ordine di comparsa). */
+/* Quadro di testa delle tratte «incomplete» (25/11): «fino al quadro A», mai «fino al quadro indicato». Una lettera o più (ordine di comparsa).
+   In italiano la preposizione la dà questa funzione (rilettura #234): «al quadro A», «ai quadri A, B», «al quadro di testa» — mai «fino al quadri…». */
 function elecDropQuadriTesta(T, en){
   var u=[]; (T||[]).forEach(function(x){ if(x.d && x.d.pct!=null && x.d.completo===false){ var q=String(x.d.fino||"").trim(); if(q && u.indexOf(q)<0) u.push(q); } });
-  if(!u.length) return en ? "the head board" : "il quadro di testa";
-  return en ? (u.length===1 ? "board "+u[0] : "boards "+u.join(", ")) : (u.length===1 ? "quadro "+u[0] : "quadri "+u.join(", "));
+  if(!u.length) return en ? "the head board" : "al quadro di testa";
+  return en ? (u.length===1 ? "board "+u[0] : "boards "+u.join(", ")) : (u.length===1 ? "al quadro "+u[0] : "ai quadri "+u.join(", "));
 }
 /* CADUTA DI TENSIONE nel foglio «Alimentazioni» (C1): tabella per tratta, poi «Cosa fare» per le sole linee gialle o rosse. */
 function elecDropBloccoPdf(doc, R, M, getY, setY){
@@ -41046,7 +41067,7 @@ function elecDropBloccoPdf(doc, R, M, getY, setY){
   doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor("#6b7280");
   var nota=doc.splitTextToSize(en
     ? "Calculation: copper, power factor 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (conservative values: about +/-3,5 % from the CEI UNEL tables). Limit 4 % from the supply point to the load (CEI 64-8), yellow above 3 %. Current (A) = estimated connected load on the most loaded phase, not the board rating; loads still to be connected and loads without power are left out; three-phase boards with single-phase loads: neutral included. \u2020 = size estimated from the current (1,5 mm2 up to 16 A, 4 mm2 up to 32 A): load cables have no size written in the project."+(incompleto?" ° = run up to "+elecDropQuadriTesta(T,true)+": the run from the supply is not calculated (supply not set or manual mode).":"")+" Estimate: to be verified by the designer."
-    : "Calcolo: rame, fattore di potenza 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (valori prudenti: scarto di circa ±3,5 % dalle tabelle CEI UNEL). Limite 4 % dal punto di consegna al carico (CEI 64-8), giallo oltre il 3 %. Corrente (A) = carico stimato collegato sulla fase più carica, non la portata del quadro; esclusi i carichi da collegare e quelli senza potenza; quadri trifase con carichi monofase: neutro compreso. \u2020 = sezione stimata dalla corrente (1,5 mm² fino a 16 A, 4 mm² fino a 32 A): i cavi dei carichi non hanno una sezione scritta nel progetto."+(incompleto?" ° = percorso fino al "+elecDropQuadriTesta(T,false)+": tratta dall'ingresso non calcolata (ingresso non definito o modalità manuale).":"")+" Stima: la verifica spetta al progettista.", 176);
+    : "Calcolo: rame, fattore di potenza 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (valori prudenti: scarto di circa ±3,5 % dalle tabelle CEI UNEL). Limite 4 % dal punto di consegna al carico (CEI 64-8), giallo oltre il 3 %. Corrente (A) = carico stimato collegato sulla fase più carica, non la portata del quadro; esclusi i carichi da collegare e quelli senza potenza; quadri trifase con carichi monofase: neutro compreso. \u2020 = sezione stimata dalla corrente (1,5 mm² fino a 16 A, 4 mm² fino a 32 A): i cavi dei carichi non hanno una sezione scritta nel progetto."+(incompleto?" ° = percorso fino "+elecDropQuadriTesta(T,false)+": tratta dall'ingresso non calcolata (ingresso non definito o modalità manuale).":"")+" Stima: la verifica spetta al progettista.", 176);
   if(y+nota.length*3.4>280){ doc.addPage(); y=22; }
   doc.text(nota, M, y); y+=nota.length*3.4+2;
   setY(y);
@@ -41712,7 +41733,7 @@ function elecReportPdf(shared){
       var mx=Math.max.apply(null, V.map(function(x){ return x.d.tot!=null?x.d.tot:x.d.pct; })), incompleto=V.some(function(x){ return x.d.completo===false; });
       var notaI=en ? " Current = estimated connected load on the most loaded phase, not the board rating; loads still to be connected and loads without power are left out." : " Corrente = carico stimato collegato sulla fase più carica, non la portata del quadro; esclusi i carichi da collegare e quelli senza potenza.";
       line(en ? ((incompleto ? "Maximum over the calculated run: " : "Maximum over the whole run: ")+elecPctTxt(mx)+(incompleto ? " (up to "+elecDropQuadriTesta(T,true)+": the run from the supply is missing)." : ".")+" Copper, power factor 0,9, sizes as above (load cables: estimated from the current); conservative values."+notaI+" Estimate: to be verified by the designer.")
-              : ((incompleto ? "Massima sul percorso calcolato: " : "Massima sul percorso intero: ")+elecPctTxt(mx)+(incompleto ? " (fino al "+elecDropQuadriTesta(T,false)+": manca la tratta dall'ingresso)." : ".")+" Rame, fattore di potenza 0,9, sezioni come sopra (per i carichi stimate dalla corrente); valori prudenti."+notaI+" Stima: la verifica spetta al progettista."), 9, false, null, 4.6);
+              : ((incompleto ? "Massima sul percorso calcolato: " : "Massima sul percorso intero: ")+elecPctTxt(mx)+(incompleto ? " (fino "+elecDropQuadriTesta(T,false)+": manca la tratta dall'ingresso)." : ".")+" Rame, fattore di potenza 0,9, sezioni come sopra (per i carichi stimate dalla corrente); valori prudenti."+notaI+" Stima: la verifica spetta al progettista."), 9, false, null, 4.6);
       var dett=V.filter(function(x){ return x.d.lvl==="warn" || x.d.lvl==="err"; }).sort(function(a,b){ return (b.d.tot!=null?b.d.tot:b.d.pct)-(a.d.tot!=null?a.d.tot:a.d.pct); });
       dett.slice(0,12).forEach(function(x){ line("• "+x.n+": "+elecPctTxt(x.d.pct)+(en?" over ":" su ")+Math.round(x.d.L)+" m. "+elecDropAdvice(x.d, en), 9, x.d.lvl==="err", x.d.lvl==="err"?"#dc2626":"#b45309", 4.6); });
       if(dett.length>12) line("+"+(dett.length-12)+(en?" more lines: see the power sheet.":" altre linee: vedi il foglio Alimentazioni."), 9, false, "#6b7280", 4.6);
