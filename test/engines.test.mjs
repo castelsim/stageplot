@@ -41686,7 +41686,17 @@ t("Versioni L3 · codice: i guardiani delle scritture usano paloTemporaneoAttivo
   ok(/cl\.remove\("cambio-editor"\); cl\.remove\("cambio-vista"\)/.test(appjs), "spegnere il palco temporaneo toglie anche le classi dei cambi");
   ok(/"Cambi di palco":1/.test(appjs) && /data-act="cambi"/.test(readFileSync(join(root, "index.template.html"), "utf8")), "ricerca e menu del telefono");
   ok(/body\.cambi-edit #props/.test(stylesCss) && /#props #cambiSec\{display:none\}/.test(stylesCss), "pannello nel cassetto del telefono");
+  ok(/body\.ver-chiusa #props #cambiSec button\{pointer-events:auto/.test(stylesCss), "in una versione chiusa «Vedi il palco» e «Fatto» restano cliccabili (bug trovato nel browser: il blocco dei pulsanti del pannello li spegneva)");
 });
+t("Versioni L3 · in vista il tentativo di modifica spiega come fare; in una versione chiusa vale il messaggio di sempre", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1, status: "revisione", statusAt: "2026-11-20" }]);
+  const toast = []; const t0 = A.__toast; A.__toast = (m) => { toast.push(m); };
+  try {
+    A.verChiusaAvvisoAt = 0; A.verChiusaAvviso(); ok(/Inviata/i.test(toast[0]) || /chiusa|Inviata/.test(toast[0]), "versione chiusa: messaggio di sempre: " + toast[0]); ok(!/palco dopo il cambio/.test(toast[0]));
+    A.verChiusaAvvisoAt = 0; A.__custEditor = { cambio: { idx: 0, n: 1, vista: true }, salvato: {} }; A.verChiusaAvviso();
+    ok(/palco dopo il cambio/.test(toast[1]) && /Modifica/.test(toast[1]), "in vista: spiega di tornare al palco base e premere Modifica: " + toast[1]);
+  } finally { A.__custEditor = null; A.__toast = t0; A.verChiusaAvvisoAt = 0; reset(); }
+}));
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

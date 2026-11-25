@@ -2678,6 +2678,8 @@ body.ver-chiusa #inRows input,body.ver-chiusa #inRows select,body.ver-chiusa #in
 body.ver-chiusa #outRows input,body.ver-chiusa #outRows select,body.ver-chiusa #outRows textarea,body.ver-chiusa #outRows button,
 body.ver-chiusa #rdSedie,body.ver-chiusa #rdSistema,body.ver-chiusa #rdLuci,body.ver-chiusa #rdPersonale,body.ver-chiusa #rdNote,body.ver-chiusa #rdCamerini,body.ver-chiusa #rdParcheggi,
 body.ver-chiusa #rdMateriali,body.ver-chiusa #rdDistinta,body.ver-chiusa #rdLuciNoFumo,body.ver-chiusa #rdLuciSeparata,body.ver-chiusa #rdLuciLeggii,body.ver-chiusa #rdDotazioni input{pointer-events:none;opacity:.7}
+/* restano vivi: chiudere il pannello e l'area di stampa (è del documento, serve a ristampare) e, nei Cambi di palco (L3), «Vedi il palco» e «Fatto»: guardare una versione chiusa si può */
+body.ver-chiusa #props #cambiSec button{pointer-events:auto;opacity:1}
 /* restano vivi: chiudere il pannello e l'area di stampa (è del documento, serve a ristampare) */
 body.ver-chiusa #props #propsGrab,body.ver-chiusa #props #areaEditPanel input,body.ver-chiusa #props #areaEditPanel button,body.ver-chiusa #props #areaEditPanel select{pointer-events:auto;opacity:1}
 body.ver-chiusa #bUndo,body.ver-chiusa #bRedo,body.ver-chiusa #mUndo,body.ver-chiusa #mRedo{pointer-events:none;opacity:.5}
@@ -4469,7 +4471,13 @@ body.cambi-edit #selProps,body.cambi-edit #groupProps,body.cambi-edit #noSel,bod
 .cb-sum b{color:var(--text)}
 .cb-av{font-size:11px;line-height:1.4;padding:5px 8px;border-radius:8px;background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--text)}
 .cb-acts{display:flex;gap:6px;flex-wrap:wrap}
-.cb-b{font-size:12px;padding:5px 10px;width:auto;height:auto}
+#props #cambiSec .cb-acts .btn,.cb-b{font-size:12px;padding:5px 10px;width:auto;height:auto;flex:0 0 auto;margin:0}
+#props #cambiSec .sc-add{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 4px}
+#props #cambiSec .sc-add .btn{width:auto;flex:0 0 auto;margin:0;font-size:12px;padding:6px 10px}
+#props #cambiSec .sc-tot{margin:12px 0 0;padding:9px 12px;border-radius:10px;background:var(--accent-tint);color:var(--text);font-size:12px;line-height:1.4}
+#props #cambiSec .sc-tot[hidden]{display:none}
+#props #cambiSec #bCambiDone{width:100%;margin-top:16px}
+body.cb-ro #props #cambiSec .sc-add{display:none}
 .cb-via{color:var(--danger)}
 body.cb-ro .cb-row input{opacity:.8}
 /* Il palco «dopo il cambio N»: lo stesso palco temporaneo di «Crea elemento», ma col palco vero. Banner in alto, sul palco, come quello delle versioni chiuse. */
