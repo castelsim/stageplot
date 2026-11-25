@@ -9425,6 +9425,7 @@ t("STEREO 2 · formato dei nomi stereo: tutti uguali, senza trattino («X 1 L»,
   eq(nomiCh(e), ["Chitarra 1 DI L", "Chitarra 1 DI R", "Chitarra 1 - ampli"], "con ampli: DI L / DI R + ampli");
   const k = add("tastiera", 300, 700); eq(nomiCh(k).slice(0, 2), ["Tastiera 1 L", "Tastiera 1 R"], "tastiera");
   const m = add("gtacustica", 900, 700); eq(nomiCh(m), ["Chitarra acustica 2"], "mono invariata");
+  const n = add("gtacustica", 100, 700); n.label = ""; n.lineStereo = true; n._chain = 1; eq(nomiCh(n), ["Chitarra acustica L", "Chitarra acustica R"], "strumento senza nome: mai «L» nudo");
   conDoc("en", null, () => { eq([A.docTesto("Chitarra acustica 1 L"), A.docTesto("Chitarra 1 DI R")], ["Acoustic guitar 1 L", "Guitar 1 DI R"], "EN"); });
 });
 t("STEREO 2 · PDF inglese: «Tastiera 1 L / R» e «Tastiera 1 L» si traducono come gli altri", () => {
