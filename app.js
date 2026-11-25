@@ -4397,6 +4397,7 @@ var state = { titolo:"", luogo:"", versione:1, stage:{w:1200,d:800,blocks:[{x:0,
 var stageEdit=false, selBlock=null;   /* modalità "Modifica palco" e blocco selezionato */
 var stagePanelView="palco";   /* quale sezione mostra il pannello palco: "palco" (blocchi) | "planimetria" */
 var eventoEdit=false;                 /* modalità "Evento" (titolo/luogo dietro al bottone) */
+var cambiEdit=false;                  /* pannello «Cambi di palco» (L3, 25/11): chi esce, entra o si sposta rispetto al palco base */
 var scalettaEdit=false;               /* pannello «Scaletta» (10/10): come Evento, aperto da Liste, Menu del telefono, ricerca */
 var chanEdit=false;                   /* modalità "Channel list" (mobile: si apre dal bottone) */
 var sel = null, selSet = {}, nextId = 1, addCascade = 0;
@@ -5387,7 +5388,7 @@ function commitPreparedDoc(prepared){
 function loadDoc(parsed){ commitPreparedDoc(prepareDoc(parsed)); }
 /* cambia variante attiva: congela l'attuale, carica la target. Reset undo (per-variante). */
 function switchVariant(id, senzaSync){   /* senzaSync: la scena attiva è appena stata tolta (Annulla di «Adatta») e non va riscritta */
-  if(custEditorAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
+  if(paloTemporaneoAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
   if(id===activeVar) return; var target=null; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) target=VARIANTS[i]; }
   if(!target || !target.state) return;
   if(!senzaSync) syncActiveVariant(); activeVar=id; applyVariantState(target.state,true,id);
@@ -5399,7 +5400,7 @@ function switchVariant(id, senzaSync){   /* senzaSync: la scena attiva è appena
 }
 /* crea una nuova variante = copia dell'attiva, poi ci passa sopra */
 function createVariant(name, srcId){
-  if(custEditorAttivo()){ custEditorAvvisa(); return null; }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return null; }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
   syncActiveVariant(); var src=activeVarObj();
   if(srcId){ src=null; for(var si=0;si<VARIANTS.length;si++){ if(VARIANTS[si].id===srcId) src=VARIANTS[si]; } }   /* Versioni L2: la sorgente può essere un'altra scheda (l'ultima per numero) */
   if(!src) return null;
@@ -5717,7 +5718,7 @@ function cfrVaiA(id){
 }
 function renameVariant(id, name){ name=(name||"").trim(); if(!name) return; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id){ VARIANTS[i].name=name; break; } }
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave(); if(window.__consultDirty) window.__consultDirty(); renderVariantBar(); }
-function deleteVariant(id){ if(custEditorAttivo()){ custEditorAvvisa(); return false; } if(VARIANTS.length<=1) return false;   /* guardia: mai eliminare l'ultima versione */
+function deleteVariant(id){ if(paloTemporaneoAttivo()){ custEditorAvvisa(); return false; } if(VARIANTS.length<=1) return false;   /* guardia: mai eliminare l'ultima versione */
   if(versioneChiusa(variantStateOf(id))){ if(window.__toast) window.__toast("Una versione Inviata o Approvata non si elimina: prima rimettila in Bozza.", true); return false; }   /* 24/11: una versione chiusa è ciò che qualcuno ha ricevuto */
   var idx=-1; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) idx=i; } if(idx<0) return false;
   /* La cronologia è per-scena (applyHistory non tocca VARIANTS): ⌘Z dopo questa riga non riporta la
@@ -6239,7 +6240,7 @@ function markLocalConflict(){
     var _nomeConfl="Conflitto tra schede "+new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"});
     /* con «Crea elemento» aperto lo stato vivo è il palco temporaneo e saveVersion rifiuta: il punto di ripristino del
        progetto vero si crea alla chiusura dell'editor (custRipristina), e non va perso per sempre (revisione finale, I4) */
-    if(custEditorAttivo()) __custVersioneRinviata=_nomeConfl;
+    if(paloTemporaneoAttivo()) __custVersioneRinviata=_nomeConfl;
     else try{ if(typeof saveVersion==="function") saveVersion(_nomeConfl,true); }catch(_recoveryErr){}
     if(window.__toast) window.__toast("Un'altra scheda ha modificato questo progetto. Salvataggio sospeso: ricarica la pagina prima di continuare.",true);
   }
@@ -6558,7 +6559,7 @@ USCITA_TIENI_LOCAL.sp_invitoSalva=1; USCITA_TIENI_SESSION.sp_accessoDa=1;
 function azzeraMemoriaDocumento(){
   /* «Crea elemento» aperto (revisione finale, I3): l'editor si chiude SENZA ripristino. Il progetto messo da parte è
      quello dell'account appena uscito: rimetterlo (Annulla, o Salva) lo riporterebbe nel browser anonimo. */
-  var _custEraAperto=custEditorAttivo();
+  var _custEraAperto=paloTemporaneoAttivo();
   if(_custEraAperto){ window.__custEditor=null; __custVersioneRinviata=null; custEditorClasse(false); }
   commitPreparedDoc(prepareDoc({titolo:"",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]}));
   window.__docLoadBlocked=null; window.__docLoadBlockedRaw=null;
@@ -7206,6 +7207,7 @@ function itemIdNum(id){ var n=parseInt(String(id||"").replace(/\D/g,""),10); ret
 function syncNextId(){
   nextId=1;
   state.items.forEach(function(it){ var n=itemIdNum(it.id); if(n>=nextId) nextId=n+1; });
+  var _mc=cambiIdMax(state.cambi); if(_mc>=nextId) nextId=_mc+1;   /* Cambi di palco (L3): gli id degli elementi che entrano in un cambio non si riusano mai */
 }
 function ensureItemIds(){
   var seen=Object.create(null), max=0;
@@ -7270,9 +7272,9 @@ function redo(){ if(window.__verChiusa){ verChiusaAvviso(); return; } flushHisto
    cronologia: undoStack vuoto). Niente punto di ripristino: la scena è nata un attimo fa da una copia. */
 var adattaScena=null, adattaRifai=null, adattaPasso=null;   /* adattaPasso: vedi adattaAvvertenza */
 /* Ripeti c'è con la cronologia della scena, o per rimettere la scena di «Adatta» appena tolta (adattaRifaiScena) */
-function ripetiDisponibile(){ if(custEditorAttivo()) return redoStack.length>0; return redoStack.length>0 || !!(adattaRifai && activeVar===adattaRifai.da && !undoStack.length); }
+function ripetiDisponibile(){ if(paloTemporaneoAttivo()) return redoStack.length>0; return redoStack.length>0 || !!(adattaRifai && activeVar===adattaRifai.da && !undoStack.length); }
 function adattaAnnullaScena(){
-  if(custEditorAttivo()) return false;   /* editor «Crea elemento»: Annulla vale solo per il palco temporaneo (e lo stato di Adatta è messo da parte) */
+  if(paloTemporaneoAttivo()) return false;   /* editor «Crea elemento»: Annulla vale solo per il palco temporaneo (e lo stato di Adatta è messo da parte) */
   var A=adattaScena; if(!A || activeVar!==A.id || undoStack.length!==A.passi) return false;
   var idx=-1; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===A.id) idx=i; }
   var da=null; for(var j=0;j<VARIANTS.length;j++){ if(VARIANTS[j].id===A.da) da=VARIANTS[j]; }
@@ -7287,7 +7289,7 @@ function adattaAnnullaScena(){
   return true;
 }
 function adattaRifaiScena(){
-  if(custEditorAttivo()) return false;   /* idem per Ripeti */
+  if(paloTemporaneoAttivo()) return false;   /* idem per Ripeti */
   var R=adattaRifai; if(!R || activeVar!==R.da || undoStack.length || redoStack.length) return false;
   syncActiveVariant();
   VARIANTS.splice(Math.min(R.idx, VARIANTS.length), 0, R.v);
@@ -7301,7 +7303,7 @@ function adattaRifaiScena(){
 function activatePreparedProject(prepared, opts){
   /* editor «Crea elemento» aperto: nessun documento entra. Si LANCIA (non return): chi chiama ha il suo ramo d'errore e
      non deve proseguire come se il documento fosse stato aperto (id cloud, revisione, titolo). */
-  if(custEditorAttivo()) throw new Error(custEditorMsg());
+  if(paloTemporaneoAttivo()) throw new Error(custEditorMsg());
   opts=opts||{};
   commitPreparedDoc(prepared);
   window.__docLoadBlocked=null;   /* un documento compatibile aperto esplicitamente sblocca persistenza e cloud */
@@ -7322,7 +7324,7 @@ function activatePreparedProject(prepared, opts){
   render(); renderChannels(); fit(); renderVariantBar();
 }
 function importProject(json, opts){
-  if(custEditorAttivo()) throw new Error(custEditorMsg());   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
+  if(paloTemporaneoAttivo()) throw new Error(custEditorMsg());   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
   var s=JSON.parse(json);                                   /* lancia se non è JSON valido */
   if(!s || typeof s!=="object") throw new Error("Formato non valido");
   activatePreparedProject(prepareDoc(s),opts);   /* valida tutto prima del primo side effect */
@@ -9131,6 +9133,7 @@ function normalizeState(s){
   s.items.forEach(function(x){ if(x.type==="custom" && x.cust && x.cust.modelId && !_cm.some(function(q){ return q.id===x.cust.modelId; })) delete x.cust.modelId; });
   s.status = (["bozza","revisione","approvato","superato"].indexOf(s.status)>=0) ? s.status : "bozza";   /* T5: stato di approvazione */
   if(s.status==="bozza" || !/^\d{4}-\d{2}-\d{2}$/.test(String(s.statusAt==null?"":s.statusAt))) delete s.statusAt;   /* Versioni (24/11): la data in cui lo stato è cambiato; una Bozza non ne ha */
+  var _cbn=cambiNorm(s.cambi); if(_cbn.length) s.cambi=_cbn; else delete s.cambi;   /* Cambi di palco (L3): solo se ce n'è almeno uno valido; un progetto senza cambi non porta nemmeno la chiave */
   s.approval = (s.approval && typeof s.approval==="object") ? {by:String(s.approval.by||"").slice(0,80), at:String(s.approval.at||"").slice(0,10)} : {by:"",at:""};
   s.namesMode = (["auto","on","off"].indexOf(s.namesMode)>=0) ? s.namesMode : "auto";   /* K: visibilità nomi strumenti */
   s.stage=s.stage||{w:1200,d:800};
@@ -9989,7 +9992,7 @@ function adattaAvvertenza(W0, D0, W, D, stretta){
   return it;
 }
 function showAdattaPalco(){
-  if(custEditorAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
+  if(paloTemporaneoAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
   var m=document.getElementById("adattaPalco"); if(!m) return;
   var st=state.stage||{}, _m=function(cm){ return String(Math.round((cm||0))/100).replace(".",","); };
   document.getElementById("apW").value=_m(st.w); document.getElementById("apD").value=_m(st.d);
@@ -10417,14 +10420,24 @@ var __custEditor=null;   /* null | {salvato, rect:{x,y,w,d}, rot, baseId|null, i
 /* nome del punto di ripristino «Conflitto tra schede» chiesto mentre l'editor era aperto: si crea alla sua chiusura */
 var __custVersioneRinviata=null;
 function custLegami(){ return [["ascoltoId","ascolto"],["diId","diOff"],["diFor"],["rxId","rxCh"],["rackId","rackPos"],["sbTo"],["distOf"]]; }
-function custEditorAttivo(){ return !!window.__custEditor; }
+function custEditorAttivo(){ return !!(window.__custEditor && !window.__custEditor.cambio); }   /* «Crea elemento»: il disegno dell'elemento (superficie piccola, strumenti, scheda) */
+/* VERSIONI L3 (25/11/2026): lo stesso palco temporaneo serve anche ai CAMBI DI PALCO (vedere o disegnare il palco dopo il cambio N). Due domande diverse:
+   paloTemporaneoAttivo = «lo stato vivo NON è il progetto» (ferma salvataggi, export, cambio versione… per tutti e due);
+   custEditorAttivo = «si sta disegnando un elemento» (superficie piccola, strumenti, scheda). Chi ferma una scrittura usa la prima. */
+function paloTemporaneoAttivo(){ return !!window.__custEditor; }
+function cambioEditorAttivo(){ return !!(window.__custEditor && window.__custEditor.cambio); }
+function cambioVistaAttiva(){ return !!(window.__custEditor && window.__custEditor.cambio && window.__custEditor.cambio.vista); }
 /* un solo messaggio per tutto ciò che l'editor aperto ferma: chi preme «Nuovo» o cambia scena deve sapere cosa fare */
-function custEditorMsg(){ return "Chiudi prima l'elemento che stai creando (Salva o Annulla)."; }
+function custEditorMsg(){
+  var E=window.__custEditor;
+  if(E && E.cambio) return E.cambio.vista ? "Torna prima al palco base (pulsante in alto sul palco)." : "Chiudi prima il cambio di palco che stai disegnando (Fatto o Annulla).";
+  return "Chiudi prima l'elemento che stai creando (Salva o Annulla).";
+}
 function custEditorAvvisa(){ if(window.__toast) window.__toast(custEditorMsg(), true); }
 /* custshape ammessi da normalizeLoadedItems SOLO mentre l'editor costruisce il palco temporaneo o ne applica la cronologia:
    un documento esterno (prepareDoc: file, link, cloud) li rifiuta anche a editor aperto */
 var __custShapeAmmesse=false;
-function custEditorClasse(on){ try{ document.body.classList[on?"add":"remove"]("cust-editor"); }catch(e){} }
+function custEditorClasse(on){ try{ var cl=document.body.classList; cl[on?"add":"remove"]("cust-editor"); if(!on){ cl.remove("cambio-editor"); cl.remove("cambio-vista"); } }catch(e){} }   /* spegnere = spegne anche le classi dei cambi (L3) */
 function custEditorRidisegna(){
   render();
   if(typeof renderChannels==="function") renderChannels();
@@ -10434,7 +10447,7 @@ function custEditorRidisegna(){
    sopra; opz.baseId = modifica di un elemento personalizzato già posato (con i compagni del suo gruppo). */
 function custEditorApri(rect, opz){
   opz=opz||{};
-  if(custEditorAttivo() || window.__projLocked || document.body.classList.contains("viewmode") || foreignDoc() || isMobile()) return false;
+  if(paloTemporaneoAttivo() || window.__projLocked || document.body.classList.contains("viewmode") || foreignDoc() || isMobile()) return false;
   var L=custLimiti(), base=null, r;
   if(opz.baseId!=null){
     base=state.items.find(function(x){ return x.id===opz.baseId && x.type==="custom"; });
@@ -11731,7 +11744,7 @@ function custChiedi(titolo, testo, bottoni, cb, cls){
 function custDisegnaArea(nomePreso){
   if(!custIngressiAttivi()) return false;   /* fase 1 del rilascio: nessuno crea ancora */
   if(isMobile()){ guideDialog({title:"Crea elemento", msg:"Si crea dal computer: sul telefono gli elementi personalizzati si vedono, si spostano ed escono nei PDF."}); return false; }
-  if(custEditorAttivo()){ custEditorAvvisa(); return false; }
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return false; }
   if(custInvioInCorso()) return false;   /* l'invio legge ancora il palco vero (anteprima): l'editor aspetta */
   if(window.__projLocked || document.body.classList.contains("viewmode") || foreignDoc()) return false;
   window.__custNomePreso=(typeof nomePreso==="string") ? custTaglia(nomePreso.replace(/[\u0000-\u001f]/g," ").trim(), custLimiti().NOME) : "";
@@ -11896,7 +11909,7 @@ function custModificaElemento(id, pezzoId){
   if(!custIngressiAttivi()) return false;
   var it=(state.items||[]).find(function(x){ return x.id===id && x.type==="custom"; }); if(!it) return false;
   if(isMobile()){ custSoloDalComputer("Modifica elemento"); return false; }
-  if(custEditorAttivo()){ custEditorAvvisa(); return false; }
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return false; }
   if(custSolaLettura() || custInvioInCorso()) return false;
   var c=it.cust||{}, valori={nome:c.nome, desc:c.desc||"", watt:it.watt, ins:c.ins||null, backline:!!c.backline};
   if(window.__custDraw) custAreaFine();   /* il rettangolo di «Crea elemento» lasciato a metà */
@@ -11912,7 +11925,7 @@ function custModificaElemento(id, pezzoId){
    nuovo modello»). Senza modello: ne fa uno («Salva come modello»). Un passo di Annulla. */
 function custSalvaComeModello(id, opz){
   if(!custIngressiAttivi()) return false;
-  if(custEditorAttivo()){ custEditorAvvisa(); return false; }
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return false; }
   if(custSolaLettura()) return false;
   var it=(state.items||[]).find(function(x){ return x.id===id && x.type==="custom"; }); if(!it) return false;
   var L=state.customModels||[], i=(it.cust && it.cust.modelId) ? L.findIndex(function(q){ return q.id===it.cust.modelId; }) : -1;
@@ -11930,7 +11943,7 @@ function custSalvaComeModello(id, opz){
 /* «Elimina modello» (Ruling 16): dalla sua voce in «Elementi di questo progetto», con conferma. Le copie restano. */
 function custEliminaModello(mid){
   if(!custIngressiAttivi()) return false;
-  if(custEditorAttivo()){ custEditorAvvisa(); return false; }
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return false; }
   if(custSolaLettura()) return false;
   var m=(state.customModels||[]).find(function(q){ return q.id===mid; }); if(!m) return false;
   custChiedi("Eliminare il modello «"+m.nome+"»?", "Le copie già posate restano.", ["Annulla", "Elimina"],
@@ -11953,7 +11966,7 @@ function custTogliModello(mid){
    doppio clic sul palco vuoto (ricerca rapida): la copia va lì, come addItem con la posizione */
 function custPosaDalCatalogo(mid, punto){
   if(!custIngressiAttivi()) return false;
-  if(custEditorAttivo()){ custEditorAvvisa(); return false; }
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return false; }
   if(custSolaLettura()) return false;
   var m=(state.customModels||[]).find(function(q){ return q.id===mid; }); if(!m) return false;
   var fs;
@@ -21069,7 +21082,7 @@ function aggiornaNomiZoom(){
   var nMode = state.namesMode||'auto';
   svg.classList.toggle("names-hidden", nMode==='off' || (nMode==='auto' && ppm<30));
   try{ svg.style.setProperty("--lblK", Math.max(1, 9/(14*ppm/100)).toFixed(3)); }catch(e){}
-  if(window.__custEditor) custAggiornaGriglia();   /* «Crea elemento»: lo zoom cambia il passo della griglia e il righello */
+  if(custEditorAttivo()) custAggiornaGriglia();   /* «Crea elemento»: lo zoom cambia il passo della griglia e il righello */
   nomiCedono();
   return ppm;
 }
@@ -21200,6 +21213,7 @@ function render(){
   renderProps();
   if(window.__catCustomAggiorna) window.__catCustomAggiorna();   /* «Elementi di questo progetto»: si rifà solo se i modelli sono cambiati */
   renderAccessoriCount();
+  if(cambiEdit) renderCambi();   /* L3: i cambi seguono lo stato (Annulla, cambio di scena) */
   if(scalettaEdit) renderScaletta();   /* Annulla, cambio di scena, progetto aperto: le righe seguono lo stato */
   renderVenuePanel();
   renderFramePanel();
@@ -25101,13 +25115,13 @@ renderEvChip();
 document.getElementById("mW").addEventListener("change", function(){ applyStageWidth(this.value); });
 document.getElementById("mD").addEventListener("change", function(){ applyStageDepth(this.value); });
 /* `snapMode` è dichiarata più in alto, prima di syncSnapSelects (16/09) */
-function snapVal(){ if(window.__custEditor) return custAggancio ? custPasso() : 0;   /* «Crea elemento»: la griglia fine dell'editor */
+function snapVal(){ if(custEditorAttivo()) return custAggancio ? custPasso() : 0;   /* «Crea elemento»: la griglia fine dell'editor */
   if(DOC_SNAP_FT[snapMode]) return DOC_SNAP_FT[snapMode];   /* piedi (19/11/2026): 6", 1', 2', 3' esatti */
   var v=parseInt(snapMode,10); return (isNaN(v)||v<=0) ? 0 : v; }
 /* l'aggancio che vale adesso: nell'editor «Crea elemento» la griglia in cm (passo secondo lo zoom) o libero */
-function snapModeEff(){ return window.__custEditor ? (custAggancio ? "cust" : "0") : snapMode; }
+function snapModeEff(){ return custEditorAttivo() ? (custAggancio ? "cust" : "0") : snapMode; }
 /* passo fine (≤ 10 cm: 1, 5, 10 cm; 1" e 3"): l'utente posiziona al centimetro, il magnete al bordo del palco (15 cm) non deve rubare l'aggancio. Nell'editor «Crea elemento» il magnete resta com'era. */
-function snapFine(){ if(window.__custEditor) return false; var s=snapVal(); return s>0 && s<=10; }
+function snapFine(){ if(custEditorAttivo()) return false; var s=snapVal(); return s>0 && s<=10; }
 function snapQ(v, s){ var r=Math.round(v/s)*s; return (s%1===0) ? r : Math.round(r*100)/100; }   /* passi in piedi (non interi): al centesimo di cm, senza 91.44000000000001 */
 function snap(v){ var s=snapVal(); return s>0 ? snapQ(v, s) : Math.round(v); }
 function placeCoord(v,e){ return (e && (e.metaKey||e.ctrlKey)) ? Math.round(v) : snap(v); }
@@ -25779,6 +25793,8 @@ function ricordaRecenteCatalogo(k, nome, over){
                 kw:"monitor list output list lista monitor lista uscite mandate mix ascolti", qaCede:"monitor"});
   entries.push({nome:"Scaletta", fn:true, dim:"brani in ordine, con le durate", noQuick:true, iconHtml:LISTA_ICON, action:function(){ if(!scalettaEdit) toggleScaletta(); },
                 kw:"scaletta setlist set list brani canzoni pezzi ordine durata durate pausa bis intro cambio palco"});
+  entries.push({nome:"Cambi di palco", fn:true, dim:"chi esce, entra o si sposta durante lo spettacolo", noQuick:true, iconHtml:LISTA_ICON, action:function(){ if(!cambiEdit) toggleCambi(); },
+                kw:"cambi cambio di palco cambi palco entra esce sposta intervallo pausa secondo tempo ospite ripresa"});
   entries.push({nome:"Nuova versione", fn:true, dim:"copia dell'ultima versione, da cambiare", noQuick:true, iconHtml:VAR_ICON, action:function(){ nuovaVersione(); },
                 kw:"versione versioni variante varianti scena scene alternativa seconda formazione"});   /* «variante» resta come sinonimo: chi la cercava la trova */
   entries.push({nome:"Importa organico", fn:true, dim:"da una riga o da Excel, con anteprima", noQuick:true, iconHtml:LISTA_ICON, action:function(){ orgImportApri(); },
@@ -25844,7 +25860,7 @@ function ricordaRecenteCatalogo(k, nome, over){
      sinonimi e termini comuni. Così "tastiera" trova singola+doppia, "coro" attraversa persone e
      dispositivi, "voce"/"singer" trovano il cantante — con un solo meccanismo per tutta la libreria. */
   /* comandi sul progetto (palco, planimetria, liste, export, varianti…): nell'editor «Crea elemento» la ricerca non li propone */
-  var CUST_NO_RICERCA={"Palco":1, "Planimetria":1, "Audit progetto":1, "Esporta":1, "Channel list":1, "Monitor list":1, "Scaletta":1, "Nuova versione":1, "Frequenze radio (RF)":1};
+  var CUST_NO_RICERCA={"Palco":1, "Planimetria":1, "Audit progetto":1, "Esporta":1, "Channel list":1, "Monitor list":1, "Scaletta":1, "Cambi di palco":1, "Nuova versione":1, "Frequenze radio (RF)":1};
   entries.forEach(function(e){ if(!e.k && CUST_NO_RICERCA[e.nome]) e.custNo=true; });
   function indicizza(e){   /* anche per le voci che arrivano dopo (gli elementi di questo progetto) */
     var t=e.k?TYPES[e.k]:null;
@@ -26945,6 +26961,7 @@ function renderMobileList(){
     txt("mMenuLuogo", state.luogo || "da scrivere");
     txt("mMenuData", dataEventoBreve() || "da scrivere");
     txt("mMenuScaletta", scalettaRigaBreve() || "da scrivere");
+    txt("mMenuCambi", cambiRigaBreve() || "nessuno");
     txt("mMenuStage", uTxt(misurePalco()));
     var nf=FUNZIONI.filter(function(f){ return funzOn(f.id); }).length;
     txt("mMenuFunz", nf===0 ? "spente" : nf===FUNZIONI.length ? "tutte accese" : (nf+" di "+FUNZIONI.length));
@@ -26974,6 +26991,7 @@ function renderMobileList(){
       if(a==="palco"){ toggleStageEdit(); return; }
       if(a==="evento"){ toggleEvento(); return; }
       if(a==="scaletta"){ toggleScaletta(); return; }
+      if(a==="cambi"){ toggleCambi(); return; }
       if(a==="chan"){ toggleChan(); return; }
       if(a==="venue"){ toggleVenueEdit(); return; }
       if(a==="frame"){ toggleFrameEdit(); return; }
@@ -28327,6 +28345,7 @@ function exitHubModes(except){
   if(except!=="palco" && stageEdit){ stageEdit=false; selBlock=null; venueAutoLock(); renderStagePanel(); }
   if(except!=="evento" && eventoEdit){ eventoEdit=false; renderEventoPanel(); }
   if(except!=="scaletta" && scalettaEdit){ scalettaEdit=false; renderScalettaPanel(); }
+  if(except!=="cambi" && cambiEdit){ cambiEdit=false; renderCambiPanel(); }
   if(except!=="chan" && chanEdit){ chanEdit=false; renderChanPanel(); }
   if(except!=="frame"&&except!=="save" && (frameEdit||saveAsOpen)){ frameEdit=false; saveAsOpen=false; renderFramePanel(); }
   if(except!=="vers" && versEdit){ versEdit=false; renderVersionPanel(); }
@@ -28377,13 +28396,13 @@ function inlineTextEdit(id){
   ta.addEventListener("pointerdown", function(ev){ ev.stopPropagation(); });
 }
 function toggleStageEdit(){
-  if(custEditorAttivo() && !stageEdit) return custEditorAvvisa();   /* «Crea elemento»: la superficie non si cambia da qui (Palco e «Adatta») */
+  if(paloTemporaneoAttivo() && !stageEdit) return custEditorAvvisa();   /* «Crea elemento»: la superficie non si cambia da qui (Palco e «Adatta») */
   if(stageEdit && stagePanelView!=="palco"){ stagePanelView="palco"; selBlock=0; renderStagePanel(); render(); return; }   /* aperto sulla planimetria: passa ai blocchi */
   stageEdit=!stageEdit; stagePanelView="palco"; selBlock=stageEdit?0:null; if(stageEdit){ exitHubModes("palco"); clearSelection(); } else venueAutoLock(); renderStagePanel(); render(); }
 function renderEventoPanel(){ document.body.classList.toggle("evento-edit", eventoEdit); document.getElementById("eventoSec").hidden=!eventoEdit; }
-function toggleEvento(){ if(custEditorAttivo() && !eventoEdit) return custEditorAvvisa(); eventoEdit=!eventoEdit; if(eventoEdit){ exitHubModes("evento"); clearSelection(); } renderEventoPanel(); render(); }
+function toggleEvento(){ if(paloTemporaneoAttivo() && !eventoEdit) return custEditorAvvisa(); eventoEdit=!eventoEdit; if(eventoEdit){ exitHubModes("evento"); clearSelection(); } renderEventoPanel(); render(); }
 function renderChanPanel(){ document.body.classList.toggle("chan-edit", chanEdit); }
-function toggleChan(){ if(custEditorAttivo() && !chanEdit) return custEditorAvvisa(); chanEdit=!chanEdit; if(chanEdit){ exitHubModes("chan"); clearSelection(); } renderChanPanel(); render(); }
+function toggleChan(){ if(paloTemporaneoAttivo() && !chanEdit) return custEditorAvvisa(); chanEdit=!chanEdit; if(chanEdit){ exitHubModes("chan"); clearSelection(); } renderChanPanel(); render(); }
 /* ===== SCALETTA — il pannello (10/10). I dati e il totale stanno in scalettaList(), sopra normalizeState. =====
    Scrivere un titolo o una durata = saveSoon (un passo di Annulla per parola, come i contatti);
    aggiungere, spostare e togliere = azioni discrete: primaDiAgire() chiude prima la parola in sospeso,
@@ -28401,7 +28420,7 @@ function renderScalettaPanel(){
   if(scalettaEdit) renderScaletta(true);
 }
 function toggleScaletta(){
-  if(custEditorAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
+  if(paloTemporaneoAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
   primaDiAgire();
   scalettaEdit=!scalettaEdit;
   if(scalettaEdit){ exitHubModes("scaletta"); clearSelection(); if(typeof exitListMode==="function") exitListMode(); }
@@ -30269,14 +30288,14 @@ function downloadProjectCopy(){
 var documentReplacementSeq=0;
 function guardDocumentReplacement(options,action){
   /* apri progetto, link condiviso, ripristina versione: con l'editor «Crea elemento» aperto non si sostituisce niente */
-  if(custEditorAttivo()){ custEditorAvvisa(); return null; }
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return null; }
   options=options||{};
   var request=++documentReplacementSeq, meaningful=hasMeaningfulDocument();
   function current(){ return request===documentReplacementSeq; }
   function abort(message){ if(current()&&message&&window.__toast) window.__toast(message,true); }
   function protectAndRun(){
     if(!current()) return;
-    if(custEditorAttivo()){ custEditorAvvisa(); return; }   /* l'editor si è aperto mentre la conferma era a schermo */
+    if(paloTemporaneoAttivo()){ custEditorAvvisa(); return; }   /* l'editor si è aperto mentre la conferma era a schermo */
     if(window.__localConflict){
       abort("Un'altra scheda ha modificato il progetto. Ricarica la pagina prima di sostituirlo."); return;
     }
@@ -30327,7 +30346,7 @@ function guardDocumentReplacement(options,action){
   return request;
 }
 function beginNewDocument(initialState,options){
-  if(custEditorAttivo()){ custEditorAvvisa(); return false; }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente documento nuovo */
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return false; }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente documento nuovo */
   options=options||{};
   /* Qualsiasi generatore/modello può rimpiazzare lo slot locale: prima conserva l'intero documento,
      incluse varianti e planimetrie. Se il recovery non entra nello storage, non distruggere il lavoro. */
@@ -32887,7 +32906,7 @@ var ACC_DEL_LAYER={ cabin:"patch", cabout:"mon", elec:"load" };
 /* Dalla ricerca: accende le Liste tecniche se servono, poi apre il layer con la sua lista (e il
    motore, la prima volta, come il clic sulla riga «attiva»). */
 function apriListaDaRicerca(id){
-  if(custEditorAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
+  if(paloTemporaneoAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
   if(typeof funzOn==="function" && !funzOn("liste") && typeof funzImposta==="function") funzImposta({liste:true});
   var L=layerRegistry().filter(function(l){ return l.id===id; })[0];
   if(typeof clearSelection==="function") clearSelection();   /* con un elemento selezionato il pannello mostra lui, non la lista */
@@ -33122,6 +33141,7 @@ function renderLayerManager(){
   var avanz=LS.filter(function(L){ return AVANZATE[L.id]; });
   base.forEach(function(L){ renderLayerRow(L, rows); });
   renderScalettaRiga(rows);
+  renderCambiRiga(rows);
   if(avanz.length){
     /* in uso = motore acceso, oppure la lista è visibile/aperta: allora non si chiude niente */
     var inUso=avanz.some(function(L){ return L.engineOn || layerAccOpen===L.id; });
@@ -34179,7 +34199,7 @@ function clDragRenumber(host){
 var clReturnFocus=null;
 function clShow(v){
   var apro=(v!==false);
-  if(apro && custEditorAttivo()) return custEditorAvvisa();   /* channel list a schermo intero: leggerebbe il palco temporaneo */
+  if(apro && paloTemporaneoAttivo()) return custEditorAvvisa();   /* channel list a schermo intero: leggerebbe il palco temporaneo */
   /* chiudendo, il fuoco torna al comando che l'ha aperta: senza, finiva su <body> e chi naviga a
      Tab ripartiva dall'inizio della pagina (06/08) */
   if(apro && !clOpen){
@@ -34854,7 +34874,7 @@ function servizioFinestra(){
   var p0=servizioPiano(parseInt(nIn.value,10)); if(!p0.ok && p0.suggerito>=0){ nIn.value=String(p0.suggerito); }
   nIn.oninput=mostra; stato(true); mostra();
   go.onclick=function(){
-    if(typeof custEditorAttivo==="function" && custEditorAttivo()){ custEditorAvvisa(); return; }
+    if(typeof paloTemporaneoAttivo==="function" && paloTemporaneoAttivo()){ custEditorAvvisa(); return; }
     var snap=servizioApplica(piano); if(!snap){ return; }
     __servizioUndo=snap; stato(false); lista.innerHTML=""; err.hidden=true; sum.textContent="Fatto: i canali sono in ordine di sezione, con le righe riservate. Se non va bene, «Ripristina» rimette tutto com'era (anche Annulla della barra).";
   };
@@ -36545,7 +36565,7 @@ function renderAuditPanel(){
     host.appendChild(row);
   });
 }
-function toggleAuditView(){ if(custEditorAttivo() && !auditActive) return custEditorAvvisa(); auditActive=!auditActive; if(auditActive){ techAccordionOpen("audit"); closeMobileDrawers(); clearSelection(); } render(); }
+function toggleAuditView(){ if(paloTemporaneoAttivo() && !auditActive) return custEditorAvvisa(); auditActive=!auditActive; if(auditActive){ techAccordionOpen("audit"); closeMobileDrawers(); clearSelection(); } render(); }
 (function(){
   var head=document.getElementById("auditSecHead"); if(!head) return;
   head.addEventListener("click", function(e){ if(e.target.closest("#auditTrash")) return; if(auditOpen) auditOpen=false; else techAccordionOpen("audit"); renderAccessoriCount(); });   /* accordion */
@@ -36965,7 +36985,7 @@ function renderVenuePanel(){
   aggiornaSoloPlanimetria();
 }
 function toggleVenueEdit(){
-  if(custEditorAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
+  if(paloTemporaneoAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
   if(stageEdit && stagePanelView!=="planimetria"){ stagePanelView="planimetria"; selBlock=null; renderStagePanel(); render(); return; }   /* aperto sui blocchi: passa alla planimetria */
   if(!stageEdit){ stageEdit=true; stagePanelView="planimetria"; selBlock=null; exitHubModes("palco"); clearSelection(); }
   else { stageEdit=false; selBlock=null; venueAutoLock(); }
@@ -37102,7 +37122,7 @@ function venueRefForVersion(sig){
   return {sig:sig,key:staged.key};
 }
 function saveVersion(name,includeImages){
-  if(custEditorAttivo()) return false;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: nessun punto di ripristino */
+  if(paloTemporaneoAttivo()) return false;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: nessun punto di ripristino */
   var vs=loadVersions();
   var C=window.__cloud, cid=(C&&typeof C.currentId==="function")?(C.currentId()||null):(window.__bootCloudId||null);
   var row={name:name||'Punto di ripristino', date:Date.now(), cloudId:cid};
@@ -37256,7 +37276,7 @@ document.getElementById("frameSaveCsv").addEventListener("click", function(){ if
 var venueLoadSeq=0;
 function venueLoadFile(file,lim){
   if(!file) return;
-  if(custEditorAttivo()) return custEditorAvvisa();   /* «Crea elemento»: la planimetria finirebbe nel palco temporaneo (vale per bottone, trascinamento, incolla) */
+  if(paloTemporaneoAttivo()) return custEditorAvvisa();   /* «Crea elemento»: la planimetria finirebbe nel palco temporaneo (vale per bottone, trascinamento, incolla) */
   if(venueIsPdf(file)) return venueLoadPdf(file);     /* PDF (19/11/2026): si disegna una pagina in un canvas e poi si segue la strada delle immagini */
   venuePdfChiudi();   /* un'immagine scelta mentre un PDF si legge o il selettore delle pagine è aperto: il PDF si lascia (non deve sovrascriverla dopo) */
   var request=++venueLoadSeq, requestEpoch=window.__docEpoch||0, requestVariant=String(activeVar||"");
@@ -37808,7 +37828,7 @@ window.confirmDialog=confirmDialog;
 
 /* ============ FILE: nuovo / json / png ============ */
 document.getElementById("bNew").addEventListener("click", function(){
-  if(custEditorAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
+  if(paloTemporaneoAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
   if(window.__consultMode){
     if(window.__toast) window.__toast("Durante la consulenza non puoi sostituire il progetto. Ricarica la pagina per ripartire dall'ultima versione salvata.",true);
     return;
@@ -38161,7 +38181,7 @@ function versioneDataIt(iso){ var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso|
 /* «Numera 1, 2, 3…»: dà a ogni versione il numero della sua posizione nella barra. Tocca SOLO `versione` (i nomi restano), dopo un punto di
    ripristino; se non c'è il punto, non si numera. true = fatto. */
 function numeraVersioni(){
-  if(custEditorAttivo()){ custEditorAvvisa(); return false; }
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return false; }
   syncActiveVariant();
   var punto=false;
   try{ punto = typeof saveVersion==="function" && saveVersion("Prima di numerare le versioni",true)===true; }catch(_numErr){ punto=false; }
@@ -38192,7 +38212,7 @@ function versioneUltimaId(){
 }
 /* legge il cloud prima di creare: cb({esito:"ok"|"errore", condiviso:bool}); con conflitto, salvataggio non concluso, progetto bloccato o documento sostituito nell'attesa NON chiama cb */
 function allineaCloudPoi(cb, opz){
-  if(custEditorAttivo()){ custEditorAvvisa(); return; }
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return; }
   if(window.__projLocked && !(opz && opz.soloLettura)){ if(window.__toast) window.__toast("Il progetto è bloccato: sbloccalo per aggiungere una versione.", true); return; }
   var C=window.__cloud, ep=window.__docEpoch||0;
   if(!(C && typeof C.user==="function" && C.user() && typeof C.currentId==="function" && C.currentId() && typeof C.allinea==="function")){ cb({esito:"ok", condiviso:false}); return; }   /* senza account o progetto non ancora online: si lavora in locale */
@@ -38225,7 +38245,7 @@ function confermaLinkAttivo(info, azione, verbo){
 }
 /* «+ Versione» (srcId vuoto: l'ultima per numero) e «Nuova versione da questa» (la scheda aperta) */
 function nuovaVersione(srcId){
-  if(custEditorAttivo()){ custEditorAvvisa(); return; }
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return; }
   if(versioneNumeroNuovo()>VERSIONE_MAX){ if(window.__toast) window.__toast("Hai raggiunto il numero massimo di versioni ("+VERSIONE_MAX+").", true); return; }
   allineaCloudPoi(function(info){
     confermaLinkAttivo(info, function(){
@@ -38265,7 +38285,7 @@ function importaNota(prepared){
   return "Il file ha "+prepared.variants.length+" versioni: ho preso quella attiva («"+versioneEtichettaScheda(a||prepared.variants[0], ai)+"»).";
 }
 function importaVersioneDaDocumento(prepared, nomeFile){
-  if(custEditorAttivo()){ custEditorAvvisa(); return null; }
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return null; }
   var nuovoN=versioneNumeroNuovo();
   if(nuovoN>VERSIONE_MAX){ if(window.__toast) window.__toast("Hai raggiunto il numero massimo di versioni ("+VERSIONE_MAX+").", true); return null; }
   syncActiveVariant();
@@ -38300,7 +38320,7 @@ function importaVersioneDaDocumento(prepared, nomeFile){
   return attivaVersioneNuova(id, copy);
 }
 function importaComeNuovaVersione(){
-  if(custEditorAttivo()){ custEditorAvvisa(); return; }
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return; }
   if(!window.jsonSoloCollegati()) return;   /* il JSON solo da collegati (decisione del 15/09) */
   var inp=document.getElementById("importVersionFile"); if(inp) inp.click();
 }
@@ -38336,7 +38356,7 @@ function docVersioneSola(varId, titolo){
   return { titolo:tt, doc:documentEnvelope(v.id, [{ id:v.id, name:"Versione 1", state:st }], extra) };
 }
 function duplicaVersioneComeProgetto(varId, titolo){
-  if(custEditorAttivo()){ custEditorAvvisa(); return; }
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return; }
   var d=docVersioneSola(varId, titolo); if(!d || !d.titolo){ if(window.__toast) window.__toast("Duplicazione non riuscita: manca il titolo.", true); return; }
   allineaCloudPoi(function(){
     var C=window.__cloud, nome=d.titolo;
@@ -38624,7 +38644,7 @@ function pdfNomeFileTesto(){
     showForProject(id,request);
   } };
   function openShare(){
-    if(custEditorAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: il link condiviso porterebbe il palco temporaneo */
+    if(paloTemporaneoAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: il link condiviso porterebbe il palco temporaneo */
     var C=window.__cloud, request=++shareRequestSeq, sourceEpoch=window.__docEpoch||0;
     modal.hidden=false;
     _shareIsCurrent=true; shareFillExtras();
@@ -38682,7 +38702,7 @@ function pdfNomeFileTesto(){
      versione dal menu — confondevano). Sotto il cofano resta uno snapshot versione SILENZIOSO:
      rete di sicurezza gratuita, zero carico cognitivo. */
   function fileSaveCloud(){
-    if(custEditorAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
+    if(paloTemporaneoAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
     if(window.__consultMode){
       var liveSave=document.getElementById("viewSave"); if(liveSave&&!liveSave.disabled) liveSave.click();
       if(window.__toast) window.__toast("Salvataggio consulenza richiesto.");
@@ -38874,7 +38894,7 @@ function pdfNomeFileTesto(){
   /* FUNZIONE DI SVILUPPO (20/11/2026, decisione di Simone: «l'unico modo per salvare è online»): nessun pulsante, nessuna voce
      di menu o ricerca. Richiamabile solo da console / dagli script nostri: window.__devEsportaProgetto(). */
   window.__devEsportaProgetto=function(){
-    if(custEditorAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
+    if(paloTemporaneoAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
     var name=((state.titolo||state.luogo||"stageplot").replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"").slice(0,40)||"stageplot")+".json";
     var data=docToJSONFull();   /* T6: export = documento intero (tutte le varianti); l'attiva porta la planimetria (_dataUrl), nessun limite di dimensione */
     if(typeof window.showSaveFilePicker==="function" && !isMobile()){   /* apre il selettore "dove salvare" */
@@ -39171,7 +39191,7 @@ function exportChannelCsv(opts){
 }
 /* apre il piccolo dialogo di scelta formato (voce menu / bottone pannello) */
 function openCsvExport(){
-  if(custEditorAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
+  if(paloTemporaneoAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
   if(!channelListCsv().count){ if(window.__toast) window.__toast("Nessun canale da esportare: aggiungi microfoni, DI o strumenti sul palco.", true); return; }
   var m=document.getElementById("csvPicker"); if(m) m.hidden=false; else exportChannelCsv();
 }
@@ -41110,7 +41130,7 @@ function isRf(it){ return !!(it && (RF_TYPES[it.type] || (VOCE[it.type] && micMo
    Lista RF. Quindi si apre il pannello del primo che ne è senza — o del primo in assoluto — e se
    sul palco non ce n'è nessuno si spiega dove si scrive, invece di non fare niente. */
 function openRfFreq(){
-  if(custEditorAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
+  if(paloTemporaneoAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
   var rf=(state.items||[]).filter(isRf);
   if(!rf.length){ if(window.__toast) window.__toast("La frequenza si scrive su ogni radiomicrofono o in-ear: aggiungine uno dal catalogo, poi compila «Frequenza RF» nel suo pannello.", false); return null; }
   var senza=rf.filter(function(it){ return !it.rf; }), it=senza[0]||rf[0];
@@ -42657,10 +42677,11 @@ function renderStatusUI(){
       com'era (campi del documento e stato restano quelli di adesso) e lo si dice. Così nessuna strada dimenticata può cambiare in silenzio ciò
       che qualcuno ha ricevuto. */
 var verChiusaChiave="", verChiusaSnap=null, verChiusaFirma=null, verChiusaInRipristino=false, verChiusaAvvisoAt=0;
-function scenaChiusaDecidi(st, foreign){ return !foreign && versioneChiusa(st); }
+function scenaChiusaDecidi(st, foreign){ return !foreign && (versioneChiusa(st) || cambioVistaAttiva()); }   /* L3: il palco «dopo il cambio» in sola visione è in sola lettura come una versione chiusa */
 function verChiusaChiaveOra(){ return (window.__docEpoch||0)+"|"+activeVar+"|"+(state&&state.status); }
 function verChiusaAvviso(){
   var t=Date.now(); if(t-verChiusaAvvisoAt<1500) return; verChiusaAvvisoAt=t;
+  if(cambioVistaAttiva()){ if(window.__toast) window.__toast("Stai guardando il palco dopo il cambio: da qui non si modifica. Torna al palco base e premi «Modifica» sul cambio.", true); return; }
   var att=activeVarObj(), l=att ? versioneStatoEtichetta(state.status).toLowerCase() : "chiusa";
   if(window.__toast) window.__toast("Questa versione è "+l+": non si modifica più. Per cambiarla crea una Nuova versione (menu della scheda).", true);
 }
@@ -42715,6 +42736,339 @@ function proteggiVersioneChiusa(){
     else if(b.getAttribute("data-vb")==="bozza") setProjectStatus("bozza");
   });
 })();
+/* ═══ CAMBI DI PALCO (Versioni L3, 25/11/2026) ═══
+   Per versione: `state.cambi=[{id,nome,quando,esce:[id],entra:[item],sposta:[{id,x,y,rot}]}]` (≤30; nome ≤60, quando ≤60).
+   Si salva SOLO la differenza dal cambio precedente (il primo, dal palco base): chi esce, chi entra, chi si sposta. Il palco base resta quello
+   che stampano tutti gli altri documenti; i cambi escono solo nel pannello «Cambi di palco» e nella vista (il foglio dei cambi è il lotto 4).
+   Un progetto senza cambi NON porta la chiave `cambi`: nessuna differenza di dati, di firma, di impronta o di export.
+   PALCO DOPO IL CAMBIO N = applicaCambi(items base, cambi, N): in ordine esce → entra → sposta, cambio per cambio. Un id che non c'è più
+   (elemento tolto dal palco base dopo) si ignora e si segnala. Una versione chiusa non si modifica, cambi compresi: fanno parte della scena
+   (firmaScena li include, quindi l'ultima rete di proteggiVersioneChiusa li difende); «Nuova versione» li copia con gli stessi id.
+   VEDERE o DISEGNARE un cambio usa lo stesso palco temporaneo di «Crea elemento» (`__custEditor` con `cambio`): il progetto vero si mette da
+   parte, gli stessi guardiani (salvataggi, export, cambio versione) restano fermi (paloTemporaneoAttivo), «Fatto» scrive solo il delta. */
+var CAMBI_MAX=30, CAMBI_QUANDO_MAX=60, CAMBI_NOME_MAX=60;
+function cambiTesto(v, max){ return String(v==null ? "" : v).replace(/\s+/g," ").trim().slice(0,max); }
+function cambiLista(){ return (state && Array.isArray(state.cambi)) ? state.cambi : []; }
+/* valida e ripulisce l'elenco dei cambi (normalizeState): quello che non è valido sparisce, il resto è garantito nei tipi e nelle lunghezze */
+function cambiNorm(arr){
+  if(!Array.isArray(arr)) return [];
+  var out=[], visti=Object.create(null);
+  arr.forEach(function(c){
+    if(out.length>=CAMBI_MAX || !c || typeof c!=="object" || Array.isArray(c)) return;
+    var id=itemIdString(c.id); if(!safeItemId(id) || visti[id]) return; visti[id]=1;
+    var o={id:id, nome:cambiTesto(c.nome,CAMBI_NOME_MAX), quando:cambiTesto(c.quando,CAMBI_QUANDO_MAX), esce:[], entra:[], sposta:[]};
+    var vE=Object.create(null), vN=Object.create(null), vS=Object.create(null);
+    (Array.isArray(c.esce) ? c.esce : []).forEach(function(x){ var k=itemIdString(x); if(safeItemId(k) && !vE[k]){ vE[k]=1; o.esce.push(k); } });
+    (Array.isArray(c.entra) ? c.entra : []).forEach(function(it){
+      if(!it || typeof it!=="object" || Array.isArray(it) || it.type==="custshape") return;
+      var k=itemIdString(it.id); if(!safeItemId(k) || vN[k]) return;
+      var cp; try{ cp=normalizeLoadedItems([JSON.parse(JSON.stringify(it))])[0]; }catch(_e){ return; }   /* tipo ignoto o elemento rotto: fuori, in silenzio */
+      if(!cp || cp.id!==k) return; vN[k]=1; o.entra.push(cp);
+    });
+    (Array.isArray(c.sposta) ? c.sposta : []).forEach(function(p){
+      if(!p || typeof p!=="object") return; var k=itemIdString(p.id); if(!safeItemId(k) || vS[k]) return;
+      var x=Number(p.x), y=Number(p.y), r=Number(p.rot==null ? 0 : p.rot); if(!isFinite(x) || !isFinite(y) || !isFinite(r)) return;
+      vS[k]=1; o.sposta.push({id:k, x:Math.round(x), y:Math.round(y), rot:(((Math.round(r))%360)+360)%360});
+    });
+    out.push(o);
+  });
+  return out;
+}
+/* il numero più alto fra gli id degli elementi che i cambi nominano: nextId non scende mai sotto (un elemento nuovo non riprende l'id di uno che entra in un cambio) */
+function cambiIdMax(cambi){
+  var m=0; if(!Array.isArray(cambi)) return 0;
+  cambi.forEach(function(c){ if(!c) return;
+    (c.esce||[]).forEach(function(k){ var n=itemIdNum(k); if(n>m) m=n; });
+    (c.entra||[]).forEach(function(it){ var n=itemIdNum(it && it.id); if(n>m) m=n; });
+    (c.sposta||[]).forEach(function(p){ var n=itemIdNum(p && p.id); if(n>m) m=n; }); });
+  return m;
+}
+/* PURA. Il palco dopo i primi n cambi. Restituisce {items (copia), persi:[{cambio,id,tipo}]}; non tocca l'ingresso. */
+function applicaCambi(items, cambi, n){
+  var cur=JSON.parse(JSON.stringify(Array.isArray(items) ? items : [])), persi=[], lista=Array.isArray(cambi) ? cambi : [];
+  var lim=Math.max(0, Math.min(n==null ? lista.length : n, lista.length));
+  function dove(id){ for(var q=0;q<cur.length;q++) if(cur[q] && cur[q].id===id) return q; return -1; }
+  for(var i=0;i<lim;i++){
+    var c=lista[i]; if(!c) continue;
+    (c.esce||[]).forEach(function(id){ var k=dove(id); if(k<0) persi.push({cambio:i, id:id, tipo:"esce"}); else cur.splice(k,1); });
+    (c.entra||[]).forEach(function(it){ if(!it || dove(it.id)>=0){ persi.push({cambio:i, id:it && it.id, tipo:"entra"}); return; } cur.push(JSON.parse(JSON.stringify(it))); });
+    (c.sposta||[]).forEach(function(p){ var k=dove(p.id); if(k<0){ persi.push({cambio:i, id:p.id, tipo:"sposta"}); return; } cur[k].x=p.x; cur[k].y=p.y; cur[k].rot=p.rot; });
+  }
+  return {items:cur, persi:persi};
+}
+function cambioAngolo(r){ return (((+r||0)%360)+360)%360; }
+function cambioPosDiversa(a, b){
+  if(Math.abs((+a.x||0)-(+b.x||0))>0.5 || Math.abs((+a.y||0)-(+b.y||0))>0.5) return true;
+  var d=Math.abs(cambioAngolo(a.rot)-cambioAngolo(b.rot)); return Math.min(d, 360-d)>0.5;
+}
+/* PURA. La differenza fra due palchi, per id (nel palco temporaneo gli id sono quelli del palco di partenza: l'abbinamento è esatto, senza
+   le somiglianze di nome e di distanza di confrontaVarianti, che qui servirebbero solo a sbagliare). Posizione e rotazione contano da 0,5 cm / 0,5°. */
+function cambioDelta(prima, dopo){
+  var P=Object.create(null), D=Object.create(null), r={esce:[], entra:[], sposta:[]};
+  (prima||[]).forEach(function(it){ if(it && it.type!=="custshape") P[it.id]=it; });
+  (dopo||[]).forEach(function(it){ if(it && it.type!=="custshape") D[it.id]=it; });
+  (prima||[]).forEach(function(it){ if(!it || it.type==="custshape") return; var d=D[it.id]; if(!d || d.type!==it.type) r.esce.push(it.id); });
+  (dopo||[]).forEach(function(it){
+    if(!it || it.type==="custshape") return; var p=P[it.id];
+    if(!p || p.type!==it.type) r.entra.push(JSON.parse(JSON.stringify(it)));
+    else if(cambioPosDiversa(p, it)) r.sposta.push({id:it.id, x:Math.round(+it.x||0), y:Math.round(+it.y||0), rot:cambioAngolo(Math.round(+it.rot||0))});
+  });
+  return r;
+}
+function cambioCanon(x){
+  if(Array.isArray(x)) return x.map(cambioCanon);
+  if(x && typeof x==="object"){ var r={}; Object.keys(x).sort().forEach(function(k){ r[k]=cambioCanon(x[k]); }); return r; }
+  return x;
+}
+/* PURA. Quanti elementi, presenti prima e dopo, sono cambiati in qualcosa che NON è posizione o rotazione (misure, nome, modello, canali…):
+   un cambio non lo registra, e chi lo ha fatto va avvisato. */
+function cambioAltreModifiche(ini, fin){
+  var I=Object.create(null), n=0;
+  (ini||[]).forEach(function(it){ if(it) I[it.id]=it; });
+  (fin||[]).forEach(function(it){
+    var a=it && I[it.id]; if(!a || a.type!==it.type || it.type==="custshape") return;
+    var x=Object.assign({}, a), y=Object.assign({}, it); ["x","y","rot"].forEach(function(k){ delete x[k]; delete y[k]; });
+    if(JSON.stringify(cambioCanon(x))!==JSON.stringify(cambioCanon(y))) n++;
+  });
+  return n;
+}
+function cambioVuoto(c){ return !c || !((c.esce||[]).length || (c.entra||[]).length || (c.sposta||[]).length); }
+/* nel foglio e nel pannello un elemento ha il nome del catalogo (o del modello personalizzato), MAI l'etichetta libera: può essere il nome di una persona */
+function cambioNomeRuolo(it){
+  if(!it) return "elemento";
+  if(it.type==="custom" && it.cust && it.cust.nome) return String(it.cust.nome);
+  var T=TYPES[it.type]; return (T && T.nome) || String(it.type||"elemento");
+}
+function cambioElencoNomi(items){
+  var c=Object.create(null), ord=[];
+  (items||[]).forEach(function(it){ var n=cambioNomeRuolo(it); if(!c[n]){ c[n]=0; ord.push(n); } c[n]++; });
+  return ord.map(function(n){ return c[n]>1 ? n+" ×"+c[n] : n; }).join(", ");
+}
+function cambioHaIngressi(it){ try{ var a=cabItemInputs(it); return !!(a && a.length); }catch(_e){ return false; } }
+/* PURA sui dati del cambio i: nomi di chi esce (dal palco prima del cambio), di chi entra, quanti si spostano, e gli avvisi */
+function cambioRiepilogo(base, cambi, i){
+  var c=cambi[i]; if(!c) return null;
+  var pre=applicaCambi(base, cambi, i).items, byId=Object.create(null), baseId=Object.create(null);
+  pre.forEach(function(it){ byId[it.id]=it; }); (base||[]).forEach(function(it){ baseId[it.id]=1; });
+  var persi=applicaCambi(base, cambi, cambi.length).persi.filter(function(p){ return p.cambio===i; });
+  var entraConMic=(c.entra||[]).filter(function(it){ return !baseId[it.id] && cambioHaIngressi(it); });
+  return { esce:(c.esce||[]).map(function(k){ return byId[k]; }).filter(Boolean), entra:c.entra||[], sposta:(c.sposta||[]).length,
+           persi:persi.length, micFuoriLista:entraConMic.length, vuoto:cambioVuoto(c) };
+}
+function cambioIdNuovo(cambi){
+  var m=0; (cambi||[]).forEach(function(c){ var n=parseInt(String(c.id).replace(/\D/g,""),10); if(isFinite(n) && n>m) m=n; });
+  return "c"+(m+1);
+}
+/* le proposte del campo «Quando», dai titoli della scaletta: «dopo il brano 5 – Titolo» */
+function cambiQuandoProposte(){
+  var out=[], n=0;
+  scalettaVoci().forEach(function(v){
+    if(!v || v.tipo!=="brano") { if(v && v.tipo==="pausa") out.push("durante la pausa"); return; }
+    var nv=scalettaVoceNorm(v); if(scalettaVuota(nv)) return; n++;
+    out.push("dopo il brano "+n+(nv.titolo ? " – "+nv.titolo : ""));
+  });
+  return out.map(function(t){ return cambiTesto(t, CAMBI_QUANDO_MAX); });
+}
+
+/* ───── il palco temporaneo: vedere o disegnare il palco DOPO il cambio idx ───── */
+function cambioEditorApri(idx, vista){
+  var cambi=cambiLista(), c=cambi[idx];
+  if(!c || paloTemporaneoAttivo() || document.body.classList.contains("viewmode") || foreignDoc() || window.__docLoadBlocked) return false;
+  if(!vista && (window.__projLocked || window.__verChiusa)) return false;   /* disegnare vuol dire scrivere: non in un progetto bloccato o in una versione chiusa (guardare sì) */
+  exitHubModes();
+  primaDiAgire();   /* uno snapshot in sospeso (digitazione) entra nella cronologia vera prima di metterla da parte */
+  if(window.flushCloudAutosave) try{ flushCloudAutosave(); }catch(e){}
+  syncActiveVariant();   /* VARIANTS porta il progetto vero: con il palco temporaneo aperto non si aggiorna più */
+  var base=state.items, prima=applicaCambi(base, cambi, idx).items, dopo=applicaCambi(base, cambi, idx+1).items;
+  var realNext=nextId, vKey=String(activeVar||""), minNext=Math.max(realNext, cambiIdMax(cambi)+1);
+  window.__custEditor={ salvato:{attiva:stateToJSON(), undo:undoStack.slice(), redo:redoStack.slice(), lastSnap:lastSnap,
+                                 venueAssets:venueHistoryAssets, activeVar:activeVar,
+                                 venueCache:Object.prototype.hasOwnProperty.call(venueImgCache,vKey) ? Object.assign({},venueImgCache[vKey]) : null,
+                                 adatta:{scena:adattaScena, rifai:adattaRifai, passo:adattaPasso}},
+                        cambio:{idx:idx, n:idx+1, vista:!!vista, prima:prima, ini:null, nome:c.nome||"", quando:c.quando||""} };
+  adattaScena=null; adattaRifai=null; adattaPasso=null;
+  try{
+    var tmp=JSON.parse(window.__custEditor.salvato.attiva);
+    delete tmp.cambi; tmp.items=dopo;
+    applyVariantState(tmp);
+    ensureItemIds();
+    if(nextId<minNext) nextId=minNext;   /* gli elementi nuovi non riprendono id del palco base né di un altro cambio */
+    clearSelection(); resetHistory();
+    window.__custEditor.cambio.ini=JSON.parse(JSON.stringify(state.items));
+  }catch(e){ custRipristina(); applicaVersioneChiusa(); return false; }   /* qualcosa non va: si torna subito al progetto vero, intatto */
+  var cl=document.body.classList; cl.add("cambio-editor"); if(vista) cl.add("cambio-vista");
+  verChiusaChiave=""; applicaVersioneChiusa();   /* la vista è in sola lettura come una versione chiusa */
+  cambioBannerAggiorna(); custEditorRidisegna();
+  return true;
+}
+/* chiude il palco temporaneo. salva=true (Fatto): scrive il delta del cambio e riapre il pannello. salva=false (Annulla / Torna al palco base): niente. */
+function cambioEditorChiudi(salva){
+  var E=window.__custEditor; if(!E || !E.cambio) return false;
+  var cb=E.cambio, delta=null, altre=0, ok=false;
+  if(salva && !cb.vista){
+    var fin=JSON.parse(JSON.stringify(state.items)).filter(function(x){ return x && x.type!=="custshape"; });
+    delta=cambioDelta(cb.prima, fin); altre=cambioAltreModifiche(cb.ini, fin);
+  }
+  custRipristina();   /* il progetto vero com'era all'apertura, byte per byte */
+  verChiusaChiave=""; applicaVersioneChiusa();
+  if(delta){
+    primaDiAgire();
+    var c=cambiLista()[cb.idx];
+    if(c){
+      c.esce=delta.esce; c.entra=delta.entra; c.sposta=delta.sposta;
+      var m=cambiIdMax([c]); if(m>=nextId) nextId=m+1;
+      save(); ok=true;
+    }
+  }
+  cambiEdit=true; renderCambiPanel(); cambioBannerAggiorna(); custEditorRidisegna();
+  if(window.__toast){
+    if(ok && altre) window.__toast("Nel cambio si registrano solo uscite, entrate e spostamenti: "+(altre===1 ? "1 elemento ha anche altre modifiche (misure, nome, modello), che non sono state salvate." : altre+" elementi hanno anche altre modifiche (misure, nome, modello), che non sono state salvate."), true);
+    else if(ok) window.__toast(cambioVuoto(delta) ? "Il cambio non ha nessuna differenza dal palco precedente." : "Cambio salvato.");
+  }
+  return ok;
+}
+function cambioBannerAggiorna(){
+  var b=document.getElementById("cambioBanner"); if(!b) return;
+  var E=window.__custEditor, on=!!(E && E.cambio); b.hidden=!on; if(!on) return;
+  var c=E.cambio, q=c.quando || c.nome;
+  b.setAttribute("data-vista", c.vista ? "1" : "0");
+  var tit=document.getElementById("cambioBannerTit"), nota=document.getElementById("cambioBannerNota");
+  if(tit) tit.textContent=(c.vista ? "Palco dopo il cambio " : "Stai disegnando il cambio ")+c.n+(q ? " · "+q : "");
+  if(nota) nota.textContent=c.vista ? "Solo da guardare: il palco base non cambia." : "Sposta, togli o aggiungi elementi: si salva solo la differenza dal palco precedente.";
+  var f=b.querySelector('[data-cb-b="fatto"]'), a=b.querySelector('[data-cb-b="annulla"]');
+  if(f) f.hidden=!!c.vista; if(a) a.textContent=c.vista ? "Torna al palco base" : "Annulla";
+}
+(function(){
+  var b=document.getElementById("cambioBanner"); if(!b) return;
+  b.addEventListener("click", function(e){
+    var t=e.target.closest && e.target.closest("[data-cb-b]"); if(!t) return;
+    cambioEditorChiudi(t.getAttribute("data-cb-b")==="fatto");
+  });
+})();
+
+/* ───── il pannello «Cambi di palco» (come Scaletta: si apre dalle Liste, dal menu del telefono, dalla ricerca) ───── */
+var _cbFirma=null;
+function cambiRigaBreve(){ var n=cambiLista().length; return n ? (n===1 ? "1 cambio" : n+" cambi") : ""; }
+function cambiSolaLettura(){ return !!(window.__projLocked || window.__verChiusa || foreignDoc() || document.body.classList.contains("consult-viewer")); }
+function renderCambiPanel(){
+  document.body.classList.toggle("cambi-edit", cambiEdit);
+  var s=document.getElementById("cambiSec"); if(s) s.hidden=!cambiEdit;
+  if(cambiEdit) renderCambi(true);
+}
+function toggleCambi(){
+  if(paloTemporaneoAttivo()) return custEditorAvvisa();
+  primaDiAgire();
+  cambiEdit=!cambiEdit;
+  if(cambiEdit){ exitHubModes("cambi"); clearSelection(); if(typeof exitListMode==="function") exitListMode(); }
+  renderCambiPanel(); render();
+  if(cambiEdit){ var b=document.getElementById(cambiLista().length ? "bCambiDone" : "cbAdd"); if(b && b.focus) try{ b.focus({preventScroll:true}); }catch(_e){} }
+}
+function cambiAggiungi(){
+  if(cambiSolaLettura()) return false;
+  var a=cambiLista();
+  if(a.length>=CAMBI_MAX){ if(window.__toast) window.__toast("I cambi arrivano al massimo a "+CAMBI_MAX+".", true); return false; }
+  primaDiAgire();
+  if(!Array.isArray(state.cambi)) state.cambi=[];
+  state.cambi.push({id:cambioIdNuovo(state.cambi), nome:"", quando:"", esce:[], entra:[], sposta:[]});
+  save(); renderCambi(true);
+  var inp=document.querySelector('#cbRows .cb-row[data-i="'+(state.cambi.length-1)+'"] .cb-quando'); if(inp && inp.focus) try{ inp.focus(); }catch(_e){}
+  return true;
+}
+function cambiTogli(i){
+  if(cambiSolaLettura()) return false;
+  var a=cambiLista(); if(i<0 || i>=a.length) return false;
+  primaDiAgire();
+  a.splice(i,1);
+  if(!a.length) delete state.cambi;   /* senza cambi la chiave non c'è: i progetti senza cambi restano identici */
+  save(); renderCambi(true);
+  return true;
+}
+function renderCambi(forza){
+  var host=document.getElementById("cbRows"); if(!host) return;
+  var cambi=cambiLista(), base=state.items||[];
+  var firma=JSON.stringify(cambi)+"|"+base.map(function(x){ return x.id; }).join(",")+"|"+(cambiSolaLettura() ? 1 : 0);
+  if(!forza && firma===_cbFirma) return;
+  _cbFirma=firma;
+  var ro=cambiSolaLettura(), puoVedere=!document.body.classList.contains("viewmode") && !foreignDoc();
+  document.body.classList.toggle("cb-ro", ro);
+  var dl=document.getElementById("cbQuandoList");
+  if(dl){ dl.innerHTML=""; cambiQuandoProposte().forEach(function(t){ var o=document.createElement("option"); o.value=t; dl.appendChild(o); }); }
+  host.innerHTML="";
+  cambi.forEach(function(c,i){
+    var R=cambioRiepilogo(base, cambi, i);
+    var row=document.createElement("div"); row.className="cb-row"; row.setAttribute("data-i", i);
+    var n=document.createElement("span"); n.className="cb-n"; n.textContent=String(i+1); n.setAttribute("aria-hidden","true"); row.appendChild(n);
+    function campo(cls, chiave, max, ph, lbl){
+      var el=document.createElement("input"); el.type="text"; el.className=cls; el.maxLength=max; el.placeholder=ph; el.value=c[chiave]||"";
+      el.setAttribute("aria-label", lbl+" — cambio "+(i+1));
+      if(chiave==="quando") el.setAttribute("list","cbQuandoList");
+      if(ro){ el.readOnly=true; return el; }
+      el.addEventListener("input", function(){
+        var a=cambiLista(); if(!a[i]) return;
+        a[i][chiave]=cambiTesto(el.value, max); _cbFirma=JSON.stringify(a)+"|"+(state.items||[]).map(function(x){ return x.id; }).join(",")+"|0";
+        saveSoon();
+      });
+      return el;
+    }
+    row.appendChild(campo("cb-quando","quando",CAMBI_QUANDO_MAX,"Quando (per esempio dopo il brano 5)","Quando"));
+    row.appendChild(campo("cb-nome","nome",CAMBI_NOME_MAX,"Nome del cambio (facoltativo)","Nome"));
+    var sum=document.createElement("div"); sum.className="cb-sum";
+    if(R.vuoto) sum.textContent="Nessuna differenza ancora"+(ro ? "." : ": premi «Modifica» e disegna il cambio sul palco.");
+    else {
+      var parti=[];
+      if(R.esce.length) parti.push("<b>Esce</b> "+esc(cambioElencoNomi(R.esce)));
+      if(R.entra.length) parti.push("<b>Entra</b> "+esc(cambioElencoNomi(R.entra)));
+      if(R.sposta) parti.push("<b>Si sposta</b> "+(R.sposta===1 ? "1 elemento" : R.sposta+" elementi"));
+      sum.innerHTML=parti.join(" · ");
+    }
+    row.appendChild(sum);
+    var av=[];
+    if(R.persi) av.push("Il cambio parla di "+(R.persi===1 ? "un elemento" : R.persi+" elementi")+" che non c'è più nel palco: li ignora.");
+    if(R.micFuoriLista) av.push("Fa entrare "+(R.micFuoriLista===1 ? "1 elemento con microfono" : R.micFuoriLista+" elementi con microfono")+" che non sono nella channel list (resta quella del palco base).");
+    av.forEach(function(t){ var d=document.createElement("div"); d.className="cb-av"; d.textContent="⚠ "+t; row.appendChild(d); });
+    var acts=document.createElement("span"); acts.className="cb-acts";
+    [["vedi","Vedi il palco",!puoVedere],["modifica","Modifica",ro],["via","Elimina",ro]].forEach(function(b){
+      if(b[2]) return;
+      var bt=document.createElement("button"); bt.type="button"; bt.className="btn cb-b"+(b[0]==="via" ? " cb-via" : ""); bt.setAttribute("data-cb", b[0]);
+      bt.textContent=b[1]; bt.setAttribute("aria-label", b[1]+" — cambio "+(i+1)); acts.appendChild(bt);
+    });
+    row.appendChild(acts);
+    host.appendChild(row);
+  });
+  var vu=document.getElementById("cbVuota"); if(vu) vu.hidden=cambi.length>0;
+  var add=document.getElementById("cbAdd"); if(add) add.hidden=ro;
+  var nota=document.getElementById("cbNota");
+  if(nota){
+    nota.hidden=!cambi.length;
+    nota.textContent=ro ? (window.__verChiusa ? "Questa versione è chiusa: i cambi si guardano ma non si modificano. Per cambiarli crea una Nuova versione." : "")
+                        : "Channel list e liste restano quelle del palco base. Il «quando» è un testo libero: se la scaletta cambia, aggiornalo a mano.";
+  }
+}
+(function(){
+  var host=document.getElementById("cbRows");
+  if(host) host.addEventListener("click", function(e){
+    var b=e.target.closest && e.target.closest("button[data-cb]"); if(!b || b.disabled) return;
+    var row=b.closest(".cb-row"); if(!row) return;
+    var i=+row.getAttribute("data-i"), a=b.getAttribute("data-cb");
+    if(a==="vedi") cambioEditorApri(i, true); else if(a==="modifica") cambioEditorApri(i, false); else if(a==="via") cambiTogli(i);
+  });
+  var ab=document.getElementById("cbAdd"); if(ab) ab.addEventListener("click", cambiAggiungi);
+  var fb=document.getElementById("bCambiDone"); if(fb) fb.addEventListener("click", toggleCambi);
+})();
+/* la riga nelle Liste (come Scaletta: non è un layer, apre il suo pannello) */
+function renderCambiRiga(rows){
+  if(!rows) return;
+  var r=document.createElement("div"); r.className="layer-row layer-clickable cb-lriga"+(cambiEdit?" focus":"");
+  var n=cambiLista().length;
+  r.innerHTML='<span class="layer-chev">▸</span><span class="layer-dot" style="background:#475569"></span><span class="layer-name">Cambi di palco</span>'+
+    (n ? '<span class="layer-cnt">'+n+'</span>' : '<span class="layer-actbadge">aggiungi</span>');
+  r.title=n ? "Apri i cambi di palco: "+cambiRigaBreve() : "Chi esce, entra o si sposta durante lo spettacolo, rispetto al palco base";
+  r.addEventListener("click", toggleCambi);
+  premibile(r, toggleCambi, (cambiEdit ? "Chiudi" : "Apri")+" i cambi di palco");
+  r.setAttribute("aria-expanded", cambiEdit ? "true" : "false");
+  rows.appendChild(r);
+}
+
 /* L'INVITO DOPO CONDIVIDI: «Hai mandato questa versione? [Segna la v3 come Inviata]». Un clic, mai in automatico. Compare solo per una Bozza del
    documento proprio; restituisce il testo del pulsante, o "" se non va mostrato. */
 function invitoInviataTesto(st, foreign){
@@ -43815,7 +44169,7 @@ function riassuntoDocumento(){
 }
 /* Impronta di CIASCUN documento del pacchetto (S10, richiesta di Simone 13/11: «cambiato / invariato da vN-1» accanto a ogni file): un hash breve del
    contenuto che quel documento stampa (non del progetto intero: un'asta in più non cambia il rider). Dentro il riassunto, quindi nello storico. */
-var DOC_NOMI={stageplot:"stage plot", inputlist:"channel list", outputlist:"output list", rider:"rider", organico:"organico", backline:"backline", lightslist:"lista luci", scaletta:"scaletta"};
+var DOC_NOMI={stageplot:"stage plot", inputlist:"channel list", outputlist:"output list", rider:"rider", organico:"organico", backline:"backline", lightslist:"lista luci", scaletta:"scaletta", cambi:"cambi di palco"};
 /* ═══ CONTROLLI DI COERENZA 2 (13/11/2026, specifica S14) ═══ «Allegati richiesti»: elenco libero (≤30 voci) con stato «ricevuto» / «da chiedere»;
    se resta qualcosa «da chiedere» lo dice «Prima di esportare». Solo se l'utente lo usa (assente di serie). */
 function allegatiPuliti(l){
@@ -43843,6 +44197,7 @@ function impronteDocumenti(){
   out.backline=g(function(){ return backlineList().rows; });
   out.lightslist=g(function(){ return state.lights; });
   out.scaletta=g(function(){ return state.scaletta; });
+  if(Array.isArray(state.cambi) && state.cambi.length) out.cambi=g(function(){ return state.cambi; });   /* L3: solo se ci sono cambi — i progetti vecchi hanno impronte identiche */
   Object.keys(out).forEach(function(k){ if(!out[k]) delete out[k]; });
   return out;
 }
@@ -44182,7 +44537,7 @@ function pacchettoApri(){
 }
 function pacchettoCrea(){
   var m=document.getElementById("pkgModal"), err=document.getElementById("pkgErr"), go=document.getElementById("pkgGo"), info=document.getElementById("pkgInfo");
-  if(typeof custEditorAttivo==="function" && custEditorAttivo()){ custEditorAvvisa(); return; }
+  if(typeof paloTemporaneoAttivo==="function" && paloTemporaneoAttivo()){ custEditorAvvisa(); return; }
   var chiavi=[].filter.call(document.querySelectorAll("#pkgLista input[type=checkbox]"), function(c){ return c.checked; }).map(function(c){ return c.getAttribute("data-chiave"); });
   var voci=pacchettoDocumenti((typeof window.__pdfChiaviTecniche==="function") ? window.__pdfChiaviTecniche() : [], (typeof scalettaList==="function" && scalettaList().count>0), (state.items||[]).length>0, luciFogliDisponibili()).filter(function(d){ return chiavi.indexOf(d.chiave)>=0; });
   err.hidden=true; if(!voci.length){ err.textContent="Scegli almeno un documento."; err.hidden=false; return; }
@@ -44278,7 +44633,7 @@ function buildPdfPalcoEsterni(paperKey, scaleSel, orientSel){
   });
 }
 function exportPalcoEsterni(paperKey, scaleSel, orientSel){
-  if(custEditorAttivo()){ custEditorAvvisa(); return Promise.resolve(false); }
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return Promise.resolve(false); }
   var info=document.getElementById("pdfInfo");
   info.className="mstatus"; info.textContent="Genero il palco per esterni…";
   return buildPdfPalcoEsterni(paperKey, scaleSel, orientSel).then(function(doc){
@@ -44416,7 +44771,7 @@ function buildPdfFoglioTeatro(d){
   });
 }
 function exportFoglioTeatro(){
-  if(custEditorAttivo()){ custEditorAvvisa(); return Promise.resolve(false); }
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return Promise.resolve(false); }
   var info=document.getElementById("pdfInfo");
   info.className="mstatus"; info.textContent="Genero il foglio per il teatro…";
   return buildPdfFoglioTeatro(new Date()).then(function(doc){
@@ -44428,7 +44783,7 @@ function exportFoglioTeatro(){
   }).catch(function(e){ info.className="mstatus err"; info.textContent="Errore: "+(e&&e.message||e); return false; });
 }
 function exportPdf(paperKey, scaleSel, orient, header){
-  if(custEditorAttivo()){ custEditorAvvisa(); return Promise.resolve(false); }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente export */
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return Promise.resolve(false); }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente export */
   var info=document.getElementById("pdfInfo");
   /* M-04: il gate sugli errori CRITICI vive nel click di #pdfGo, non più qui — perché lì può usare la
      finestra dell'app (Promise) invece del confirm() nativo che alcuni browser lasciano sopprimere.
@@ -44531,7 +44886,7 @@ function pngSvgConRiga(svgStr, vbBase, vbFinale, riga){
   return svgStr.replace(/<\/svg>\s*$/, t+'</svg>');
 }
 function exportPng(fatto){
-  if(custEditorAttivo()){ custEditorAvvisa(); return false; }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente export */
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return false; }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente export */
   function fine(){ _pngInCorso=false; if(typeof fatto==="function") fatto(); }
   if(_pngInCorso){ if(window.__toast) window.__toast("PNG già in preparazione."); return false; }
   _pngInCorso=true;
@@ -46711,7 +47066,7 @@ function maybeAskStageSize(explicit){
       +'<button type="button" id="cbCopy">Continua qui come copia</button>';
     document.body.appendChild(confBar);
     confBar.querySelector("#cbLoad").addEventListener("click", function(){
-      if(custEditorAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: prima si chiude */
+      if(paloTemporaneoAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: prima si chiude */
       /* Rete di sicurezza multi-variante (incluse planimetrie). Se lo snapshot non entra nello storage,
          non sostituire il lavoro locale. */
       var backed=false;
@@ -47438,7 +47793,7 @@ function maybeAskStageSize(explicit){
   function openProject(id){
     if(!sb || !cloudUser) return;
     window.__orcApertura=false;   /* da qui in poi la guardia della richiesta del palco non serve: il progetto si apre (o dà errore) */
-    if(custEditorAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: prima si chiude */
+    if(paloTemporaneoAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: prima si chiude */
     var request=++cloudOpenSeq, requestUser=cloudUser.id, requestAuth=authGeneration;
     function fetchAndOpen(){
       if(request!==cloudOpenSeq || !authStill(requestUser,requestAuth)) return;
@@ -47472,7 +47827,7 @@ function maybeAskStageSize(explicit){
             var localOk=persistLocalState(); if(localOk!==false) persistVenueImg();
             if(window.applyProjLock) window.applyProjLock(!!r.data.is_locked);   /* bloccato → editor sola-lettura */
             toast(r.data.is_locked?"✓ Progetto aperto (bloccato · sola lettura).":"✓ Progetto aperto."); closeModal();
-          }catch(e){ toast(custEditorAttivo() ? custEditorMsg() : "Il progetto salvato non è valido.", true); }
+          }catch(e){ toast(paloTemporaneoAttivo() ? custEditorMsg() : "Il progetto salvato non è valido.", true); }
         });
       });
     }
