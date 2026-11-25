@@ -5398,21 +5398,27 @@ function switchVariant(id, senzaSync){   /* senzaSync: la scena attiva è appena
   render(); renderChannels(); fit(); renderVariantBar();
 }
 /* crea una nuova variante = copia dell'attiva, poi ci passa sopra */
-function createVariant(name){
+function createVariant(name, srcId){
   if(custEditorAttivo()){ custEditorAvvisa(); return null; }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
-  syncActiveVariant(); var src=activeVarObj(); if(!src) return null;
+  syncActiveVariant(); var src=activeVarObj();
+  if(srcId){ src=null; for(var si=0;si<VARIANTS.length;si++){ if(VARIANTS[si].id===srcId) src=VARIANTS[si]; } }   /* Versioni L2: la sorgente può essere un'altra scheda (l'ultima per numero) */
+  if(!src) return null;
   /* Versioni (24/11/2026): la nuova ha il numero dopo l'ultimo, è una Bozza e non porta la data dello stato della sorgente. Una sorgente senza
      numero (progetto vecchio) lo riceve ora: la sua posizione, così le due versioni non si confondono. */
   var nuovoN=versioneNumeroNuovo();
   if(nuovoN>VERSIONE_MAX){ if(window.__toast) window.__toast("Hai raggiunto il numero massimo di versioni ("+VERSIONE_MAX+").", true); return null; }
   var srcIdx=VARIANTS.indexOf(src);
-  if(!versioneChiusa(src.state) && !versioneNumeroDi(src, srcIdx).esplicito){ src.state.versione=srcIdx+1; if(state) state.versione=srcIdx+1; }
+  if(!versioneChiusa(src.state) && !versioneNumeroDi(src, srcIdx).esplicito){ src.state.versione=srcIdx+1; if(state && src.id===activeVar) state.versione=srcIdx+1; }
   var copy=JSON.parse(JSON.stringify(src.state)); var id=newVarId();
   delete copy.pdfEsportato;   /* una variante nuova non è mai stata esportata */
   copy.versione=nuovoN; copy.status="bozza"; delete copy.statusAt; copy.approval={by:"",at:""};
   VARIANTS.push({ id:id, name:(name||("Versione "+nuovoN)), state:copy });
   variantiNuove[id]=src.id;   /* uguale per costruzione: nessun avviso finché non diverge */
   if(venueImgCache[src.id]) venueImgCache[id]=Object.assign({},venueImgCache[src.id]);
+  return attivaVersioneNuova(id, copy);
+}
+/* la coda comune a ogni versione appena aggiunta a VARIANTS (copia, importata): diventa l'attiva e tutto si ridisegna */
+function attivaVersioneNuova(id, copy){
   activeVar=id; applyVariantState(copy,true,id);
   ensureItemIds(); clearSelection(); if(typeof setEventInputs==="function") setEventInputs();
   resetHistory();
@@ -5822,7 +5828,7 @@ function variantTabsHtml(){
      compare «Tutte (N)», che elenca ogni versione in un menu. Prima del «+», che resta sempre l'ultimo. */
   if(VARIANTS.length>=VARIANTI_MENU_MIN) html+='<button type="button" class="vtab-all" aria-haspopup="menu" title="Elenco di tutte le versioni">Tutte ('+VARIANTS.length+')</button>';
   /* con una sola versione il «+» dice cosa fa; con più versioni le schede lo spiegano già */
-  html+='<button type="button" class="vtab-add" title="Nuova versione: la stessa serata con un\'altra disposizione (copia di quella attiva)" aria-label="Nuova versione">'+(VARIANTS.length>1 ? '+' : '+<span class="hdr-lbl"> Versione</span>')+'</button>';
+  html+='<button type="button" class="vtab-add" title="Nuova versione: la stessa serata con un\'altra disposizione (copia dell\'ultima versione)" aria-label="Nuova versione">'+(VARIANTS.length>1 ? '+' : '+<span class="hdr-lbl"> Versione</span>')+'</button>';
   return html;
 }
 var VARIANTI_MENU_MIN=5;
@@ -5899,7 +5905,7 @@ function confirmDeleteVariant(id){
     var id=b.getAttribute("data-vgo"); chiudiTutte(); if(id!==activeVar) switchVariant(id);
   });
   if(bar) bar.addEventListener("click", function(e){
-    if(e.target.closest(".vtab-add")){ chiudiMenu(); chiudiTutte(); createVariant(); return; }
+    if(e.target.closest(".vtab-add")){ chiudiMenu(); chiudiTutte(); nuovaVersione(); return; }
     var tt=e.target.closest(".vtab-all");
     if(tt){ chiudiMenu(); if(all && !all.hidden){ chiudiTutte(); return; }
       document.querySelectorAll(".hdrmenu").forEach(function(x){ x.hidden=true; });
@@ -5932,7 +5938,9 @@ function confirmDeleteVariant(id){
     var a=b.getAttribute("data-vm"); chiudiMenu();
     if(b.disabled) return;
     if(a==="ren") promptRenameVariant(activeVar);
-    else if(a==="new") createVariant();
+    else if(a==="new") nuovaVersione(activeVar);
+    else if(a==="imp") importaComeNuovaVersione();
+    else if(a==="dup") promptDuplicaVersione(activeVar);
     else if(a==="del") confirmDeleteVariant(activeVar);
     else if(a==="diff") apriConfrontoVarianti();
     else if(a==="num") confermaNumeraVersioni();
@@ -24916,6 +24924,7 @@ function setEventInputs(){
   if(_vc && document.activeElement!==_vc) _vc.value=versioneNumero()||"";
   if(_vc) _vc.disabled=versioneNumeroBloccato();   /* versione chiusa: il numero non si cambia da qui */
   var _vh=document.getElementById("pdfVersioneHint"); if(_vh) _vh.textContent=versioneSuggerimento();
+  var _vf=document.getElementById("pdfVersioneFrase"); if(_vf && versioneNumero()) _vf.textContent="La versione attiva è la v"+versioneNumero()+". Per una disposizione nuova della stessa serata: Nuova versione. Per un altro progetto: Duplica come nuovo progetto.";
   var _sd=document.getElementById("pdfStatoDoc"); if(_sd && document.activeElement!==_sd) _sd.value=statoDocValore();
   try{ var _tg=tagliaSuggerimento(), _th=document.getElementById("pdfTagliaHint"); if(_th){ _th.hidden=!_tg; if(_tg) document.getElementById("pdfTagliaTesto").textContent="La taglia è "+_tg.taglia+": nel nome «"+_tg.nuovo+"»."; } }catch(_e){}
   ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.luogo||""; });
@@ -25770,7 +25779,7 @@ function ricordaRecenteCatalogo(k, nome, over){
                 kw:"monitor list output list lista monitor lista uscite mandate mix ascolti", qaCede:"monitor"});
   entries.push({nome:"Scaletta", fn:true, dim:"brani in ordine, con le durate", noQuick:true, iconHtml:LISTA_ICON, action:function(){ if(!scalettaEdit) toggleScaletta(); },
                 kw:"scaletta setlist set list brani canzoni pezzi ordine durata durate pausa bis intro cambio palco"});
-  entries.push({nome:"Nuova versione", fn:true, dim:"copia della versione attiva, da cambiare", noQuick:true, iconHtml:VAR_ICON, action:function(){ if(typeof createVariant==="function") createVariant(); },
+  entries.push({nome:"Nuova versione", fn:true, dim:"copia dell'ultima versione, da cambiare", noQuick:true, iconHtml:VAR_ICON, action:function(){ nuovaVersione(); },
                 kw:"versione versioni variante varianti scena scene alternativa seconda formazione"});   /* «variante» resta come sinonimo: chi la cercava la trova */
   entries.push({nome:"Importa organico", fn:true, dim:"da una riga o da Excel, con anteprima", noQuick:true, iconHtml:LISTA_ICON, action:function(){ orgImportApri(); },
                 kw:"importa importare incolla organico orchestra formazione foglio convocazione csv excel archi formula sezioni"});   /* G1 fase 2 (13/11): fuori dal menu File, che resta essenziale */
@@ -26976,7 +26985,9 @@ function renderMobileList(){
         return;
       }
       if(a==="funzioni"){ funzApriFinestra(); return; }
-      if(a==="var-new"){ createVariant(); return; }
+      if(a==="var-new"){ if(window.toggleMobileMenu) window.toggleMobileMenu(false); nuovaVersione(); return; }
+      if(a==="var-dup"){ if(window.toggleMobileMenu) window.toggleMobileMenu(false); promptDuplicaVersione(activeVar); return; }
+      if(a==="var-imp"){ if(window.toggleMobileMenu) window.toggleMobileMenu(false); importaComeNuovaVersione(); return; }
       if(a==="var-ren"){ promptRenameVariant(activeVar); return; }
       if(a==="var-del"){ confirmDeleteVariant(activeVar); return; }
       if(a==="var-diff"){ if(window.toggleMobileMenu) window.toggleMobileMenu(false); apriConfrontoVarianti(); return; }
@@ -38171,6 +38182,197 @@ function confermaNumeraVersioni(){
   if(typeof window.confirmDialog==="function") window.confirmDialog(ask).then(function(ok){ if(ok) numeraVersioni(); });
   else numeraVersioni();
 }
+/* ═══ VERSIONI, LOTTO 2 (25/11/2026): Nuova versione «vera», Importa come nuova versione, Duplica come nuovo progetto ═══
+   Regole (PROGETTO §4.2, §11): la sorgente di «+» è l'ULTIMA versione per numero, quella del menu è la scheda aperta; prima si allinea il cloud (un
+   salvataggio in sospeso si completa, un conflitto ferma tutto); le versioni che c'erano non cambiano di un byte; un link di condivisione attivo
+   chiede un sì esplicito (il link non è ancora fisso alla versione condivisa). Nulla si scrive nel cloud da qui: crea l'autosave di sempre, condizionale. */
+function versioneUltimaId(){
+  var best=null, bn=-1; VARIANTS.forEach(function(v,i){ var n=versioneNumeroDi(v,i).n; if(n>=bn){ bn=n; best=v.id; } });   /* a pari numero, la scheda più a destra */
+  return best;
+}
+/* legge il cloud prima di creare: cb({esito:"ok"|"errore", condiviso:bool}); con conflitto, salvataggio non concluso, progetto bloccato o documento sostituito nell'attesa NON chiama cb */
+function allineaCloudPoi(cb){
+  if(custEditorAttivo()){ custEditorAvvisa(); return; }
+  if(window.__projLocked){ if(window.__toast) window.__toast("Il progetto è bloccato: sbloccalo per aggiungere una versione.", true); return; }
+  var C=window.__cloud, ep=window.__docEpoch||0;
+  if(!(C && typeof C.user==="function" && C.user() && typeof C.currentId==="function" && C.currentId() && typeof C.allinea==="function")){ cb({esito:"ok", condiviso:false}); return; }   /* senza account o progetto non ancora online: si lavora in locale */
+  function leggi(){
+    C.allinea(function(r){
+      if((window.__docEpoch||0)!==ep) return;   /* nel frattempo è stato aperto un altro progetto */
+      r=r||{};
+      if(r.esito==="conflitto"){ if(window.__toast) window.__toast("Il progetto è cambiato in un'altra scheda o su un altro dispositivo: ricarica prima, poi crea la versione.", true); return; }
+      cb({esito:r.esito==="ok"?"ok":"errore", condiviso:!!r.condiviso});
+    });
+  }
+  if(window.__cloudNeedsFlush && window.__cloudNeedsFlush() && typeof window.flushCloudAutosave==="function"){
+    window.flushCloudAutosave(function(ok){
+      if((window.__docEpoch||0)!==ep) return;
+      if(!ok){ if(window.__toast) window.__toast("Il salvataggio delle ultime modifiche non è concluso: riprova tra un momento.", true); return; }
+      leggi();
+    });
+  } else leggi();
+}
+function confermaLinkAttivo(info, azione, verbo){
+  if(!info || !info.condiviso){ azione(); return; }
+  var ask={ icon:"warn", title:"Questo progetto ha un link di condivisione attivo", confirmText:verbo,
+    message:"Per ora il link mostra la versione su cui hai salvato per ultimo: la nuova versione nasce come Bozza e chi ha il link la vedrebbe subito. Vuoi continuare?" };
+  if(typeof window.confirmDialog==="function") window.confirmDialog(ask).then(function(ok){ if(ok) azione(); });
+  else azione();
+}
+/* «+ Versione» (srcId vuoto: l'ultima per numero) e «Nuova versione da questa» (la scheda aperta) */
+function nuovaVersione(srcId){
+  if(custEditorAttivo()){ custEditorAvvisa(); return; }
+  if(versioneNumeroNuovo()>VERSIONE_MAX){ if(window.__toast) window.__toast("Hai raggiunto il numero massimo di versioni ("+VERSIONE_MAX+").", true); return; }
+  allineaCloudPoi(function(info){
+    confermaLinkAttivo(info, function(){
+      syncActiveVariant();
+      var da=srcId || versioneUltimaId(), id=createVariant(null, da);
+      if(id){
+        var src=null; VARIANTS.forEach(function(v,i){ if(v.id===da) src=versioneEtichettaScheda(v,i); });
+        if(window.__toast && src) window.__toast("✓ "+versioneEtichettaScheda(activeVarObj(), VARIANTS.indexOf(activeVarObj()))+" creata da «"+src+"».");
+        invitoTitoloVersione();
+      }
+    }, "Crea la versione");
+  });
+}
+/* il «vN» in fondo al titolo non serve più: il numero sta nella versione. Un clic, mai da solo. */
+function invitoTitoloVersioneTesto(st){ var t=String((st && st.titolo)||""), n=versioneDaTitolo(t); return (n && titoloSenzaVersione(t) && titoloSenzaVersione(t)!==t) ? "v"+n : ""; }
+function invitoTitoloVersione(){
+  var v=invitoTitoloVersioneTesto(state); if(!v) return;
+  var ask={ icon:"info", title:"Togliere «"+v+"» dal titolo?", confirmText:"Togli «"+v+"»",
+    message:"Il numero ora sta nella versione: «"+titoloSenzaVersione(state.titolo)+"» resta il nome del progetto e il PDF scrive da solo «v"+versioneNumero()+"»." };
+  if(typeof window.confirmDialog==="function") window.confirmDialog(ask).then(function(ok){ if(ok) togliVersioneDalTitolo(); });
+}
+function togliVersioneDalTitolo(){
+  if(!invitoTitoloVersioneTesto(state)) return false;
+  syncActiveVariant();
+  /* finché il «vN» sta nel titolo, le versioni senza numero scritto lo leggono da lì: prima si scrive il loro numero, poi il titolo si cambia */
+  VARIANTS.forEach(function(v,i){ if(!v.state) return; var r=versioneNumeroDi(v,i); if(!(typeof v.state.versione==="number")){ v.state.versione=r.n; if(v.id===activeVar && state) state.versione=r.n; } });
+  var nuovo=titoloSenzaVersione(state.titolo);
+  state.titolo=nuovo; TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e) e.value=nuovo; });
+  if(typeof setEventInputs==="function") setEventInputs();
+  syncActiveVariant(); persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave();
+  return true;
+}
+/* ── Importa come nuova versione: dal file si prende SOLO la scena (quella attiva); i campi del documento restano quelli del progetto aperto */
+function importaNota(prepared){
+  if(!prepared || !prepared.variants || prepared.variants.length<2) return "";
+  var a=null, ai=0; prepared.variants.forEach(function(v,i){ if(v.id===prepared.active){ a=v; ai=i; } });
+  return "Il file ha "+prepared.variants.length+" versioni: ho preso quella attiva («"+versioneEtichettaScheda(a||prepared.variants[0], ai)+"»).";
+}
+function importaVersioneDaDocumento(prepared, nomeFile){
+  if(custEditorAttivo()){ custEditorAvvisa(); return null; }
+  var nuovoN=versioneNumeroNuovo();
+  if(nuovoN>VERSIONE_MAX){ if(window.__toast) window.__toast("Hai raggiunto il numero massimo di versioni ("+VERSIONE_MAX+").", true); return null; }
+  syncActiveVariant();
+  var fv=null; (prepared.variants||[]).forEach(function(v){ if(v.id===prepared.active) fv=v; }); if(!fv) fv=(prepared.variants||[])[0]; if(!fv||!fv.state) return null;
+  var copy=JSON.parse(JSON.stringify(fv.state));
+  /* campi del documento: quelli del progetto aperto (titolo, luogo, data, contatti, scaletta…); i modelli personalizzati si UNISCONO, per id */
+  CAMPI_DOCUMENTO.forEach(function(k){ if(k==="customModels") return; if(state[k]===undefined) delete copy[k]; else copy[k]=JSON.parse(JSON.stringify(state[k])); });
+  var mio=Array.isArray(state.customModels) ? JSON.parse(JSON.stringify(state.customModels)) : [], dalFile=Array.isArray(fv.state.customModels) ? fv.state.customModels : [], rimappa={}, usatiId={};
+  mio.forEach(function(m){ usatiId[m.id]=JSON.stringify(m); });
+  dalFile.forEach(function(m){
+    if(!m || typeof m.id!=="string" || mio.length>=custLimiti().MODELLI) return;
+    if(!(m.id in usatiId)){ usatiId[m.id]=JSON.stringify(m); mio.push(JSON.parse(JSON.stringify(m))); return; }
+    if(usatiId[m.id]===JSON.stringify(m)) return;   /* lo stesso modello: già c'è */
+    var nid, k=1; do{ nid=String(m.id).slice(0,34)+"_i"+(k++); }while(nid in usatiId);   /* stesso id, modello diverso: il suo prende un id nuovo */
+    var c=JSON.parse(JSON.stringify(m)); c.id=nid; usatiId[nid]=JSON.stringify(c); mio.push(c); rimappa[m.id]=nid;
+  });
+  if(mio.length) copy.customModels=mio; else delete copy.customModels;
+  if(Object.keys(rimappa).length) (copy.items||[]).forEach(function(it){ if(it && it.cust && it.cust.modelId && rimappa[it.cust.modelId]) it.cust.modelId=rimappa[it.cust.modelId]; });
+  /* planimetria: il rimando «_sameAs» a un'altra scena del file si risolve qui (l'altra scena non viene con noi) */
+  if(copy.venue && typeof copy.venue==="object" && !copy.venue._dataUrl && typeof copy.venue._sameAs==="string"){
+    (prepared.variants||[]).forEach(function(v){ var ve=v.state && v.state.venue; if(String(v.id)===copy.venue._sameAs && ve && ve._dataUrl){ copy.venue._dataUrl=ve._dataUrl; copy.venue._imgW=ve._imgW; copy.venue._imgH=ve._imgH; } });
+  }
+  if(copy.venue && copy.venue._sameAs!==undefined) delete copy.venue._sameAs;
+  /* numero, stato, annotazioni: come una Nuova versione; lo storico è quello del progetto (l'ultima versione), così l'Esporta confronta con la precedente */
+  copy.shareOpts=shareOptsDoc();
+  copy.versione=nuovoN; copy.status="bozza"; delete copy.statusAt; delete copy.pdfEsportato; copy.approval={by:"",at:""};
+  var ult=null, ui=versioneUltimaId(); VARIANTS.forEach(function(v){ if(v.id===ui) ult=v; });
+  if(ult && ult.state && ult.state.storico) copy.storico=JSON.parse(JSON.stringify(ult.state.storico)); else delete copy.storico;
+  var id=newVarId();
+  VARIANTS.push({ id:id, name:"Versione "+nuovoN, state:copy });
+  cacheVenueImg(copy.venue, id);
+  return attivaVersioneNuova(id, copy);
+}
+function importaComeNuovaVersione(){
+  if(custEditorAttivo()){ custEditorAvvisa(); return; }
+  var inp=document.getElementById("importVersionFile"); if(inp) inp.click();
+}
+function importaVersioneDaFile(f){
+  var rd=new FileReader();
+  rd.onload=function(){
+    var prepared;
+    try{
+      var parsed=JSON.parse(String(rd.result)); if(!parsed || typeof parsed!=="object") throw new Error("Formato non valido");
+      prepared=prepareDoc(parsed);   /* valida tutto prima di toccare il progetto */
+    }catch(err){ if(window.__toast) window.__toast("✗ "+((err && err.code && err.message) || "File non valido: non è un progetto Stage Plot."), true); return; }
+    var nota=importaNota(prepared);
+    allineaCloudPoi(function(info){
+      var ask={ icon:"info", title:"Aggiungere questa scena come nuova versione?", confirmText:"Aggiungi",
+        message:"«"+String(f.name||"il file").slice(0,60)+"» diventa la Versione "+versioneNumeroNuovo()+" di «"+(state.titolo||"questo progetto")+"», in Bozza. Titolo, luogo e data restano quelli del progetto; le versioni che ci sono non cambiano."+(nota?" "+nota:"") };
+      function vai(){ confermaLinkAttivo(info, function(){ var id=importaVersioneDaDocumento(prepared, f.name); if(id){ if(window.__toast) window.__toast("✓ Versione aggiunta dal file."+(nota?" "+nota:"")); invitoTitoloVersione(); } }, "Aggiungi la versione"); }
+      if(typeof window.confirmDialog==="function") window.confirmDialog(ask).then(function(ok){ if(ok) vai(); }); else vai();
+    });
+  };
+  rd.onerror=function(){ if(window.__toast) window.__toast("✗ Impossibile leggere il file.", true); };
+  rd.readAsText(f);
+}
+/* ── Duplica come nuovo progetto: solo quella versione, v1, Bozza; titolo scelto; niente storico, nota PDF né link */
+function docVersioneSola(varId, titolo){
+  syncActiveVariant();
+  var v=null; VARIANTS.forEach(function(x){ if(x.id===varId) v=x; }); if(!v || !v.state) return null;
+  var st=JSON.parse(JSON.stringify(v.state)); reattachVenueImg(st, v.id);
+  var tt=String(titolo==null?"":titolo).trim().slice(0,120);
+  st.titolo=tt; st.versione=1; st.status="bozza"; delete st.statusAt; delete st.pdfEsportato; delete st.storico; st.approval={by:"",at:""};
+  if(st.venue && st.venue._sameAs!==undefined) delete st.venue._sameAs;
+  st._v=SCHEMA_VERSION;
+  var extra=JSON.parse(JSON.stringify(DOC_EXTRA||{}));
+  return { titolo:tt, doc:documentEnvelope(v.id, [{ id:v.id, name:"Versione 1", state:st }], extra) };
+}
+function duplicaVersioneComeProgetto(varId, titolo){
+  if(custEditorAttivo()){ custEditorAvvisa(); return; }
+  var d=docVersioneSola(varId, titolo); if(!d || !d.titolo){ if(window.__toast) window.__toast("Duplicazione non riuscita: manca il titolo.", true); return; }
+  allineaCloudPoi(function(){
+    var C=window.__cloud, nome=d.titolo;
+    if(C && typeof C.user==="function" && C.user() && typeof C.creaProgetto==="function"){
+      var dati=JSON.parse(JSON.stringify(d.doc, stateReplacer)), vi=venueImageBundleFromVariants(d.doc.variants, d.doc.active), venue=Object.keys(vi.images).length ? JSON.stringify(vi) : null;
+      C.creaProgetto({ title:nome, data:dati, venue_image:venue }, function(id, errore){
+        if(!id){ if(window.__toast) window.__toast("Duplicazione non riuscita"+(errore?": "+errore:"")+".", true); return; }
+        if(window.__toast) window.__toast("✓ Nuovo progetto creato: "+nome);
+        if(typeof C.open==="function") C.open(id);
+      });
+    } else {
+      var prepared; try{ prepared=prepareDoc(JSON.parse(JSON.stringify(d.doc))); }catch(err){ if(window.__toast) window.__toast("Duplicazione non riuscita: il documento non è valido.", true); return; }
+      guardDocumentReplacement({ reason:"duplicare una versione", title:"Aprire «"+nome.slice(0,80)+"» come progetto nuovo?", confirmText:"Crea il progetto",
+        message:"Si apre una copia con questa sola versione; il progetto che hai ora resta salvato (e ha un punto di ripristino)." }, function(){
+        activatePreparedProject(prepared); if(window.__toast) window.__toast("✓ Nuovo progetto: "+nome+" (solo su questo dispositivo: accedi per salvarlo online).");
+      });
+    }
+  });
+}
+function promptDuplicaVersione(varId){
+  var v=null; VARIANTS.forEach(function(x){ if(x.id===varId) v=x; }); if(!v) return;
+  var proposta=((titoloSenzaVersione(state.titolo)||"Progetto")+" – ridotto").slice(0,120);
+  var ov=document.getElementById("varDupModal");
+  if(!ov){ ov=document.createElement("div"); ov.id="varDupModal";
+    ov.style.cssText="position:fixed;inset:0;z-index:320;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:18px";
+    ov.innerHTML='<div style="background:var(--surface);color:var(--text);border-radius:var(--r-xl);max-width:400px;width:100%;padding:22px;box-shadow:var(--elev-4);font-family:var(--font-ui)">'+
+      '<h3 style="margin:0 0 6px;font-size:18px">Duplica come nuovo progetto</h3>'+
+      '<p id="varDupNota" style="margin:0 0 12px;font-size:13px;color:var(--text-2)"></p>'+
+      '<input id="varDupInput" type="text" maxlength="120" placeholder="Titolo del nuovo progetto" style="width:100%;border:1px solid var(--border);border-radius:var(--r-md);padding:11px 12px;font-size:15px;box-sizing:border-box;background:var(--surface);color:var(--text)">'+
+      '<div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end"><button id="varDupCancel" type="button" class="btn">Annulla</button><button id="varDupSave" type="button" class="btn primary">Crea progetto</button></div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener("click", function(e){ if(e.target===ov) ov.style.display="none"; });
+  }
+  var inp=ov.querySelector("#varDupInput"); inp.value=proposta; inp.style.borderColor="var(--border)";
+  ov.querySelector("#varDupNota").textContent="Un progetto separato con solo la «"+versioneEtichettaScheda(v, VARIANTS.indexOf(v))+"», in Bozza, come v1. Questo progetto non cambia.";
+  ov.style.display="flex"; setTimeout(function(){ inp.focus(); inp.select(); },30);
+  function close(){ ov.style.display="none"; }
+  function commit(){ var val=inp.value.trim(); if(!val){ inp.style.borderColor="var(--danger-solid)"; inp.focus(); return; } close(); duplicaVersioneComeProgetto(varId, val); }
+  ov.querySelector("#varDupCancel").onclick=close; ov.querySelector("#varDupSave").onclick=commit;
+  inp.onkeydown=function(e){ if(e.key==="Enter") commit(); else if(e.key==="Escape") close(); };
+}
 /* STATO DEL DOCUMENTO (15/11/2026, S22 parte 1): «Provvisorio» / «Definitivo», facoltativo (`state.statoDoc`, assente = nessuno).
    Compare nel piè accanto a versione e «1 di N», nella riga luogo · data del cartiglio e nel nome dei file (PDF, PNG, zip). */
 var STATO_DOC_ETICHETTE={provvisorio:"Provvisorio", definitivo:"Definitivo"};
@@ -38514,7 +38716,7 @@ function pdfNomeFileTesto(){
          «assegnalo in File → Produzione» in un messaggio dell'hub: la promessa c'era, il comando
          stava altrove. Adesso è dove il prodotto dichiarava che fosse. */
       "produzione":function(){ if(window.openProdHub) window.openProdHub(); },
-      "variant-new":function(){ if(typeof createVariant==="function") createVariant(); },
+      "variant-new":function(){ nuovaVersione(); },
       "funzioni":function(){ funzApriFinestra(); },
       "save":fileSaveCloud };
     document.querySelectorAll("#fileMenu .mi").forEach(function(x){ x.addEventListener("click", function(){ var f=acts[x.getAttribute("data-file")]; if(f) f(); }); });
@@ -38682,6 +38884,9 @@ function pdfNomeFileTesto(){
     io("✓ Progetto salvato: "+name);
   };
   document.getElementById("importJson").addEventListener("click", function(){ if(!window.jsonSoloCollegati()) return; document.getElementById("importFile").click(); });
+  (function(){ var iv=document.getElementById("importVersionFile"); if(iv) iv.addEventListener("change", function(e){
+    var f=e.target.files && e.target.files[0]; e.target.value=""; if(f) importaVersioneDaFile(f);
+  }); })();
   document.getElementById("importFile").addEventListener("change", function(e){
     var f=e.target.files && e.target.files[0]; e.target.value="";
     if(!f) return;
@@ -42476,7 +42681,11 @@ function invitoInviataTesto(st, foreign){
   var n=versioneDaTitolo(st.titolo); n=(typeof st.versione==="number" && st.versione>=1) ? st.versione : n;
   return n ? "Segna la v"+n+" come Inviata" : "Segna come Inviata";
 }
+function avvisoVersioniAggiorna(corrente){
+  var box=document.getElementById("shareAvvisoVersioni"); if(box) box.hidden=!(corrente!==false && VARIANTS.length>1 && !foreignDoc());
+}
 function invitoInviataAggiorna(corrente){
+  avvisoVersioniAggiorna(corrente);
   var box=document.getElementById("shareInvitoInviata"); if(!box) return;
   var t=corrente===false ? "" : invitoInviataTesto(state, foreignDoc());
   box.hidden=!t; var b=document.getElementById("shareSegnaInviata"); if(b && t) b.textContent=t;
@@ -47235,6 +47444,29 @@ function maybeAskStageSize(explicit){
     } else fetchAndOpen();
   }
 
+  /* Versioni L2 (25/11/2026): prima di aggiungere una versione si guarda se il progetto aperto è ancora quello del cloud.
+     cb({esito:"ok"|"conflitto"|"errore", condiviso:bool}). Una rev diversa apre la barra di conflitto (stessa strada di Condividi) e NON si crea niente;
+     un errore di rete lascia lavorare in locale (il salvataggio condizionale protegge comunque il cloud). Del link si dice solo SE c'è, mai il token. */
+  function allineaProgetto(cb){
+    if(!sb || !cloudUser || !cloudCurrentId){ cb({esito:"ok", condiviso:false}); return; }
+    var id=cloudCurrentId, requestUser=cloudUser.id, requestAuth=authGeneration;
+    sb.from("stageplot_projects").select("updated_at,share_token").eq("id",id).maybeSingle().then(function(r){
+      if(!authStill(requestUser,requestAuth) || cloudCurrentId!==id) return;
+      if(!r || r.error || !r.data){ cb({esito:"errore", condiviso:false}); return; }
+      if(cloudRev && r.data.updated_at!==cloudRev){ enterConflict(); cb({esito:"conflitto", condiviso:false}); return; }
+      cb({esito:"ok", condiviso:!!(typeof r.data.share_token==="string" && r.data.share_token)});
+    }, function(){ if(authStill(requestUser,requestAuth) && cloudCurrentId===id) cb({esito:"errore", condiviso:false}); });
+  }
+  /* Un progetto nuovo dal documento già pronto (Duplica come nuovo progetto): stesso INSERT di «Duplica», nessun token di condivisione. cb(id) oppure cb(null, messaggio) */
+  function creaProgettoDa(spec, cb){
+    if(!sb || !cloudUser){ cb(null); return; }
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
+    sb.from("stageplot_projects").insert({ user_id:requestUser, schema_version:SCHEMA_VERSION, title:String((spec&&spec.title)||"Senza titolo").slice(0,120), data:(spec&&spec.data), venue_image:(spec&&spec.venue_image)||null }).select("id").single().then(function(w){
+      if(!authStill(requestUser,requestAuth)){ cb(null); return; }
+      if(w.error || !w.data || !/^[0-9a-f-]{36}$/i.test(String(w.data.id))){ cb(null, w.error&&w.error.message); return; }
+      loadProjects(); cb(w.data.id);
+    }, function(e){ cb(null, e&&e.message); });
+  }
   /* Duplica (richiesta Simone 08/07): copia integrale del progetto con titolo " — copia" */
   function dupProject(id){
     if(!sb || !cloudUser) return;
@@ -47785,6 +48017,7 @@ function maybeAskStageSize(explicit){
     salvaFunzioni: salvaFunzioniAccount,
     currentId: function(){ return cloudCurrentId; },
     currentRev: function(){ return cloudRev; },
+    allinea: allineaProgetto, creaProgetto: creaProgettoDa, open: openProject,   /* Versioni L2 */
     isWriting: function(){ return cloudWriteBusy||!!cloudWriteQueue.length; },
     whenIdle: function(cb){ if(!cloudWriteBusy&&!cloudWriteQueue.length) cb(); else cloudWriteIdleWaiters.push(cb); },
     setCurrentId: function(v){ cloudCurrentId=v; if(!v){ setRev(null); _lastCloudImgSig=null; exitConflict(); if(window.applyProjLock) window.applyProjLock(false); } orcSeatsSync(); },
