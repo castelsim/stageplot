@@ -1,0 +1,1062 @@
+[
+ {
+  "nome": "chiave valida su Inviata con bozza più nuova: niente avviso",
+  "doc": {
+   "_doc": 1,
+   "active": "a3",
+   "variants": [
+    {
+     "id": "a1",
+     "name": "Versione 1",
+     "state": {
+      "status": "superato",
+      "label": "state-a1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "a2",
+     "name": "Versione 2",
+     "state": {
+      "status": "revisione",
+      "label": "state-a2",
+      "versione": 2
+     }
+    },
+    {
+     "id": "a3",
+     "name": "Versione 3",
+     "state": {
+      "status": "bozza",
+      "label": "state-a3",
+      "versione": 3
+     }
+    }
+   ],
+   "shareLinks": {
+    "AAAAAAAAAAAAAAAAAAAAAA": {
+     "v": "a2",
+     "at": "2026-11-20"
+    }
+   }
+  },
+  "chiave": "AAAAAAAAAAAAAAAAAAAAAA",
+  "atteso": {
+   "id": "a2",
+   "piuRecente": false
+  }
+ },
+ {
+  "nome": "chiave su Superata: avviso",
+  "doc": {
+   "_doc": 1,
+   "active": "a3",
+   "variants": [
+    {
+     "id": "a1",
+     "name": "Versione 1",
+     "state": {
+      "status": "superato",
+      "label": "state-a1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "a2",
+     "name": "Versione 2",
+     "state": {
+      "status": "revisione",
+      "label": "state-a2",
+      "versione": 2
+     }
+    },
+    {
+     "id": "a3",
+     "name": "Versione 3",
+     "state": {
+      "status": "bozza",
+      "label": "state-a3",
+      "versione": 3
+     }
+    }
+   ],
+   "shareLinks": {
+    "BBBBBBBBBBBBBBBBBBBBBB": {
+     "v": "a1",
+     "at": "2026-11-10"
+    }
+   }
+  },
+  "chiave": "BBBBBBBBBBBBBBBBBBBBBB",
+  "atteso": {
+   "id": "a1",
+   "piuRecente": true
+  }
+ },
+ {
+  "nome": "Inviata con un'Approvata più alta: avviso",
+  "doc": {
+   "_doc": 1,
+   "active": "a3",
+   "variants": [
+    {
+     "id": "a1",
+     "name": "Versione 1",
+     "state": {
+      "status": "revisione",
+      "label": "state-a1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "a2",
+     "name": "Versione 2",
+     "state": {
+      "status": "approvato",
+      "label": "state-a2",
+      "versione": 2
+     }
+    },
+    {
+     "id": "a3",
+     "name": "Versione 3",
+     "state": {
+      "status": "bozza",
+      "label": "state-a3",
+      "versione": 3
+     }
+    }
+   ],
+   "shareLinks": {
+    "CCCCCCCCCCCCCCCCCCCCCC": {
+     "v": "a1",
+     "at": "x"
+    }
+   }
+  },
+  "chiave": "CCCCCCCCCCCCCCCCCCCCCC",
+  "atteso": {
+   "id": "a1",
+   "piuRecente": true
+  }
+ },
+ {
+  "nome": "la più alta Approvata: nessun avviso",
+  "doc": {
+   "_doc": 1,
+   "active": "a3",
+   "variants": [
+    {
+     "id": "a1",
+     "name": "Versione 1",
+     "state": {
+      "status": "revisione",
+      "label": "state-a1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "a2",
+     "name": "Versione 2",
+     "state": {
+      "status": "approvato",
+      "label": "state-a2",
+      "versione": 2
+     }
+    },
+    {
+     "id": "a3",
+     "name": "Versione 3",
+     "state": {
+      "status": "bozza",
+      "label": "state-a3",
+      "versione": 3
+     }
+    }
+   ],
+   "shareLinks": {
+    "DDDDDDDDDDDDDDDDDDDDDD": {
+     "v": "a2",
+     "at": "x"
+    }
+   }
+  },
+  "chiave": "DDDDDDDDDDDDDDDDDDDDDD",
+  "atteso": {
+   "id": "a2",
+   "piuRecente": false
+  }
+ },
+ {
+  "nome": "chiave ignota: errore, nessun ripiego",
+  "doc": {
+   "_doc": 1,
+   "active": "a2",
+   "variants": [
+    {
+     "id": "a1",
+     "name": "Versione 1",
+     "state": {
+      "status": "revisione",
+      "label": "state-a1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "a2",
+     "name": "Versione 2",
+     "state": {
+      "status": "approvato",
+      "label": "state-a2",
+      "versione": 2
+     }
+    },
+    {
+     "id": "a3",
+     "name": "Versione 3",
+     "state": {
+      "status": "bozza",
+      "label": "state-a3",
+      "versione": 3
+     }
+    }
+   ],
+   "shareLinks": {
+    "DDDDDDDDDDDDDDDDDDDDDD": {
+     "v": "a2",
+     "at": "x"
+    }
+   }
+  },
+  "chiave": "ZZZZZZZZZZZZZZZZZZZZZZ",
+  "atteso": {
+   "errore": "chiave_sconosciuta"
+  }
+ },
+ {
+  "nome": "chiave di versione eliminata: errore",
+  "doc": {
+   "_doc": 1,
+   "active": "a2",
+   "variants": [
+    {
+     "id": "a1",
+     "name": "Versione 1",
+     "state": {
+      "status": "revisione",
+      "label": "state-a1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "a2",
+     "name": "Versione 2",
+     "state": {
+      "status": "approvato",
+      "label": "state-a2",
+      "versione": 2
+     }
+    },
+    {
+     "id": "a3",
+     "name": "Versione 3",
+     "state": {
+      "status": "bozza",
+      "label": "state-a3",
+      "versione": 3
+     }
+    }
+   ],
+   "shareLinks": {
+    "EEEEEEEEEEEEEEEEEEEEEE": {
+     "v": "a9",
+     "at": "x"
+    }
+   }
+  },
+  "chiave": "EEEEEEEEEEEEEEEEEEEEEE",
+  "atteso": {
+   "errore": "chiave_sconosciuta"
+  }
+ },
+ {
+  "nome": "chiave senza shareLinks nel documento: errore",
+  "doc": {
+   "_doc": 1,
+   "active": "a2",
+   "variants": [
+    {
+     "id": "a1",
+     "name": "Versione 1",
+     "state": {
+      "status": "revisione",
+      "label": "state-a1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "a2",
+     "name": "Versione 2",
+     "state": {
+      "status": "approvato",
+      "label": "state-a2",
+      "versione": 2
+     }
+    },
+    {
+     "id": "a3",
+     "name": "Versione 3",
+     "state": {
+      "status": "bozza",
+      "label": "state-a3",
+      "versione": 3
+     }
+    }
+   ]
+  },
+  "chiave": "DDDDDDDDDDDDDDDDDDDDDD",
+  "atteso": {
+   "errore": "chiave_sconosciuta"
+  }
+ },
+ {
+  "nome": "chiave __proto__ non pesca dal prototipo",
+  "doc": {
+   "_doc": 1,
+   "active": "a2",
+   "variants": [
+    {
+     "id": "a1",
+     "name": "Versione 1",
+     "state": {
+      "status": "revisione",
+      "label": "state-a1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "a2",
+     "name": "Versione 2",
+     "state": {
+      "status": "approvato",
+      "label": "state-a2",
+      "versione": 2
+     }
+    },
+    {
+     "id": "a3",
+     "name": "Versione 3",
+     "state": {
+      "status": "bozza",
+      "label": "state-a3",
+      "versione": 3
+     }
+    }
+   ],
+   "shareLinks": {}
+  },
+  "chiave": "__proto__",
+  "atteso": {
+   "errore": "chiave_sconosciuta"
+  }
+ },
+ {
+  "nome": "chiave di forma non valida: errore",
+  "doc": {
+   "_doc": 1,
+   "active": "a2",
+   "variants": [
+    {
+     "id": "a1",
+     "name": "Versione 1",
+     "state": {
+      "status": "revisione",
+      "label": "state-a1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "a2",
+     "name": "Versione 2",
+     "state": {
+      "status": "approvato",
+      "label": "state-a2",
+      "versione": 2
+     }
+    },
+    {
+     "id": "a3",
+     "name": "Versione 3",
+     "state": {
+      "status": "bozza",
+      "label": "state-a3",
+      "versione": 3
+     }
+    }
+   ],
+   "shareLinks": {
+    "a b": {
+     "v": "a2",
+     "at": "x"
+    }
+   }
+  },
+  "chiave": "a b",
+  "atteso": {
+   "errore": "chiave_sconosciuta"
+  }
+ },
+ {
+  "nome": "stato piatto con chiave: errore",
+  "doc": {
+   "titolo": "Live"
+  },
+  "chiave": "AAAAAAAAAAAAAAAAAAAAAA",
+  "atteso": {
+   "errore": "chiave_sconosciuta"
+  }
+ },
+ {
+  "nome": "stato piatto senza chiave: stato intero",
+  "doc": {
+   "titolo": "Live"
+  },
+  "chiave": null,
+  "atteso": {
+   "id": null,
+   "piuRecente": false
+  }
+ },
+ {
+  "nome": "nudo con shareLegacy: quella versione ferma",
+  "doc": {
+   "_doc": 1,
+   "active": "a3",
+   "variants": [
+    {
+     "id": "a1",
+     "name": "Versione 1",
+     "state": {
+      "status": "superato",
+      "label": "state-a1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "a2",
+     "name": "Versione 2",
+     "state": {
+      "status": "revisione",
+      "label": "state-a2",
+      "versione": 2
+     }
+    },
+    {
+     "id": "a3",
+     "name": "Versione 3",
+     "state": {
+      "status": "bozza",
+      "label": "state-a3",
+      "versione": 3
+     }
+    }
+   ],
+   "shareLegacy": "a2"
+  },
+  "chiave": null,
+  "atteso": {
+   "id": "a2",
+   "piuRecente": false
+  }
+ },
+ {
+  "nome": "nudo con shareLegacy Superata: avviso",
+  "doc": {
+   "_doc": 1,
+   "active": "a3",
+   "variants": [
+    {
+     "id": "a1",
+     "name": "Versione 1",
+     "state": {
+      "status": "superato",
+      "label": "state-a1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "a2",
+     "name": "Versione 2",
+     "state": {
+      "status": "revisione",
+      "label": "state-a2",
+      "versione": 2
+     }
+    },
+    {
+     "id": "a3",
+     "name": "Versione 3",
+     "state": {
+      "status": "bozza",
+      "label": "state-a3",
+      "versione": 3
+     }
+    }
+   ],
+   "shareLegacy": "a1"
+  },
+  "chiave": null,
+  "atteso": {
+   "id": "a1",
+   "piuRecente": true
+  }
+ },
+ {
+  "nome": "nudo con shareLegacy eliminata: errore",
+  "doc": {
+   "_doc": 1,
+   "active": "a3",
+   "variants": [
+    {
+     "id": "a1",
+     "name": "Versione 1",
+     "state": {
+      "status": "superato",
+      "label": "state-a1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "a2",
+     "name": "Versione 2",
+     "state": {
+      "status": "revisione",
+      "label": "state-a2",
+      "versione": 2
+     }
+    },
+    {
+     "id": "a3",
+     "name": "Versione 3",
+     "state": {
+      "status": "bozza",
+      "label": "state-a3",
+      "versione": 3
+     }
+    }
+   ],
+   "shareLegacy": "zz"
+  },
+  "chiave": null,
+  "atteso": {
+   "errore": "chiave_sconosciuta"
+  }
+ },
+ {
+  "nome": "nudo con shareLegacy false: link incompleto",
+  "doc": {
+   "_doc": 1,
+   "active": "a3",
+   "variants": [
+    {
+     "id": "a1",
+     "name": "Versione 1",
+     "state": {
+      "status": "superato",
+      "label": "state-a1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "a2",
+     "name": "Versione 2",
+     "state": {
+      "status": "revisione",
+      "label": "state-a2",
+      "versione": 2
+     }
+    },
+    {
+     "id": "a3",
+     "name": "Versione 3",
+     "state": {
+      "status": "bozza",
+      "label": "state-a3",
+      "versione": 3
+     }
+    }
+   ],
+   "shareLegacy": false
+  },
+  "chiave": null,
+  "atteso": {
+   "errore": "link_incompleto"
+  }
+ },
+ {
+  "nome": "nudo senza legacy: ultima Inviata/Approvata, la bozza non esce",
+  "doc": {
+   "_doc": 1,
+   "active": "a3",
+   "variants": [
+    {
+     "id": "a1",
+     "name": "Versione 1",
+     "state": {
+      "status": "superato",
+      "label": "state-a1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "a2",
+     "name": "Versione 2",
+     "state": {
+      "status": "revisione",
+      "label": "state-a2",
+      "versione": 2
+     }
+    },
+    {
+     "id": "a3",
+     "name": "Versione 3",
+     "state": {
+      "status": "bozza",
+      "label": "state-a3",
+      "versione": 3
+     }
+    }
+   ]
+  },
+  "chiave": null,
+  "atteso": {
+   "id": "a2",
+   "piuRecente": false
+  }
+ },
+ {
+  "nome": "nudo senza legacy: la più alta tra Inviata e Approvata",
+  "doc": {
+   "_doc": 1,
+   "active": "a3",
+   "variants": [
+    {
+     "id": "a1",
+     "name": "Versione 1",
+     "state": {
+      "status": "revisione",
+      "label": "state-a1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "a2",
+     "name": "Versione 2",
+     "state": {
+      "status": "approvato",
+      "label": "state-a2",
+      "versione": 2
+     }
+    },
+    {
+     "id": "a3",
+     "name": "Versione 3",
+     "state": {
+      "status": "bozza",
+      "label": "state-a3",
+      "versione": 3
+     }
+    }
+   ]
+  },
+  "chiave": null,
+  "atteso": {
+   "id": "a2",
+   "piuRecente": false
+  }
+ },
+ {
+  "nome": "nudo a pari numero: l'ultima nell'elenco",
+  "doc": {
+   "_doc": 1,
+   "active": "p3",
+   "variants": [
+    {
+     "id": "p1",
+     "name": "Alfa",
+     "state": {
+      "status": "revisione",
+      "label": "state-p1",
+      "versione": 2
+     }
+    },
+    {
+     "id": "p2",
+     "name": "Beta",
+     "state": {
+      "status": "approvato",
+      "label": "state-p2",
+      "versione": 2
+     }
+    },
+    {
+     "id": "p3",
+     "name": "Bozza",
+     "state": {
+      "status": "bozza",
+      "label": "state-p3",
+      "versione": 5
+     }
+    }
+   ]
+  },
+  "chiave": null,
+  "atteso": {
+   "id": "p2",
+   "piuRecente": false
+  }
+ },
+ {
+  "nome": "nudo versione unica Bozza: active come oggi",
+  "doc": {
+   "_doc": 1,
+   "active": "u1",
+   "variants": [
+    {
+     "id": "u1",
+     "name": "Versione 1",
+     "state": {
+      "status": "bozza",
+      "label": "state-u1",
+      "versione": 1
+     }
+    }
+   ]
+  },
+  "chiave": null,
+  "atteso": {
+   "id": "u1",
+   "piuRecente": false
+  }
+ },
+ {
+  "nome": "nudo solo bozze: active come oggi",
+  "doc": {
+   "_doc": 1,
+   "active": "u1",
+   "variants": [
+    {
+     "id": "u1",
+     "name": "Versione 1",
+     "state": {
+      "status": "bozza",
+      "label": "state-u1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "u2",
+     "name": "Versione 2",
+     "state": {
+      "status": "bozza",
+      "label": "state-u2",
+      "versione": 2
+     }
+    }
+   ]
+  },
+  "chiave": null,
+  "atteso": {
+   "id": "u1",
+   "piuRecente": false
+  }
+ },
+ {
+  "nome": "nudo, nessuna Inviata, solo Superata: active",
+  "doc": {
+   "_doc": 1,
+   "active": "u2",
+   "variants": [
+    {
+     "id": "u1",
+     "name": "Versione 1",
+     "state": {
+      "status": "superato",
+      "label": "state-u1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "u2",
+     "name": "Versione 2",
+     "state": {
+      "status": "bozza",
+      "label": "state-u2",
+      "versione": 2
+     }
+    }
+   ]
+  },
+  "chiave": null,
+  "atteso": {
+   "id": "u2",
+   "piuRecente": false
+  }
+ },
+ {
+  "nome": "numero dal titolo (vN) e senza campo versione",
+  "doc": {
+   "_doc": 1,
+   "active": "t2",
+   "variants": [
+    {
+     "id": "t1",
+     "name": "Primo",
+     "state": {
+      "status": "revisione",
+      "label": "state-t1",
+      "titolo": "Live v1"
+     }
+    },
+    {
+     "id": "t2",
+     "name": "Secondo",
+     "state": {
+      "status": "revisione",
+      "label": "state-t2",
+      "titolo": "Live v2"
+     }
+    }
+   ],
+   "shareLinks": {
+    "FFFFFFFFFFFFFFFFFFFFFF": {
+     "v": "t1",
+     "at": "x"
+    }
+   }
+  },
+  "chiave": "FFFFFFFFFFFFFFFFFFFFFF",
+  "atteso": {
+   "id": "t1",
+   "piuRecente": true
+  }
+ },
+ {
+  "nome": "nome libero senza numero: non ha un «più nuovo»",
+  "doc": {
+   "_doc": 1,
+   "active": "n2",
+   "variants": [
+    {
+     "id": "n1",
+     "name": "Primo tempo",
+     "state": {
+      "status": "revisione",
+      "label": "state-n1"
+     }
+    },
+    {
+     "id": "n2",
+     "name": "Secondo tempo",
+     "state": {
+      "status": "revisione",
+      "label": "state-n2",
+      "versione": 5
+     }
+    }
+   ],
+   "shareLinks": {
+    "GGGGGGGGGGGGGGGGGGGGGG": {
+     "v": "n1",
+     "at": "x"
+    }
+   }
+  },
+  "chiave": "GGGGGGGGGGGGGGGGGGGGGG",
+  "atteso": {
+   "id": "n1",
+   "piuRecente": false
+  }
+ },
+ {
+  "nome": "nome di serie senza campo versione: vale la posizione",
+  "doc": {
+   "_doc": 1,
+   "active": "s2",
+   "variants": [
+    {
+     "id": "s1",
+     "name": "Versione 1",
+     "state": {
+      "status": "revisione",
+      "label": "state-s1"
+     }
+    },
+    {
+     "id": "s2",
+     "name": "Versione 2",
+     "state": {
+      "status": "approvato",
+      "label": "state-s2"
+     }
+    }
+   ],
+   "shareLinks": {
+    "HHHHHHHHHHHHHHHHHHHHHH": {
+     "v": "s1",
+     "at": "x"
+    }
+   }
+  },
+  "chiave": "HHHHHHHHHHHHHHHHHHHHHH",
+  "atteso": {
+   "id": "s1",
+   "piuRecente": true
+  }
+ },
+ {
+  "nome": "Bozza condivisa con un'Inviata più alta: avviso",
+  "doc": {
+   "_doc": 1,
+   "active": "b1",
+   "variants": [
+    {
+     "id": "b1",
+     "name": "Versione 1",
+     "state": {
+      "status": "bozza",
+      "label": "state-b1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "b2",
+     "name": "Versione 2",
+     "state": {
+      "status": "revisione",
+      "label": "state-b2",
+      "versione": 2
+     }
+    }
+   ],
+   "shareLinks": {
+    "IIIIIIIIIIIIIIIIIIIIII": {
+     "v": "b1",
+     "at": "x"
+    }
+   }
+  },
+  "chiave": "IIIIIIIIIIIIIIIIIIIIII",
+  "atteso": {
+   "id": "b1",
+   "piuRecente": true
+  }
+ },
+ {
+  "nome": "voce shareLinks malformata: errore",
+  "doc": {
+   "_doc": 1,
+   "active": "a2",
+   "variants": [
+    {
+     "id": "a1",
+     "name": "Versione 1",
+     "state": {
+      "status": "revisione",
+      "label": "state-a1",
+      "versione": 1
+     }
+    },
+    {
+     "id": "a2",
+     "name": "Versione 2",
+     "state": {
+      "status": "approvato",
+      "label": "state-a2",
+      "versione": 2
+     }
+    },
+    {
+     "id": "a3",
+     "name": "Versione 3",
+     "state": {
+      "status": "bozza",
+      "label": "state-a3",
+      "versione": 3
+     }
+    }
+   ],
+   "shareLinks": {
+    "JJJJJJJJJJJJJJJJJJJJJJ": "a2"
+   }
+  },
+  "chiave": "JJJJJJJJJJJJJJJJJJJJJJ",
+  "atteso": {
+   "errore": "chiave_sconosciuta"
+  }
+ },
+ {
+  "nome": "Superata senza altra Inviata (la superante è tornata Bozza): avviso comunque",
+  "doc": {
+   "_doc": 1,
+   "active": "s2",
+   "shareLinks": {
+    "KKKKKKKKKKKKKKKKKKKKKK": {
+     "v": "s1",
+     "at": "x"
+    }
+   },
+   "variants": [
+    {
+     "id": "s1",
+     "name": "Versione 1",
+     "state": {
+      "status": "superato",
+      "versione": 1
+     }
+    },
+    {
+     "id": "s2",
+     "name": "Versione 2",
+     "state": {
+      "status": "bozza",
+      "versione": 2
+     }
+    }
+   ]
+  },
+  "chiave": "KKKKKKKKKKKKKKKKKKKKKK",
+  "atteso": {
+   "id": "s1",
+   "piuRecente": true
+  }
+ },
+ {
+  "nome": "nudo, progetto vecchio a più scene senza status: active come oggi",
+  "doc": {
+   "_doc": 1,
+   "active": "o1",
+   "variants": [
+    {
+     "id": "o1",
+     "name": "Prima parte",
+     "state": {
+      "label": "state-o1"
+     }
+    },
+    {
+     "id": "o2",
+     "name": "Variante 2",
+     "state": {
+      "label": "state-o2"
+     }
+    }
+   ]
+  },
+  "chiave": null,
+  "atteso": {
+   "id": "o1",
+   "piuRecente": false
+  }
+ }
+]
