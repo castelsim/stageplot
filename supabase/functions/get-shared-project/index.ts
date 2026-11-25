@@ -4,6 +4,7 @@ import { consultationShareIsActive } from "../_shared/consultation-access.ts";
 import {
   projectDataForPublicShare,
   projectVenueForPublicShare,
+  rispostaProgettoCondiviso,
 } from "../_shared/project-sharing.ts";
 import { serviceRoleKey } from "../_shared/service-role-key.ts";
 
@@ -33,6 +34,7 @@ Deno.serve(async (req) => {
   const params = new URL(req.url).searchParams;
   const token = params.get("token");
   const since = params.get("since");
+  const chiave = params.get("v"); // link fisso a una versione (25/11/2026); vuoto = link «nudo»
   if (!token || token.length > 200) {
     return json({ error: "token mancante o non valido" }, 400);
   }
@@ -41,6 +43,10 @@ Deno.serve(async (req) => {
     (since.length > 100 || !Number.isFinite(Date.parse(since)))
   ) {
     return json({ error: "revisione non valida" }, 400);
+  }
+
+  if (chiave !== null && (chiave.length > 64 || chiave === "")) {
+    return json({ error: "chiave non valida" }, 400);
   }
 
   const supabase = createClient(
@@ -107,7 +113,7 @@ Deno.serve(async (req) => {
     if (!revision?.updated_at) {
       return json({ error: "progetto non trovato" }, 404);
     }
-    if (revision.updated_at === since) {
+    if (revision.updated_at === since && !(kind === "project" && chiave)) {
       return json({ updated_at: revision.updated_at, unchanged: true, kind });
     }
   }
@@ -123,16 +129,28 @@ Deno.serve(async (req) => {
   }
   if (!proj) return json({ error: "progetto non trovato" }, 404);
 
-  // venue_image (colonna dedicata, 0013): la planimetria non sta più dentro `data`; ritornala così il viewer la mostra.
+  // Link fisso (25/11/2026): per i progetti condivisi la versione la sceglie la chiave `v`, mai un ripiego.
   const fullConsultation = kind === "consultation" && consultationAdmin;
-  const responseData = fullConsultation
-    ? proj.data
-    : projectDataForPublicShare(proj.data, {
-      allowContacts: kind === "project" && !proj.is_locked,
-    });
-  const responseVenue = fullConsultation
-    ? proj.venue_image
-    : projectVenueForPublicShare(proj.venue_image, proj.data);
+  let responseData: unknown;
+  let responseVenue: unknown;
+  let piuRecente: boolean | undefined;
+  if (kind === "project") {
+    const risposta = rispostaProgettoCondiviso(proj, { chiave });
+    if ("errore" in risposta) {
+      return json({ error: "non trovato", code: risposta.errore }, 404);
+    }
+    responseData = risposta.data;
+    responseVenue = risposta.venue_image;
+    piuRecente = risposta.piuRecente;
+  } else {
+    // venue_image (colonna dedicata, 0013): la planimetria non sta più dentro `data`; ritornala così il viewer la mostra.
+    responseData = fullConsultation
+      ? proj.data
+      : projectDataForPublicShare(proj.data, { allowContacts: false });
+    responseVenue = fullConsultation
+      ? proj.venue_image
+      : projectVenueForPublicShare(proj.venue_image, proj.data);
+  }
   return json({
     data: responseData,
     title: proj.title,
@@ -140,5 +158,6 @@ Deno.serve(async (req) => {
     venue_image: responseVenue,
     is_locked: !!proj.is_locked,
     kind,
+    ...(piuRecente === undefined ? {} : { piuRecente }),
   });
 });
