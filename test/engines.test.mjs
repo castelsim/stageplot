@@ -42020,6 +42020,86 @@ t("Versioni L4 · note della rilettura: N1 catalogo «Elementi di questo progett
   const i = appjs.indexOf("function custEditorClasse"); ok(i > 0 && /cambioBannerAggiorna\(\)/.test(appjs.slice(i, i + 700)), "N3: chiudendo l'editor il banner dei cambi si aggiorna");
 });
 
+/* ===== SCRITTE DI ZONA MAI SOVRAPPOSTE AI NOMI (25/11/2026, «PICCOLI 25-11»): su un palco stretto (carro, 2 m) i nomi degli elementi
+   sul bordo davanti («SX», «DX», «SUB SX 2x18») finivano sotto «PUBBLICO» (vista e PDF). Se c'è urto, la scritta scende sotto il
+   nome; senza urto resta a D+38 (markup e PDF identici a prima). ===== */
+console.log("\nScritte di zona che non si sovrappongono ai nomi:");
+{
+  const rettPubblico = (k, y) => { const fp = 16 * k, w = A.lblTextW(A.docZona("PUBBLICO"), fp) + 16 * k, W = A.state.stage.w; return { x0: W / 2 - w / 2, y0: y - 0.75 * fp, x1: W / 2 + w / 2, y1: y + 0.25 * fp }; };
+  const urta = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+  const carro = () => { reset(); A.applyStageSize(2, 2, false); const a = add("sub18", 30, 190); a.label = "SUB SX 2x18"; const b = add("sub18", 170, 190); b.label = "SUB DX 2x18"; return [a, b]; };
+  t("zone: palco 2 m con i nomi sul bordo davanti: «PUBBLICO» a schermo non tocca nessun nome", () => {
+    carro(); const D = 200, y = zonaY(A.stageLayerMarkup(), "PUBBLICO");
+    ok(y > D + 38, "scesa sotto la posizione di sempre (" + y + ")");
+    A.state.items.forEach((it) => ok(!urta(rettPubblico(1, y), A.ingombroStampa(it, 1)), "niente urto con " + it.label));
+  });
+  t("zone: lo stesso nel PDF (zoneLblY) a 1:100 e a 1:200, col corpo del foglio", () => {
+    carro();
+    [100, 200].forEach((N) => { const k = A.pdfTextK(N), y = A.zoneLblY("", k, 200).p;
+      A.state.items.forEach((it) => ok(!urta(rettPubblico(k, y), A.ingombroStampa(it, k)), "N=" + N + " niente urto con " + it.label)); });
+  });
+  t("zone: senza urto PUBBLICO e FONDO PALCO restano a D+38 e -42 (palco 8×6 con un elemento lontano)", () => {
+    reset(); A.applyStageSize(8, 6, false); add("batteria", 400, 200);
+    const mk = A.stageLayerMarkup(); eq([zonaY(mk, "FONDO PALCO"), zonaY(mk, "PUBBLICO")], [-42, 638], "posizioni di sempre");
+    eq(A.zoneLblY("", 1, 600), { f: -42, p: 638 }, "anche nel PDF");
+  });
+  t("zone: FOH e platea (in sala per definizione) non spostano «PUBBLICO»", () => {
+    reset(); A.applyStageSize(2, 2, false); const f = add("foh", 100, 215); f.label = "REGIA FOH LUNGA";
+    eq(zonaY(A.stageLayerMarkup(), "PUBBLICO"), 238, "il FOH sta in sala");
+  });
+  t("zone: la scritta scesa ci sta nel limite di scena a schermo e nel riquadro di stampa", () => {
+    carro(); const y = zonaY(A.stageLayerMarkup(), "PUBBLICO"), dec = A.stageDecorBounds();
+    ok(dec.y1 >= y + 4, "stageDecorBounds la contiene (" + dec.y1 + " ≥ " + (y + 4) + ")");
+    [100, 200, 500].forEach((N) => { const k = A.pdfTextK(N), S = A.printScene(k), yp = A.zoneLblY("", k, 200).p;
+      ok(S.F.y + S.F.h >= yp + 0.25 * 16 * k, "N=" + N + ": il riquadro di stampa contiene PUBBLICO (" + (S.F.y + S.F.h) + " ≥ " + (yp + 0.25 * 16 * k) + ")"); });
+  });
+  reset();
+}
+/* ===== IMPORTA JSON PORTA LA PLANIMETRIA (25/11/2026, «PICCOLI 25-11»): un file con la planimetria a parte (riga del cloud:
+   {data, venue_image}, o documento con `venue_image` accanto) apre il progetto con lo STESSO sfondo e la stessa scala; senza
+   planimetria o con una non valida, nessun errore. ===== */
+console.log("\nImporta JSON e planimetria:");
+{
+  const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  const prepara = () => { reset(); A.applyStageSize(6, 4, false); add("batteria", 300, 200);
+    A.state.venue = { enabled: true, locked: true, name: "Pianta prova", x: 310, y: 190, w: 1234, h: 876, rot: 0, opacity: 34, calibration: null, _dataUrl: PNG, _imgW: 1, _imgH: 1 };
+    A.syncActiveVariant && A.syncActiveVariant();
+    const doc = JSON.parse(A.docToJSONFull()); const vid = doc.variants[0].id;
+    const bundle = { _venueDoc: 1, active: vid, images: { [vid]: { name: "Pianta prova", _dataUrl: PNG, _imgW: 1, _imgH: 1 } } };
+    doc.variants.forEach((v) => { delete v.state.venue._dataUrl; delete v.state.venue._imgW; delete v.state.venue._imgH; });   /* come nel cloud: il blob leggero non ha la bitmap */
+    return { doc, bundle, vid }; };
+  const apri = (file) => { reset(); A.loadDoc(A.importaDocumentoDaFile(file)); return A.state.venue; };
+  t("import: riga del cloud {data, venue_image (testo)} → stesso sfondo, stessa scala e posizione", () => {
+    const { doc, bundle, vid } = prepara(); const v = apri({ data: doc, venue_image: JSON.stringify(bundle) });
+    ok(v && v._dataUrl === PNG, "la bitmap c'è"); eq([v.x, v.y, v.w, v.h, v.opacity], [310, 190, 1234, 876, 34], "scala e posizione uguali");
+    ok(A.venueImgCache && A.venueImgCache[A.activeVar] && A.venueImgCache[A.activeVar]._dataUrl === PNG, "anche in cache (si salva e si riapre)");
+  });
+  t("import: documento con `venue_image` accanto (oggetto) → sfondo presente, il campo non finisce nel documento", () => {
+    const { doc, bundle } = prepara(); doc.venue_image = bundle; const v = apri(doc);
+    ok(v && v._dataUrl === PNG, "la bitmap c'è"); ok(!/venue_image/.test(A.docToJSON()), "venue_image non entra nel progetto");
+  });
+  t("import: planimetria già dentro il file (export completo) → invariato", () => {
+    prepara(); reset(); A.applyStageSize(6, 4, false); A.state.venue = { enabled: true, locked: true, name: "P", x: 5, y: 6, w: 700, h: 500, rot: 0, opacity: 30, calibration: null, _dataUrl: PNG, _imgW: 1, _imgH: 1 };
+    const full = JSON.parse(A.docToJSONFull()); const v = apri(full); ok(v && v._dataUrl === PNG, "bitmap"); eq([v.x, v.y, v.w, v.h], [5, 6, 700, 500], "scala");
+  });
+  t("import: file senza planimetria o con venue_image rotta/vuota → si apre lo stesso, senza errori e senza sfondo", () => {
+    const { doc } = prepara();
+    [undefined, null, "", "non json", { _venueDoc: 1, images: { x: { _dataUrl: "javascript:alert(1)" } } }, 42].forEach((vi) => {
+      const f = JSON.parse(JSON.stringify(doc)); if (vi !== undefined) f.venue_image = vi;
+      let v; try { v = apri(f); } catch (e) { ok(false, "errore con venue_image=" + JSON.stringify(vi) + ": " + e.message); return; }
+      ok(!(v && v._dataUrl), "nessuna bitmap per " + String(JSON.stringify(vi)).slice(0, 30));
+    });
+  });
+  t("import: file senza `venue_image` → documento identico a prima (nessuna modifica)", () => {
+    const { doc } = prepara(); const a = JSON.stringify(A.importaDocumentoDaFile(JSON.parse(JSON.stringify(doc)))); eq(a, JSON.stringify(doc), "stesso JSON");
+  });
+  t("import: scena con `_sameAs` e bundle con una sola immagine → ogni scena prende la sua; la gemella la riprende dalla prima", () => {
+    const { doc, bundle, vid } = prepara(); const v2 = JSON.parse(JSON.stringify(doc.variants[0])); v2.id = "v2gemella"; v2.state.venue._sameAs = vid; doc.variants.push(v2);
+    reset(); A.loadDoc(A.importaDocumentoDaFile({ data: doc, venue_image: bundle }));
+    ok(A.venueImgCache[vid] && A.venueImgCache[vid]._dataUrl === PNG, "prima scena"); ok(A.venueImgCache["v2gemella"] && A.venueImgCache["v2gemella"]._dataUrl === PNG, "gemella");
+  });
+  reset();
+}
 await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
