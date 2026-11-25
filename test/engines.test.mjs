@@ -9306,6 +9306,98 @@ t("la proposta non ripropone cio' che e' gia' sulla postazione", () => {
   eq(p.aggiungere.filter(v => v.key === "ped").length, 0, "niente doppioni");
   ok(p.presenti.some(v => /Pedaliera/.test(v.label)), "va segnalata come gia' presente");
 });
+/* ---- STEREO 25-11: linea stereo (pedaliera / chitarre), DI stereo che serve la tastiera ---- */
+const nomiCh = (it) => A.cabItemInputs(it).map((c) => c.name);
+t("STEREO · default invariato: chitarra/basso senza lineStereo = un solo canale di linea, come prima", () => {
+  reset();
+  const b = add("bassstand", 300, 400);
+  eq(nomiCh(b).length, 1, "basso in DI = 1 canale"); ok(!A.chainOf(b).st, "chainOf.st spento di serie");
+  const g = add("gtstand", 600, 400); g.pedaliera = true; g.tapLine = true; g._chain = 1;
+  eq(nomiCh(g).length, 2, "elettrica con linea + mic ampli = 2 canali (come prima)");
+});
+t("STEREO · linea stereo: 2 canali «… L» / «… R» in DI, nomi chiari", () => {
+  reset();
+  const g = add("gtacustica", 300, 400); g.label = "Chitarra"; g.lineStereo = true;
+  const n = nomiCh(g); eq(n.length, 2, "2 canali: " + n);
+  ok(/Chitarra.*\bL$/.test(n[0]) && /Chitarra.*\bR$/.test(n[1]), "nomi L / R: " + n);
+  eq(A.cabItemInputs(g).map((c) => c.mic), ["DI", "DI"], "mic = DI");
+  const p = add("bassstand", 800, 400); p.pedaliera = true; p.pedXlr = true; p.lineStereo = true; p._chain = 1;
+  eq(A.cabItemInputs(p).map((c) => c.mic), ["XLR", "XLR"], "pedaliera con uscita bilanciata: XLR L/R");
+});
+t("STEREO · con piu' prelievi i nomi dicono quale: «DI L / DI R» + ampli; senza prelievo di linea lineStereo non conta", () => {
+  reset();
+  const g = add("gtstand", 300, 400); g.pedaliera = true; g.tapLine = true; g.lineStereo = true; g._chain = 1;
+  const n = nomiCh(g); eq(n.length, 3, "DI L + DI R + mic ampli: " + n); ok(/DI L/.test(n.join("|")) && /DI R/.test(n.join("|")), n.join("|"));
+  const h = add("gtstand", 700, 400); h.tapLine = false; h.lineStereo = true; h._chain = 1;
+  eq(nomiCh(h).length, 1, "senza linea: solo il mic dell'ampli, lineStereo dorme");
+});
+t("STEREO · la DI generata per una linea stereo e' stereo (2 canali), e lo strumento non conta i canali due volte", () => {
+  reset();
+  const g = add("gtacustica", 300, 400); A.chainToggle(g, "stereo"); ok(g.lineStereo === true, "acceso dal pulsante");
+  const di = A.diLinked(g); ok(di, "DI nata"); eq(A.diCh(di), "stereo", "DI stereo"); eq(A.diChannels(di), 2, "2 canali sulla box");
+  eq(A.itemChannels(g), 2, "lo strumento porta i suoi 2 canali, la DI e' solo una tappa");
+  eq(A.itemChannels(di), 0, "la DI generata non e' una sorgente");
+});
+t("STEREO · una chitarra nata gia' stereo (voce di catalogo) ha subito la sua DI stereo; la voce «DI stereo» nasce stereo con l'ingombro giusto", () => {
+  reset();
+  const g = add("gtacustica", 300, 400, { lineStereo: true, tapLine: true, _chain: 1 }); const di = A.diLinked(g);
+  ok(di, "DI nata con la chitarra"); eq(A.diCh(di), "stereo", "DI stereo"); eq(A.itemChannels(g), 2, "2 canali");
+  const d2 = add("dimono", 600, 400, { diCh: "stereo", w: 19, d: 13 }); eq([A.diChannels(d2), d2.w, d2.d], [2, 19, 13], "DI stereo da catalogo");
+});
+t("STEREO · togliere/mettere lo stereo allinea la DI legata (diSyncCh): strumento stereo = DI stereo", () => {
+  reset();
+  const k = add("tastiera", 300, 400); const di = A.diApply(k); eq(A.diCh(di), "stereo", "tastiera stereo di serie -> DI stereo");
+  k.stereo = false; A.diSyncCh(k); eq(A.diCh(di), "mono", "tastiera mono -> la DI torna mono"); eq(A.itemChannels(k), 1, "1 canale");
+  k.stereo = true; A.diSyncCh(k); eq(A.diCh(di), "stereo", "di nuovo stereo"); eq([di.w, di.d], A.diFootprint(di), "ingombro della DI stereo");
+  ok(/function setStereoSel\(v\)\{[\s\S]{0,300}diSyncCh/.test(appjs), "il pannello Mono/Stereo della tastiera chiama diSyncCh");
+});
+t("STEREO · una DI stereo del catalogo posata/associata a una tastiera mono la fa stereo; una DI mono vicino a una stereo diventa stereo", () => {
+  reset();
+  const lp = add("loopstation", 300, 400); eq(A.itemChannels(lp), 1, "premessa: mono di serie");
+  const di = add("dimono", 330, 420); di.diCh = "stereo";
+  ok(A.diAdopt(di, lp), "associata"); eq(A.itemChannels(lp), 2, "la tastiera/loop ora porta L+R"); eq(A.itemChannels(di), 0, "la DI non dichiara canali suoi");
+  reset();
+  const k = add("tastiera", 300, 400); const dm = add("dimono", 330, 420);
+  A.diAdopt(dm, k); eq(A.diCh(dm), "stereo", "tastiera stereo + DI mono associata: la DI diventa stereo (altrimenti 2 canali su una box da 1)");
+  reset();
+  const g = add("gtacustica", 300, 400); const ds = add("dimono", 330, 420); ds.diCh = "stereo";
+  A.diAdopt(ds, g); eq(nomiCh(g).length, 1, "chitarra con DI stereo associata: come prima, un canale (la linea stereo si accende dal pulsante Stereo)");
+  reset();
+  const k2 = add("tastiera", 300, 400); k2.stereo = false; const dm2 = add("dimono", 330, 420);
+  A.diAdopt(dm2, k2); eq([A.diCh(dm2), A.itemChannels(k2)], ["mono", 1], "DI mono + tastiera mono: nulla cambia");
+});
+t("STEREO · chitarra senza nome: i canali L/R portano il nome dello strumento, mai «L» / «R» da soli", () => {
+  reset();
+  const g = add("gtacustica", 300, 400); g.label = ""; A.chainToggle(g, "stereo");
+  const n = nomiCh(g); eq(n.length, 2, "2 canali: " + n);
+  ok(n.every((x) => /Chitarra acustica/.test(x)), "nome dello strumento nei canali: " + n);
+  ok(/L$/.test(n[0]) && /R$/.test(n[1]), "L poi R: " + n);
+  const e = add("gtstand", 600, 400); e.label = ""; A.chainToggle(e, "stereo");
+  const m = nomiCh(e).filter((x) => /DI [LR]$/.test(x)); eq(m.length, 2, "DI L / DI R: " + nomiCh(e));
+  ok(m.every((x) => /Chitarra elettrica/.test(x)), "anche con piu' prelievi: " + m);
+});
+t("STEREO · ricerca: le voci nuove non tolgono posto ai risultati di sempre (ricerca rapida a 8) e «direct box» resta del DI box", () => {
+  const qa = (q) => A.__qaSearch(q).map((e) => e.nome);
+  ok(qa("chitarra").includes("Stack chitarra"), "chitarra: " + qa("chitarra"));
+  ok(qa("basso").includes("Pedaliera"), "basso: " + qa("basso"));
+  ok(qa("postazione").includes("Postazione FOH") && qa("postazione").includes("Laptop su tavolo"), "postazione: " + qa("postazione"));
+  eq(A.__spSearch("direct box")[0].nome, "DI box", "catalogo «direct box»");
+  eq(qa("direct box")[0], "DI box", "ricerca rapida «direct box»");
+  ok(qa("stereo").includes("DI stereo") && qa("chitarra stereo").length > 0, "le voci stereo si trovano con le loro parole");
+});
+t("STEREO · pannello: pulsante «Stereo» nella catena, voci di catalogo «· stereo» e «DI stereo», lineStereo sopravvive a salva/riapri", () => {
+  ok(/id="pChainSt"/.test(readFileSync(join(root, "index.template.html"), "utf8")), "bottone Stereo nel pannello catena");
+  ok(/chainToggle\(it, what\)[\s\S]{0,900}what==="stereo"/.test(appjs), "chainToggle gestisce «stereo»");
+  ok(/nome:"DI stereo", over:\{diCh:"stereo"/.test(appjs), "voce DI stereo in catalogo/ricerca");
+  ok(/over:\{lineStereo:true,/.test(appjs), "voci «· stereo» per chitarre/basso");
+  reset();
+  const g = add("gtacustica", 300, 400); g.lineStereo = true; g._chain = 1;
+  const out = A.normalizeLoadedItems(JSON.parse(JSON.stringify(A.state.items)));
+  eq(out.find((x) => x.id === g.id).lineStereo, true, "lineStereo conservato");
+  const g2 = add("gtacustica", 500, 400); const back = A.normalizeLoadedItems(JSON.parse(JSON.stringify([g2])));
+  ok(back[0].lineStereo == null, "senza flag non nasce nessun campo (progetti esistenti identici)");
+});
+
 t("uscita jack: la proposta chiede la linea in DI; uscita microfono: il mic sull'ampli", () => {
   const { gt } = propSetup();
   const jack = A.setupProposal({ ...RISPOSTE_TIPO, output: "jack" }, gt);
