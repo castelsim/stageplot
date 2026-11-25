@@ -5013,6 +5013,7 @@ var DOC_EN_BASI={};
 function docEnEtichetta(s){
   var E=docEnEtichette(); if(E[s]!=null) return E[s];
   var m=/^(.+?)(\s+(?:[IVX]+|\d+)(?:\s+\d+)?)$/.exec(s); if(m && E[m[1]]!=null) return E[m[1]]+m[2];
+  var lr=/^(.+?)((?:\s+\d+)?(?:\s+DI)?\s+(?:L|R|L\s*\/\s*R))$/.exec(s); if(lr && E[lr[1]]!=null) return E[lr[1]]+lr[2];   /* «Tastiera 1 L», «Tastiera 1 L / R» (stereo, 25/11/2026) */
   return null;
 }
 var DOC_FTIN_RE=/\d+(?:[.,]\d+)? m \((?:\d+' \d+"|\d+'|\d+")\)|\d+' \d+"|\d+'|\b\d+"/g;   /* «5' 3"» e, con «entrambe», «1,6 m (5' 3")» */
@@ -32091,6 +32092,7 @@ function labelPrefix(it, src){
   var base=(it.label||"").trim(), def=(TYPES[it.type].defLabel||"").trim();
   if(!base || base===def || base===src) return src;
   if(src.toLowerCase().indexOf(base.toLowerCase())===0) return src;
+  if(/^(?:DI )?[LR]$/.test(src)) return base+" "+src;   /* stereo: «Chitarra acustica 1 L», senza trattino, uguale per tutti (Simone 25/11/2026) */
   return base+" - "+src;
 }
 function bandInputs(o){
@@ -35903,7 +35905,7 @@ function chainInputs(it){
   var c=chainOf(it), base=it.label||TYPES[it.type].nome, out=[];
   if(c.tapLine && c.st){   /* linea stereo: due canali, «Chitarra L / Chitarra R» (con più prelievi: «DI L / DI R») */
     var _lm=(c.lineBal?"XLR":"DI");
-    var _ln=function(s){ var n=labelPrefix(it,s); return n===s ? base+" - "+s : n; };   /* strumento senza nome: «Chitarra acustica - L», mai «L» da solo (rilettura 25/11) */
+    var _ln=function(s){ var n=labelPrefix(it,s); return n===s ? base+" "+s : n; };   /* strumento senza nome: «Chitarra acustica - L», mai «L» da solo (rilettura 25/11) */
     out.push({name:_ln(c.taps>1?"DI L":"L"), mic:_lm}, {name:_ln(c.taps>1?"DI R":"R"), mic:_lm});
   } else if(c.tapLine) out.push({name:(c.taps>1?labelPrefix(it,"DI"):base), mic:(c.lineBal?"XLR":"DI")});
   if(c.strMic)  out.push({name:(c.taps>1?labelPrefix(it,"mic"):base), mic:"KM184"});
@@ -36391,10 +36393,8 @@ function diAdopt(di, src){
   di.diFor=src.id; src.diId=di.id;
   if(!di.diTypeUtente) di.diType=diTipoConsigliato(src);   /* la scelta esplicita dell'utente resta sua */
   diSaveOff(di);            /* memorizza dove sta ORA, così non salta al posto di default */
-  if(!hasChain(src)){       /* tastiere e simili (25/11/2026); chitarre e bassi restano come prima: la DI adottata non cambia i loro canali */
-    diSrcFollowDi(di, true);   /* DI stereo scelta dall'utente → lo strumento porta L+R */
-    diSyncCh(src);             /* e una DI mono vicino a uno strumento stereo diventa stereo: due canali su una box da uno non esistono */
-  }
+  diSrcFollowDi(di, true);   /* DI stereo scelta dall'utente → lo strumento porta L+R (tastiere e simili 25/11/2026; chitarre e bassi: linea stereo, STEREO 2) */
+  diSyncCh(src);             /* e una DI mono vicino a uno strumento stereo diventa stereo: due canali su una box da uno non esistono */
   __cabRes=null;
   return true;
 }
@@ -36408,6 +36408,7 @@ function diAgganciaAllaPosa(di){
   var cand=diCandidates(di);
   if(cand.length!==1 || cand[0].diBox===false) return null;
   var src=cand[0], tipoPrima=di.diType, utentePrima=di.diTypeUtente;
+  var srcPrima={lineStereo:src.lineStereo, _chain:src._chain, stereo:src.stereo}, diPrima={diCh:di.diCh, w:di.w, d:di.d};   /* STEREO 2: l'aggancio può cambiare mono/stereo di strumento e DI; Annulla li rimette (rilettura 25/11) */
   if(!diAdopt(di, src)) return null;
   try{ if(window.__toast) window.__toast("DI associata a «"+(src.label||(TYPES[src.type]&&TYPES[src.type].nome)||"strumento")+"»: ne porta il canale.", false, {label:"Annulla", run:function(){
     /* annulla solo l'aggancio (la DI resta dov'è): se nel frattempo il legame è cambiato, non tocca niente. Neanche se
@@ -36418,6 +36419,8 @@ function diAgganciaAllaPosa(di){
     delete di.diFor; delete src.diId; delete src.diOff;
     if(tipoPrima==null) delete di.diType; else di.diType=tipoPrima;
     if(utentePrima==null) delete di.diTypeUtente; else di.diTypeUtente=utentePrima;
+    Object.keys(srcPrima).forEach(function(k){ if(srcPrima[k]==null) delete src[k]; else src[k]=srcPrima[k]; });
+    Object.keys(diPrima).forEach(function(k){ if(diPrima[k]==null) delete di[k]; else di[k]=diPrima[k]; });
     __cabRes=null; save(); render(); renderChannels(); renderProps();
   }}); }catch(_e){}
   return src;

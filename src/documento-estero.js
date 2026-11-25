@@ -177,6 +177,7 @@ var DOC_EN_BASI={};
 function docEnEtichetta(s){
   var E=docEnEtichette(); if(E[s]!=null) return E[s];
   var m=/^(.+?)(\s+(?:[IVX]+|\d+)(?:\s+\d+)?)$/.exec(s); if(m && E[m[1]]!=null) return E[m[1]]+m[2];
+  var lr=/^(.+?)((?:\s+\d+)?(?:\s+DI)?\s+(?:L|R|L\s*\/\s*R))$/.exec(s); if(lr && E[lr[1]]!=null) return E[lr[1]]+lr[2];   /* «Tastiera 1 L», «Tastiera 1 L / R» (stereo, 25/11/2026) */
   return null;
 }
 var DOC_FTIN_RE=/\d+(?:[.,]\d+)? m \((?:\d+' \d+"|\d+'|\d+")\)|\d+' \d+"|\d+'|\b\d+"/g;   /* «5' 3"» e, con «entrambe», «1,6 m (5' 3")» */
