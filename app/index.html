@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.11.24";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.11.25";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -4591,6 +4591,8 @@ body.dark .pdf-export .px-det-b{color:#6fd3c6}
     <button type="button" class="mi" data-vm="ren">Rinomina…</button>
     <button type="button" class="mi" data-vm="new">Nuova versione da questa</button>
     <button type="button" class="mi" data-vm="diff">Cosa cambia rispetto a…</button>
+    <button type="button" class="mi" data-vm="imp">Importa come nuova versione…</button>
+    <button type="button" class="mi" data-vm="dup">Duplica come nuovo progetto…</button>
     <button type="button" class="mi" data-vm="st-bozza">Segna come Bozza</button>
     <button type="button" class="mi" data-vm="st-revisione">Segna come Inviata</button>
     <button type="button" class="mi" data-vm="st-approvato">Segna come Approvata</button>
@@ -6290,6 +6292,8 @@ body.dark .pdf-export .px-det-b{color:#6fd3c6}
       <button data-act="var-diff" id="mVarDiff" hidden>Cosa cambia…</button>
       <button data-act="var-del" id="mVarDel" class="danger" hidden>Elimina</button>
       <button data-act="var-new">+ Nuova versione</button>
+      <button data-act="var-dup" id="mVarDup">Duplica come nuovo progetto…</button>
+      <button data-act="var-imp" id="mVarImp">Importa come nuova versione…</button>
       <button data-act="var-num" id="mVarNum" hidden>Numera 1, 2, 3…</button>
     </div>
     <div class="mrow mrow-var" id="mVarStatoRow"><span class="mrow-t">Stato</span><select id="mVarStato" aria-label="Stato della versione"></select></div>
@@ -6667,11 +6671,14 @@ body.dark .pdf-export .px-det-b{color:#6fd3c6}
       </div>
       <!-- Dopo Condividi (24/11/2026): «Inviata» scatta qui, a un clic e mai da sola. Compare solo per una Bozza. -->
       <div id="shareInvitoInviata" class="share-invito" hidden><span>Hai mandato questa versione?</span><button type="button" class="btn" id="shareSegnaInviata">Segna come Inviata</button></div>
+      <!-- Versioni L2 (25/11/2026): il link NON è ancora fisso alla versione condivisa: mostra quella su cui si è salvato per ultimo, bozze comprese. -->
+      <div id="shareAvvisoVersioni" class="share-invito" hidden role="note"><span>Il link mostra la versione su cui hai salvato per ultimo, anche se è una Bozza: chi lo ha già vede subito le tue modifiche.</span></div>
       <div id="shareStatus" style="font-size:12px;color:var(--accent);min-height:14px;margin-top:8px"></div>
     </div>
     <!-- elementi nascosti usati dal pannello laterale -->
     <button id="importJson" hidden></button>
     <input type="file" id="importFile" accept="application/json,.json" hidden>
+    <input type="file" id="importVersionFile" accept="application/json,.json" hidden>
     <div id="ioStatus" hidden></div>
     <button id="shareGoPdf" hidden></button>
     <div style="display:flex;margin-top:14px;align-items:center;gap:10px">
@@ -7011,7 +7018,7 @@ body.dark .pdf-export .px-det-b{color:#6fd3c6}
              Nessuno = documento e nome del file identici a prima. In PRODUZIONE vanno solo i definitivi (regola di Diego, 23/01/2025). -->
         <label for="pdfStatoDoc">Stato del documento <span class="px-dove">nel piè e nel file</span></label>
         <select id="pdfStatoDoc"><option value="">Nessuno</option><option value="provvisorio">Provvisorio</option><option value="definitivo">Definitivo</option></select>
-        <div class="hdr-saved" id="pdfVersioneFrase">Versione = il numero (v1, v2…) scritto sul PDF. Per un'altra disposizione della stessa serata usa «+ Versione»; per un altro progetto, «Duplica» in I miei progetti.</div>
+        <div class="hdr-saved" id="pdfVersioneFrase">Versione = il numero (v1, v2…) scritto sul PDF. Per un'altra disposizione della stessa serata usa «+ Versione»; per un altro progetto, «Duplica come nuovo progetto».</div>
         <!-- FORMATO DELLA CHANNEL LIST (12/11/2026): Semplice (di sempre) o Service (pagine da 32/48, A4 orizzontale). Impostazione dell'export, non del progetto. -->
         <div id="pdfListaFmt" hidden>
           <label for="pdfListaFormato">Formato della channel list</label>

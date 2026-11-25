@@ -25451,7 +25451,7 @@ t("le versioni (ex varianti) sono schede sempre in vista, anche con una versione
   ok(/if\(id!==activeVar\)\{ chiudiMenu\(\); switchVariant\(id\); return; \}/.test(gest), "un'altra scheda: ci si passa");
   ok(/del\.hidden = VARIANTS\.length<=1;/.test(gest), "l'ultima variante non offre «Elimina»");
   ok(/addEventListener\("dblclick"[\s\S]{0,160}promptRenameVariant\(t\.getAttribute\("data-var"\)\)/.test(gest), "doppio clic rinomina");
-  ok(/if\(a==="ren"\) promptRenameVariant\(activeVar\);\s*else if\(a==="new"\) createVariant\(\);\s*else if\(a==="del"\) confirmDeleteVariant\(activeVar\);/.test(gest), "i tre comandi chiamano le funzioni di sempre");
+  ok(/if\(a==="ren"\) promptRenameVariant\(activeVar\);\s*else if\(a==="new"\) nuovaVersione\(activeVar\);[\s\S]{0,160}?else if\(a==="del"\) confirmDeleteVariant\(activeVar\);/.test(gest), "i tre comandi chiamano le funzioni di sempre");
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(!/id="variantSel"/.test(html), "il vecchio selettore non resta nascosto a far credere che serva");
   ok(/\.hdr-variants \.vtab\.on\{background:var\(--surface\)/.test(stylesCss), "la scheda attiva e' in rilievo");
@@ -25590,7 +25590,7 @@ t("le varianti si vedono e si gestiscono anche dal telefono", () => {
   ok(grid.indexOf('data-act="var-new"') > grid.indexOf('data-act="var-del"'), "Nuova variante è l'ultimo della griglia");
   /* ogni comando chiama la STESSA funzione della barra desktop, non una copia */
   const menuJs = appjs.slice(appjs.indexOf('var a=b.getAttribute("data-act"); if(!a) return;'), appjs.indexOf("/* dock azioni primarie */"));
-  ok(/a==="var-new"\)\{ createVariant\(\)/.test(menuJs), "Nuova → createVariant");
+  ok(/a==="var-new"\)\{[^}]{0,80}nuovaVersione\(\)/.test(menuJs), "Nuova → nuovaVersione (che chiama createVariant dopo il controllo del cloud)");
   ok(/a==="var-ren"\)\{ promptRenameVariant\(activeVar\)/.test(menuJs), "Rinomina → promptRenameVariant");
   ok(/a==="var-del"\)\{ confirmDeleteVariant\(activeVar\)/.test(menuJs), "Elimina → confirmDeleteVariant, con la conferma");
   /* e si ridisegna dentro renderVariantBar, che ogni cambio di variante già chiama */
@@ -41318,6 +41318,182 @@ t("Versioni L1 · invarianti: nessuna chiave dati rinominata, involucro del docu
   const d = JSON.parse(A.docToJSON()); eq([d._doc, Array.isArray(d.variants), d.variants[1].state.status], [1, true, "revisione"], "involucro `{_doc, active, variants[{id,name,state}]}` e valore salvato «revisione»");
   ok(/linkVistaCondivisa/.test(appjs) && /"\?view="/.test(appjs), "link ?view= presenti");
   reset();
+});
+console.log("\nVersioni L2 (25/11/2026):");
+const toastL2 = []; const spegniCloud = () => { A.__cloud = undefined; A.__projLocked = false; A.__cloudNeedsFlush = () => false; };
+const conCloud = (stub, fn) => { const c0 = A.__cloud, t0 = A.__toast, cd = A.confirmDialog, fl = A.flushCloudAutosave, nf = A.__cloudNeedsFlush; toastL2.length = 0;
+  A.__cloud = stub; A.__toast = (m) => { toastL2.push(m); }; try { return fn(); } finally { A.__cloud = c0; A.__toast = t0; A.confirmDialog = cd; A.flushCloudAutosave = fl; A.__cloudNeedsFlush = nf; A.__projLocked = false; } };
+const cloudOk = (extra) => Object.assign({ user: () => ({ id: "u" }), currentId: () => "p1", currentRev: () => "r1", allinea: (cb) => cb({ esito: "ok", condiviso: false }), setCurrentId: () => {} }, extra || {});
+t("Versioni L2 · «Nuova versione»: parte dall'ultima per numero (o da quella indicata), la sorgente non cambia, la nuova è Bozza con storico copiato", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1, status: "revisione", items: [itV("a")] }, { versione: 3, items: [itV("b"), itV("c")] }, { versione: 2, items: [itV("d")] }]);
+  A.syncActiveVariant(); A.VARIANTS[1].state.storico = [{ f: 1, v: 3, at: "2026-11-20", r: {} }];
+  eq(A.versioneUltimaId(), "w1", "l'ultima è la v3, non la terza scheda");
+  const prima = JSON.stringify(A.VARIANTS.map((v) => v.state));
+  const id = A.createVariant(null, "w1");
+  eq(A.VARIANTS.length, 4); eq(A.versioneNumero(), 4, "numero = massimo + 1");
+  eq(A.state.items.map((x) => x.id), ["b", "c"], "copia della v3, non della scheda attiva");
+  eq([A.state.status, A.state.statusAt, A.VARIANTS[3].name], ["bozza", undefined, "Versione 4"]);
+  eq(JSON.stringify(A.VARIANTS.slice(0, 3).map((v) => v.state)), prima, "le versioni precedenti restano identiche");
+  eq(A.state.storico, [{ f: 1, v: 3, at: "2026-11-20", r: {} }], "lo storico si conserva: l'Esporta mostra «cosa cambia da v3 a v4»");
+  A.state.storico.push({ f: 1, v: 9, at: "x", r: {} }); eq(A.VARIANTS[1].state.storico.length, 1, "è una copia, non lo stesso oggetto");
+  eq(A.createVariant("x", "non-esiste"), null, "sorgente inesistente: niente");
+  reset(); docVersioni([{ versione: 1 }, { versione: 2 }]); A.createVariant(); eq(A.state.items.length, 1, "senza sorgente: copia l'attiva come prima (Adatta…)");
+  reset();
+}));
+t("Versioni L2 · «Nuova versione»: prima allinea il cloud; con conflitto, salvataggio non concluso, progetto bloccato o documento cambiato nel frattempo non crea niente", () => senzaForeign(() => {
+  const nv = () => A.VARIANTS.length;
+  reset(); docVersioni([{ versione: 1 }]); A.syncActiveVariant();
+  conCloud(cloudOk(), () => { A.nuovaVersione(); eq(nv(), 2, "cloud allineato: la versione nasce"); });
+  docVersioni([{ versione: 1 }]); A.syncActiveVariant();
+  conCloud(cloudOk({ allinea: (cb) => cb({ esito: "conflitto" }) }), () => { A.nuovaVersione(); eq(nv(), 1, "conflitto: non si crea"); ok(toastL2.some((m) => /ricarica/.test(m)), "dice di ricaricare: " + toastL2.join("|")); });
+  conCloud(cloudOk({ allinea: (cb) => { A.__docEpoch = (A.__docEpoch || 0) + 1; cb({ esito: "ok" }); } }), () => { A.nuovaVersione(); eq(nv(), 1, "documento sostituito durante l'attesa: non si crea"); });
+  conCloud(cloudOk(), () => { A.__cloudNeedsFlush = () => true; A.flushCloudAutosave = (cb) => cb(false); A.nuovaVersione(); eq(nv(), 1, "salvataggio in sospeso non concluso: non si crea"); ok(toastL2.length > 0, "e lo dice"); });
+  conCloud(cloudOk(), () => { A.__cloudNeedsFlush = () => true; A.flushCloudAutosave = (cb) => cb(true); A.nuovaVersione(); eq(nv(), 2, "salvataggio in sospeso concluso: si crea"); });
+  docVersioni([{ versione: 1 }]); A.syncActiveVariant();
+  conCloud(cloudOk(), () => { A.__projLocked = true; A.nuovaVersione(); eq(nv(), 1, "progetto bloccato: no"); });
+  let chiamato = 0;
+  conCloud(cloudOk({ user: () => null, allinea: (cb) => { chiamato++; cb({ esito: "ok" }); } }), () => { A.nuovaVersione(); eq([nv(), chiamato], [2, 0], "senza account: locale, il cloud non si guarda"); });
+  /* link di condivisione attivo: serve un sì esplicito, e il no non crea */
+  docVersioni([{ versione: 1, items: [itV("a")] }, { versione: 3, items: [itV("b")] }, { versione: 2, items: [itV("c")] }]); A.syncActiveVariant();
+  conCloud(cloudOk(), () => {
+    eq(A.activeVar, "w0"); A.nuovaVersione(); eq(A.state.items.map((x) => x.id), ["b"], "il «+» copia l'ULTIMA (v3), anche se è aperta la v1");
+    A.switchVariant("w2"); A.nuovaVersione("w2"); eq(A.state.items.map((x) => x.id), ["c"], "«Nuova versione da questa» copia la scheda aperta");
+  });
+  docVersioni([{ versione: 1 }]); A.syncActiveVariant();
+  conCloud(cloudOk({ allinea: (cb) => cb({ esito: "ok", condiviso: true }) }), () => {
+    A.confirmDialog = () => ({ then: (f) => f(false) }); A.nuovaVersione(); eq(nv(), 1, "link attivo, risposta no: non si crea");
+    A.confirmDialog = () => ({ then: (f) => f(true) }); A.nuovaVersione(); eq(nv(), 2, "link attivo, risposta sì: si crea");
+  });
+  reset(); spegniCloud();
+}));
+t("Versioni L2 · «Importa come nuova versione»: dal file solo la scena; titolo, luogo e campi del progetto restano; numero max+1, Bozza, storico del progetto", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 2, titolo: "Concerto", items: [itV("p1")] }]); A.state.luogo = "Teatro"; A.state.storico = [{ f: 1, v: 2, at: "2026-11-01", r: {} }]; A.syncActiveVariant();
+  const png = "data:image/png;base64,iVBORw0KGgo=";
+  const file = { _doc: 1, active: "f1", variants: [
+    { id: "f0", name: "Versione 1", state: { titolo: "Altro", luogo: "Altrove", items: [itV("x1")], inputs: [], outputs: [], versione: 1, venue: { name: "pianta", _dataUrl: png, _imgW: 10, _imgH: 10 } } },
+    { id: "f1", name: "Secondo tempo", state: { titolo: "Altro", luogo: "Altrove", items: [itV("y1"), itV("y2")], inputs: [], outputs: [], versione: 7, status: "revisione", statusAt: "2026-01-02", storico: [{ f: 1, v: 9, at: "2026-01-01", r: {} }], pdfEsportato: { v: 1 }, venue: { name: "pianta", _sameAs: "f0" } } }] };
+  const pr = A.prepareDoc(JSON.parse(JSON.stringify(file)));
+  ok(/2 versioni/.test(A.importaNota(pr)) && /Secondo tempo/.test(A.importaNota(pr)), "dice che il file ha 2 versioni e quale prende: " + A.importaNota(pr));
+  eq(A.importaNota(A.prepareDoc({ titolo: "Solo", items: [], inputs: [], outputs: [] })), "", "un file a una scena: nessuna nota");
+  const prima = JSON.stringify(A.VARIANTS[0].state);
+  const id = A.importaVersioneDaDocumento(pr, "x.json");
+  ok(id && A.activeVar === id, "la nuova è attiva"); eq(A.VARIANTS.length, 2);
+  eq(A.state.items.map((x) => x.id), ["y1", "y2"], "la scena del file (quella attiva)");
+  eq([A.state.titolo, A.state.luogo], ["Concerto", "Teatro"], "campi del documento: quelli del progetto");
+  eq([A.state.versione, A.state.status, A.state.statusAt, A.state.pdfEsportato, A.VARIANTS[1].name], [3, "bozza", undefined, undefined, "Versione 3"], "max+1, Bozza, niente data né nota PDF del file");
+  eq(A.state.storico, [{ f: 1, v: 2, at: "2026-11-01", r: {} }], "lo storico è quello del progetto (così l'Esporta confronta con la v2), non quello del file");
+  eq(JSON.stringify(A.VARIANTS[0].state), prima, "la versione che c'era non cambia di un byte");
+  ok(A.venueImgCache[id] && A.venueImgCache[id]._dataUrl === png, "la planimetria del file (_sameAs risolto) arriva con la scena");
+  ok(!A.state.venue || !A.state.venue._sameAs, "e non resta il rimando");
+  /* progetto con versione attiva chiusa: l'import non la tocca */
+  docVersioni([{ versione: 1, status: "revisione", items: [itV("c1")] }]); A.syncActiveVariant(); const chiusa = JSON.stringify(A.VARIANTS[0].state);
+  A.importaVersioneDaDocumento(A.prepareDoc(JSON.parse(JSON.stringify(file))), "x.json");
+  eq(JSON.stringify(A.VARIANTS[0].state), chiusa, "una versione Inviata resta com'è"); eq(A.state.status, "bozza");
+  docVersioni([{ versione: 999 }]); eq(A.importaVersioneDaDocumento(A.prepareDoc(JSON.parse(JSON.stringify(file))), "x.json"), null, "a 999 non se ne aggiungono");
+  reset();
+}));
+t("Versioni L2 · «Importa come nuova versione»: i modelli personalizzati del file si aggiungono a quelli del progetto per id, senza sostituirli", () => senzaForeign(() => {
+  reset(); const mod = (id, nome) => ({ id, nome, w: 40, d: 40, shapes: [], membri: [] });
+  A.loadDoc({ _doc: 1, active: "w0", variants: [{ id: "w0", name: "Versione 1", state: { titolo: "C", items: [itV("p1")], inputs: [], outputs: [], versione: 1, customModels: [mod("m1", "Mio")] } }] });
+  const file = { _doc: 1, active: "f0", variants: [{ id: "f0", name: "Versione 1", state: { titolo: "F", items: [itV("y1", { type: "custom", cust: { nome: "Mio", modelId: "m1", shapes: [] } }), itV("y2", { type: "custom", cust: { nome: "Altro", modelId: "m2", shapes: [] } })], inputs: [], outputs: [], customModels: [mod("m1", "Diverso"), mod("m2", "Nuovo")] } }] };
+  A.importaVersioneDaDocumento(A.prepareDoc(file), "x.json");
+  const nomi = (A.state.customModels || []).map((m) => m.nome).sort();
+  ok(nomi.indexOf("Mio") >= 0 && nomi.indexOf("Nuovo") >= 0 && nomi.indexOf("Diverso") >= 0, "tre modelli: il suo, il nuovo e quello con id uguale ma diverso (con id nuovo): " + nomi.join(","));
+  eq((A.state.customModels || []).find((m) => m.nome === "Mio").id, "m1", "quello del progetto resta com'era");
+  const id1 = A.state.items.find((x) => x.id === "y1").cust.modelId; eq((A.state.customModels.find((m) => m.id === id1) || {}).nome, "Diverso", "l'elemento del file punta al SUO modello, non a quello omonimo del progetto");
+  reset();
+}));
+t("Versioni L2 · «Duplica come nuovo progetto»: una versione sola, v1, Bozza, titolo scelto, senza storico né link; il progetto d'origine non cambia", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1, status: "revisione", items: [itV("a")] }, { versione: 3, items: [itV("b"), itV("c")] }]);
+  A.syncActiveVariant(); A.VARIANTS[1].state.storico = [{ f: 1, v: 1, at: "2026-11-01", r: {} }]; A.VARIANTS[1].state.pdfEsportato = { v: 3 }; A.VARIANTS[1].state.statusAt = "2026-11-20";
+  const prima = JSON.stringify(A.VARIANTS.map((v) => v.state));
+  const d = A.docVersioneSola("w1", "Concerto – ridotto");
+  eq(d.doc.variants.length, 1); const s = d.doc.variants[0].state;
+  eq([s.titolo, s.versione, s.status, s.statusAt, s.storico, s.pdfEsportato, s.approval], ["Concerto – ridotto", 1, "bozza", undefined, undefined, undefined, { by: "", at: "" }]);
+  eq(s.items.map((x) => x.id), ["b", "c"], "il disegno è quello della versione scelta");
+  eq(d.doc.active, d.doc.variants[0].id); ok(A.prepareDoc(JSON.parse(JSON.stringify(d.doc))), "il documento si riapre");
+  eq(JSON.stringify(A.VARIANTS.map((v) => v.state)), prima, "il progetto d'origine non cambia");
+  ok(!/share_?token/i.test(JSON.stringify(d)), "nessun link di condivisione");
+  eq(A.docVersioneSola("non-esiste", "x"), null);
+  const dc = A.docVersioneSola("w0", "Da chiusa"); eq([dc.doc.variants[0].state.status, dc.doc.variants[0].state.versione], ["bozza", 1], "anche da una versione Inviata nasce Bozza v1");
+  reset();
+}));
+t("Versioni L2 · «Duplica come nuovo progetto»: con account crea nel cloud e apre; con conflitto non crea; senza account apre la copia in locale", () => senzaForeign(() => {
+  reset(); docVersioni([{ versione: 1, items: [itV("a")] }, { versione: 2, items: [itV("b")] }]); A.syncActiveVariant();
+  let creato = null, aperto = null;
+  const cl = (extra) => cloudOk(Object.assign({ creaProgetto: (spec, cb) => { creato = spec; cb("11111111-1111-1111-1111-111111111111"); }, open: (id) => { aperto = id; } }, extra || {}));
+  const png2 = "data:image/png;base64,iVBORw0KGgo="; A.VARIANTS[1].state.venue = { name: "pianta", _dataUrl: png2, _imgW: 10, _imgH: 10 }; A.cacheVenueImg(A.VARIANTS[1].state.venue, "w1");
+  conCloud(cl(), () => { A.duplicaVersioneComeProgetto("w1", "Ridotto"); });
+  ok(creato && /_dataUrl/.test(creato.venue_image || "") && creato.venue_image.indexOf(png2) > 0, "la planimetria va nella colonna dedicata");
+  ok(creato && creato.title === "Ridotto" && aperto === "11111111-1111-1111-1111-111111111111", "creato e aperto");
+  ok(!/_dataUrl/.test(JSON.stringify(creato.data)), "i dati del cloud non portano la bitmap: va nella colonna dedicata"); eq(creato.data.variants.length, 1);
+  creato = null; aperto = null;
+  conCloud(cl({ allinea: (cb) => cb({ esito: "conflitto" }) }), () => { A.duplicaVersioneComeProgetto("w1", "Ridotto"); });
+  eq([creato, aperto], [null, null], "conflitto: nulla");
+  conCloud(cl({ creaProgetto: (spec, cb) => cb(null) }), () => { A.duplicaVersioneComeProgetto("w1", "Ridotto"); ok(toastL2.some((m) => /non riuscit/i.test(m)), "se il cloud rifiuta lo dice: " + toastL2.join("|")); });
+  let attivato = null; const ag = A.guardDocumentReplacement, ap = A.activatePreparedProject;
+  A.guardDocumentReplacement = (o, f) => f(); A.activatePreparedProject = (p) => { attivato = p; };
+  try { conCloud(cl({ user: () => null }), () => { A.duplicaVersioneComeProgetto("w1", "Ridotto"); }); } finally { A.guardDocumentReplacement = ag; A.activatePreparedProject = ap; }
+  ok(attivato && attivato.variants.length === 1 && attivato.variants[0].state.titolo === "Ridotto", "senza account: copia locale con la sola versione");
+  reset(); spegniCloud();
+}));
+t("Versioni L2 · invito «togliere vN dal titolo»: il numero resta com'era per ogni versione (nome del file compreso)", () => senzaForeign(() => {
+  reset(); docVersioni([{ titolo: "Ballan v5" }, { titolo: "Ballan v5" }]); A.syncActiveVariant();
+  eq(A.invitoTitoloVersioneTesto(A.state), "v5"); eq(A.invitoTitoloVersioneTesto({ titolo: "Ballan" }), "", "senza «vN» nessun invito");
+  const nomeP = A.nomeFilePdf("a4", 1, "landscape", new Date(2026, 10, 25)), num = () => A.VARIANTS.map((v, i) => A.versioneNumeroDi(v, i).n);
+  const n0 = num(); A.togliVersioneDalTitolo();
+  eq(A.state.titolo, "Ballan"); eq(A.VARIANTS.map((v) => v.state.titolo), ["Ballan", "Ballan"], "il titolo è di tutte le versioni");
+  eq(num(), n0, "ogni versione tiene il suo numero (prima lo leggeva dal titolo)");
+  eq(A.nomeFilePdf("a4", 1, "landscape", new Date(2026, 10, 25)), nomeP, "il nome del PDF non cambia");
+  reset();
+}));
+t("Versioni L2 · correzioni della rilettura (C1-C4): banner → nuovaVersione; rete in errore chiede comunque; Importa solo da collegati; Duplica anche da bloccato", () => senzaForeign(() => {
+  /* C1: il «Nuova versione» del banner della versione chiusa passa dai controlli (cloud + link), non da createVariant diretto */
+  ok(/getAttribute\("data-vb"\)==="nuova"\) nuovaVersione\(activeVar\);/.test(appjs) && !/getAttribute\("data-vb"\)==="nuova"\) createVariant\(/.test(appjs), "C1: il banner chiama nuovaVersione(activeVar)");
+  /* C2: la lettura del cloud fallisce → la conferma del link compare lo stesso, con testo prudente; il no non crea */
+  const nv = () => A.VARIANTS.length; let chieste = []; 
+  reset(); docVersioni([{ versione: 1 }]); A.syncActiveVariant();
+  conCloud(cloudOk({ allinea: (cb) => cb({ esito: "errore", condiviso: false }) }), () => {
+    A.confirmDialog = (o) => { chieste.push(o); return { then: (f) => f(false) }; }; A.nuovaVersione(); eq([nv(), chieste.length], [1, 1], "C2: errore di rete, risposta no: chiede e non crea");
+    ok(/Non riesco a controllare/.test(chieste[0].message), "C2: testo prudente");
+    A.confirmDialog = (o) => { chieste.push(o); return { then: (f) => f(true) }; }; A.nuovaVersione(); eq([nv(), chieste.length], [2, 2], "C2: errore di rete, risposta sì: crea");
+  });
+  /* C2 bis: lettura riuscita e senza link → nessuna domanda come prima */
+  chieste = []; docVersioni([{ versione: 1 }]); A.syncActiveVariant();
+  conCloud(cloudOk(), () => { A.confirmDialog = (o) => { chieste.push(o); return { then: (f) => f(true) }; }; A.nuovaVersione(); eq([nv(), chieste.length], [2, 0], "senza link e lettura ok: nessuna conferma"); });
+  /* C3: Importa come nuova versione passa dal cancello «JSON solo da collegati» */
+  let cancello = 0; const jc = A.jsonSoloCollegati; A.jsonSoloCollegati = () => { cancello++; return false; };
+  try { A.importaComeNuovaVersione(); } finally { A.jsonSoloCollegati = jc; }
+  eq(cancello, 1, "C3: importaComeNuovaVersione chiede il cancello dei collegati");
+  /* C4: Duplica non si ferma su un progetto bloccato (non tocca l'originale) */
+  reset(); docVersioni([{ versione: 1, items: [itV("a")] }, { versione: 2, items: [itV("b")] }]); A.syncActiveVariant();
+  let creato = null; const cl = cloudOk({ creaProgetto: (spec, cb) => { creato = spec; cb("11111111-1111-1111-1111-111111111111"); }, open: () => {} });
+  conCloud(cl, () => { A.__projLocked = true; A.duplicaVersioneComeProgetto("w1", "Ridotto"); });
+  ok(creato && creato.title === "Ridotto", "C4: da bloccato Duplica crea comunque");
+  reset(); docVersioni([{ versione: 1 }]); A.syncActiveVariant();
+  conCloud(cloudOk(), () => { A.__projLocked = true; A.nuovaVersione(); eq(nv(), 1, "C4: Nuova versione resta bloccata sul progetto bloccato"); });
+  reset(); spegniCloud();
+}));
+t("Versioni L2 · interfaccia: voci nuove nel menu della versione, nel menu File e sul telefono; avviso nel pannello Condividi; frase dell'Esporta", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/data-vm="dup">Duplica come nuovo progetto…<\/button>/.test(html), "menu della scheda");
+  ok(/data-vm="imp">Importa come nuova versione…<\/button>/.test(html) && !/data-file="import-version"/.test(html), "menu della scheda; il menu File resta a sette voci");
+  ok(/data-act="var-dup"[^>]*>Duplica come nuovo progetto/.test(html) && /data-act="var-imp"[^>]*>Importa come nuova versione/.test(html), "telefono");
+  ok(/id="importVersionFile" accept="application\/json,\.json" hidden/.test(html), "il selettore di file dedicato");
+  ok(/id="shareAvvisoVersioni"/.test(html) && /id="shareAvvisoVersioni"[^>]*hidden/.test(html), "avviso Condividi");
+  ok(/La versione attiva è la v/.test(appjs) && /Duplica come nuovo progetto\./.test(appjs), "frase dell'Esporta aggiornata");
+  ok(/createVariant\(null, *versioneUltimaId\(\)\)|nuovaVersione\(\)/.test(appjs) && !/vtab-add"\)\)\{ chiudiMenu\(\); chiudiTutte\(\); createVariant\(\)/.test(appjs), "il «+» passa da nuovaVersione");
+  ok(/a==="new"\) nuovaVersione\(activeVar\)/.test(appjs), "«Nuova versione da questa» parte dalla scheda aperta");
+});
+t("Versioni L2 · cloud: allinea (rev + link senza leggere il token), creaProgetto, open; un nuovo progetto da una versione non copia il token", () => {
+  const cl = appjs.slice(appjs.indexOf("function ensureShareTokenFor"), appjs.indexOf("function ensureShareTokenFor") + 200000);
+  ok(/function allineaProgetto\(cb\)/.test(appjs), "allinea esiste");
+  const f = appjs.slice(appjs.indexOf("function allineaProgetto(cb)"), appjs.indexOf("function allineaProgetto(cb)") + 1800);
+  ok(/select\("updated_at,share_token"\)/.test(f) && /updated_at!==cloudRev/.test(f) && /enterConflict\(\)/.test(f), "confronta la revisione e apre il conflitto");
+  ok(!/condiviso:\s*r\.data\.share_token[,}]/.test(f) && /condiviso:\s*!!/.test(f), "dice solo SE c'è un link, non il token");
+  const g = appjs.slice(appjs.indexOf("function creaProgettoDa("), appjs.indexOf("function creaProgettoDa(") + 1500);
+  ok(/insert\(\{ user_id:requestUser, schema_version:SCHEMA_VERSION/.test(g) && !/share_token/.test(g), "insert come «Duplica»: nessun token");
+  ok(/allinea: *allineaProgetto,[\s\S]{0,200}creaProgetto: *creaProgettoDa/.test(appjs) && /open: *openProject/.test(appjs), "esposti in window.__cloud");
 });
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
