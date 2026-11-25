@@ -9361,7 +9361,7 @@ t("STEREO · una DI stereo del catalogo posata/associata a una tastiera mono la 
   A.diAdopt(dm, k); eq(A.diCh(dm), "stereo", "tastiera stereo + DI mono associata: la DI diventa stereo (altrimenti 2 canali su una box da 1)");
   reset();
   const g = add("gtacustica", 300, 400); const ds = add("dimono", 330, 420); ds.diCh = "stereo";
-  A.diAdopt(ds, g); eq(nomiCh(g).length, 1, "chitarra con DI stereo associata: come prima, un canale (la linea stereo si accende dal pulsante Stereo)");
+  A.diAdopt(ds, g); eq(nomiCh(g).length, 2, "STEREO 2: chitarra con DI stereo associata = stereo (L+R), segue lo strumento"); ok(g.lineStereo === true && A.diCh(ds) === "stereo", "linea stereo accesa, DI stereo");
   reset();
   const k2 = add("tastiera", 300, 400); k2.stereo = false; const dm2 = add("dimono", 330, 420);
   A.diAdopt(dm2, k2); eq([A.diCh(dm2), A.itemChannels(k2)], ["mono", 1], "DI mono + tastiera mono: nulla cambia");
@@ -9396,6 +9396,45 @@ t("STEREO · pannello: pulsante «Stereo» nella catena, voci di catalogo «· s
   eq(out.find((x) => x.id === g.id).lineStereo, true, "lineStereo conservato");
   const g2 = add("gtacustica", 500, 400); const back = A.normalizeLoadedItems(JSON.parse(JSON.stringify([g2])));
   ok(back[0].lineStereo == null, "senza flag non nasce nessun campo (progetti esistenti identici)");
+});
+
+t("STEREO 2 · DI stereo del catalogo + chitarra/basso: lo strumento diventa stereo, segue anche al cambio di catena; DI mono → torna mono", () => {
+  reset();
+  const g = add("gtacustica", 300, 400); const ds = add("dimono", 330, 420); ds.diCh = "stereo";
+  ok(A.diAdopt(ds, g), "associata"); eq(nomiCh(g).length, 2, "2 canali L/R"); eq(A.diLinked(g), ds, "la DI resta quella dell'utente");
+  A.chainToggle(g, "ped"); eq([A.diCh(ds), nomiCh(g).length], ["stereo", 2], "cambio di catena (+pedaliera): resta stereo, nessun avviso");
+  A.chainToggle(g, "ped"); eq([A.diCh(ds), nomiCh(g).length], ["stereo", 2], "e di nuovo senza pedaliera");
+  /* tornando a una DI mono, torna mono */
+  ds.diCh = "mono"; A.diSrcFollowDi(ds); eq([g.lineStereo == null, nomiCh(g).length], [true, 1], "DI mono -> chitarra mono");
+  /* basso con ampli (elettrica di serie: mic sull'ampli + DI stereo = DI L, DI R, ampli) */
+  reset();
+  const e = add("gtstand", 300, 400); const d2 = add("dimono", 330, 420); d2.diCh = "stereo";
+  ok(A.diAdopt(d2, e) || true, "elettrica: nessun errore");
+  const b = add("bassstand", 700, 400); const d3 = add("dimono", 730, 420); d3.diCh = "stereo";
+  ok(A.diAdopt(d3, b), "basso"); eq(nomiCh(b).length, 2, "basso + DI stereo = 2 canali");
+  /* progetti esistenti: una DI mono associata a una chitarra non cambia nulla */
+  reset();
+  const g3 = add("gtacustica", 300, 400); const d4 = add("dimono", 330, 420);
+  A.diAdopt(d4, g3); eq([nomiCh(g3).length, g3.lineStereo == null, A.diCh(d4)], [1, true, "mono"], "DI mono + chitarra mono: come prima");
+});
+t("STEREO 2 · formato dei nomi stereo: tutti uguali, senza trattino («X 1 L», «X 1 DI L»); le mono invariate", () => {
+  reset();
+  const g = add("gtacustica", 300, 400); g.lineStereo = true; g._chain = 1;
+  eq(nomiCh(g), ["Chitarra acustica 1 L", "Chitarra acustica 1 R"], "chitarra stereo");
+  const e = add("gtstand", 600, 400); e.pedaliera = true; e.tapLine = true; e.lineStereo = true; e._chain = 1;
+  eq(nomiCh(e), ["Chitarra 1 DI L", "Chitarra 1 DI R", "Chitarra 1 - ampli"], "con ampli: DI L / DI R + ampli");
+  const k = add("tastiera", 300, 700); eq(nomiCh(k).slice(0, 2), ["Tastiera 1 L", "Tastiera 1 R"], "tastiera");
+  const m = add("gtacustica", 900, 700); eq(nomiCh(m), ["Chitarra acustica 2"], "mono invariata");
+  const n = add("gtacustica", 100, 700); n.label = ""; n.lineStereo = true; n._chain = 1; eq(nomiCh(n), ["Chitarra acustica L", "Chitarra acustica R"], "strumento senza nome: mai «L» nudo");
+  conDoc("en", null, () => { eq([A.docTesto("Chitarra acustica 1 L"), A.docTesto("Chitarra 1 DI R")], ["Acoustic guitar 1 L", "Guitar 1 DI R"], "EN"); });
+});
+t("STEREO 2 · PDF inglese: «Tastiera 1 L / R» e «Tastiera 1 L» si traducono come gli altri", () => {
+  conDoc("en", null, () => {
+    eq(A.docTesto("Tastiera 1 L / R"), "Keyboard 1 L / R", "coppia");
+    eq([A.docTesto("Tastiera 1 L"), A.docTesto("Tastiera 1 R")], ["Keyboard 1 L", "Keyboard 1 R"], "singoli");
+    eq(A.docTesto("Tastiera L"), "Keyboard L", "senza numero");
+    eq(A.docTesto("Tastiera 2"), "Keyboard 2", "la mono di sempre invariata");
+  });
 });
 
 t("uscita jack: la proposta chiede la linea in DI; uscita microfono: il mic sull'ampli", () => {
@@ -17883,7 +17922,7 @@ t("adottata dalla chitarra, la DI smette di contare canali suoi", () => {
   eq(di.diFor, gt.id, "la DI non punta allo strumento");
   eq(gt.diId, di.id, "lo strumento non punta alla DI");
   ok(!A.isAudioSource(di), "la DI adottata conta ancora come sorgente");
-  eq(A.patchList().rows.map((r) => r.name), ["Chitarra acustica 1"], "resta un canale solo: la chitarra");
+  eq(A.patchList().rows.map((r) => r.name), ["Chitarra acustica 1 L", "Chitarra acustica 1 R"], "STEREO 2: la DI è stereo, la chitarra porta L+R (nessun canale della DI)");
 });
 
 t("la DI adottata resta dove l'utente l'aveva messa", () => {
@@ -17956,10 +17995,10 @@ t("l'adozione regge il fulmine e il cestino della channel list", () => {
   eq(A.cabConnectOne(rigaDi.key), box.id, "il fulmine collega la riga della DI");
   A.diAdopt(di, gt); A.__cabRes = null;
   const dopo = A.patchList().rows;
-  eq(dopo.length, 1, "dopo l'adozione resta il solo canale della chitarra");
+  eq(dopo.length, 2, "STEREO 2: dopo l'adozione restano i due canali L/R della chitarra");
   ok(!dopo.some((r) => r.itemId === di.id), "la DI non ha più una riga sua");
   eq(A.cabConnectOne(dopo[0].key), box.id, "il fulmine collega il canale dello strumento");
-  eq(A.cabUnlinkOne(dopo[0].key), 1, "il cestino toglie un canale solo");
+  eq(A.cabUnlinkOne(dopo[0].key), 2, "il cestino toglie la coppia L/R (STEREO 2)");
   ok(!A.patchList().rows.some((r) => r.box), "e la lista resta senza cavi, senza righe fantasma");
 });
 
@@ -18014,7 +18053,7 @@ t("il fix adotta la DI dello strumento vicino", () => {
   f.act.run();
   A.__cabRes = null;
   eq(di.diFor, gt.id);
-  eq(A.patchList().rows.length, 1, "dopo il fix resta il solo canale della chitarra");
+  eq(A.patchList().rows.length, 2, "STEREO 2: dopo il fix restano i due canali L/R della chitarra");
 });
 
 console.log("\n— Porte della stage box: sceglierle a mano —");
@@ -31179,6 +31218,29 @@ t("DI posata accanto a una chitarra senza DI: agganciata, con avviso che si annu
     A.__cabRes = null; eq(A.patchList().rows.length, 1, "un canale solo");
     toast[0].az.run();
     ok(di.diFor == null && gt.diId == null, "Annulla toglie l'aggancio"); ok(A.state.items.indexOf(di) >= 0, "la DI resta sul palco");
+  } finally { delete A.__toast; }
+});
+t("STEREO 2 · Annulla dell'aggancio alla posa di una DI stereo: lo strumento torna com'era (mono, un canale), la DI resta stereo", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const gt = gtSenzaDi(300, 200);
+  const toast = []; A.__toast = (m, e, az) => toast.push({ m, az });
+  try {
+    const di = A.addItem("dimono", { x: 225, y: 200, diCh: "stereo" });
+    eq(di.diFor, gt.id, "agganciata alla posa"); ok(gt.lineStereo === true, "la chitarra è diventata stereo");
+    toast[0].az.run(); A.__cabRes = null;
+    ok(di.diFor == null && gt.diId == null, "aggancio tolto");
+    ok(gt.lineStereo == null, "la chitarra torna mono (niente linea stereo rimasta accesa)");
+    eq(A.diCh(di), "stereo", "la DI resta come l'ha posata l'utente");
+  } finally { delete A.__toast; }
+  /* tastiera messa mono dall'utente + DI stereo posata: idem */
+  reset();
+  const k = add("tastiera", 300, 200); k.stereo = false; const gen = A.diLinked(k);
+  if (gen) { A.state.items = A.state.items.filter((i) => i.id !== gen.id); delete k.diId; delete k.diOff; }
+  const toast2 = []; A.__toast = (m, e, az) => toast2.push({ m, az });
+  try {
+    const d2 = A.addItem("dimono", { x: 225, y: 200, diCh: "stereo" });
+    eq(d2.diFor, k.id, "agganciata alla posa"); eq(A.itemChannels(k), 2, "tastiera diventata stereo");
+    toast2[0].az.run(); A.__cabRes = null; eq([k.stereo, A.itemChannels(k)], [false, 1], "Annulla: la tastiera torna mono, un canale");
   } finally { delete A.__toast; }
 });
 t("due candidati vicini: la DI non si aggancia (resta l'avviso «di-orfana»)", () => {
