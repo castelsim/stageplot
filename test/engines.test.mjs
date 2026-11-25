@@ -36939,7 +36939,7 @@ t("P1 palco 8×6: un progetto con elementi (palco default) chiude la finestra; i
   ok(A.__stageSizeOpen === false, "finestra chiusa"); eq(A.state.stage.w, 1200);
   const src = readFileSync(join(root, "index.template.html"), "utf8");
   ok(/function activatePreparedProject\(prepared, opts\)\{[\s\S]{0,900}commitPreparedDoc\(prepared\)/.test(src), "activatePreparedProject (import, trascinamento, cloud, elenco) → commitPreparedDoc");
-  ok(/function importProject\(json, opts\)\{[\s\S]{0,500}activatePreparedProject\(prepareDoc\(s\),opts\)/.test(src), "importProject → activatePreparedProject");
+  ok(/function importProject\(json, opts\)\{[\s\S]{0,500}activatePreparedProject\(prepareDoc\(importaDocumentoDaFile\(s\)\),opts\)/.test(src), "importProject → activatePreparedProject (passando da importaDocumentoDaFile: planimetria, 25/11)");
   A.loadDoc(docP1(STAGE_1200));
 });
 t("P1 palco 8×6: apertura dal cloud (commitPreparedDoc, come activatePreparedProject keepCloud) chiude la finestra", () => {
@@ -42031,17 +42031,21 @@ console.log("\nScritte di zona che non si sovrappongono ai nomi:");
   t("zone: palco 2 m con i nomi sul bordo davanti: «PUBBLICO» a schermo non tocca nessun nome", () => {
     carro(); const D = 200, y = zonaY(A.stageLayerMarkup(), "PUBBLICO");
     ok(y > D + 38, "scesa sotto la posizione di sempre (" + y + ")");
-    A.state.items.forEach((it) => ok(!urta(rettPubblico(1, y), A.ingombroStampa(it, 1)), "niente urto con " + it.label));
+    A.state.items.forEach((it) => { const r = A.ingombroStampa(it, 1, true); ok(r && !urta(rettPubblico(1, y), r), "niente urto con " + it.label); });
   });
   t("zone: lo stesso nel PDF (zoneLblY) a 1:100 e a 1:200, col corpo del foglio", () => {
     carro();
     [100, 200].forEach((N) => { const k = A.pdfTextK(N), y = A.zoneLblY("", k, 200).p;
-      A.state.items.forEach((it) => ok(!urta(rettPubblico(k, y), A.ingombroStampa(it, k)), "N=" + N + " niente urto con " + it.label)); });
+      A.state.items.forEach((it) => { const r = A.ingombroStampa(it, k, true); ok(r && !urta(rettPubblico(k, y), r), "N=" + N + " niente urto con " + it.label); }); });
   });
   t("zone: senza urto PUBBLICO e FONDO PALCO restano a D+38 e -42 (palco 8×6 con un elemento lontano)", () => {
     reset(); A.applyStageSize(8, 6, false); add("batteria", 400, 200);
     const mk = A.stageLayerMarkup(); eq([zonaY(mk, "FONDO PALCO"), zonaY(mk, "PUBBLICO")], [-42, 638], "posizioni di sempre");
     eq(A.zoneLblY("", 1, 600), { f: -42, p: 638 }, "anche nel PDF");
+  });
+  t("zone: il CORPO di un elemento non conta, solo il nome: una forma enorme sotto «PUBBLICO» non la sposta", () => {
+    reset(); A.applyStageSize(8, 6, false); add("forma", 400, 300, { w: 6000, d: 4000, label: "AREA EVENTO" });
+    eq(A.zoneLblY("", 1, 600), { f: -42, p: 638 }, "PDF"); eq(zonaY(A.stageLayerMarkup(), "PUBBLICO"), 638, "schermo");
   });
   t("zone: FOH e platea (in sala per definizione) non spostano «PUBBLICO»", () => {
     reset(); A.applyStageSize(2, 2, false); const f = add("foh", 100, 215); f.label = "REGIA FOH LUNGA";

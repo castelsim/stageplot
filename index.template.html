@@ -11802,15 +11802,16 @@ function fuoriPalcoEquivoco(){
    cm del palco. Il nome dove lo mette itemMarkup: sotto il disegno, o SOPRA per le postazioni con sedia e gli
    elementi personalizzati (lblSopraDi), alla linea di base vera (lblBaseY) e col corpo della stampa (a 1:200 è il
    doppio di quello a 1:100); con la seconda riga (label2) e la riga del montaggio; tutto girato con l'elemento. */
-function ingombroStampa(it, k){
+function ingombroStampa(it, k, stretto){   /* stretto (25/11): SOLO il rettangolo del nome, senza il posto di riserva sotto (null se non ha nome): per chi cerca un urto vero e non dimensiona il foglio */
   k=k>0 ? k : 1;
   var t=TYPES[it.type]||{}, r=ingombroMondo(it);
   var fsz=lblSizeOf(it), _ltq=lblTesti(it), t1=_ltq[0], t2=_ltq[1];
-  if(t.innerLabel || GAZ_TYPES[it.type] || !(fsz>0) || (!t1 && !t2)) return r;
+  if(t.innerLabel || GAZ_TYPES[it.type] || !(fsz>0) || (!t1 && !t2)) return stretto ? null : r;
+  if(stretto) r={x0:Infinity, x1:-Infinity, y0:Infinity, y1:-Infinity};
   var fk=fsz*k, w=Math.max(lblTextW(t1, fk), lblTextW(t2, fk)), ly=lblBaseY(it, fk), sopra=lblSopraDi(it);
   var righe=(t1 && t2 ? 2 : 1) + (mountNote(it) ? 1 : 0), alto=fk*1.15*(righe-1);
   /* rettangolo del testo nelle coordinate dell'elemento (prima della rotazione) */
-  var y0=sopra ? ly-fk*0.85-alto : ly-fk*0.85, y1=sopra ? ly+fk*0.3 : ly+fk*0.3+alto+fk*0.6;   /* sotto: posto anche per la scesa di lblNudges */
+  var y0=sopra ? ly-fk*0.85-alto : ly-fk*0.85, y1=sopra ? ly+fk*0.3 : ly+fk*0.3+alto+(stretto ? 0 : fk*0.6);   /* sotto: posto anche per la scesa di lblNudges */
   var a=(it.rot||0)*Math.PI/180, c=Math.cos(a), sn=Math.sin(a);
   [[-w/2,y0],[w/2,y0],[w/2,y1],[-w/2,y1]].forEach(function(p){
     var X=it.x+p[0]*c-p[1]*sn, Y=it.y+p[0]*sn+p[1]*c;
@@ -21620,12 +21621,11 @@ function stageEmptyHintMarkup(){
   return '<text class="stage-empty-hint" x="'+(W/2)+'" y="'+(D/2)+'" text-anchor="middle" dominant-baseline="middle">'+esc(testo)+'</text>';
 }
 function stageLayerMarkup(){
-  var W=state.stage.w, D=state.stage.d, zg=zonaGapCm();
-  var fy=zonaEvitaNomi(-42-zg, 1, "FONDO PALCO", false), py=zonaEvitaNomi(D+38+zg, 1, "PUBBLICO", true);   /* mai sopra un nome (25/11) */
+  var W=state.stage.w, zy=zonaYSchermo();   /* mai sopra un nome (25/11) */
   return stageFloorMarkup()+stageDimsMarkup()
-    +'<text class="zone-lbl" x="'+(W/2)+'" y="'+fy+'" text-anchor="middle">'+docZona("FONDO PALCO")+'</text>'
-    +'<text class="zone-lbl" x="'+(W/2)+'" y="'+py+'" text-anchor="middle">'+docZona("PUBBLICO")+'</text>'
-    +stageEmptyHintMarkup()+latiTeatroMarkup(fy, 1, 'class="zone-lbl zone-lato"');
+    +'<text class="zone-lbl" x="'+(W/2)+'" y="'+zy.f+'" text-anchor="middle">'+docZona("FONDO PALCO")+'</text>'
+    +'<text class="zone-lbl" x="'+(W/2)+'" y="'+zy.p+'" text-anchor="middle">'+docZona("PUBBLICO")+'</text>'
+    +stageEmptyHintMarkup()+latiTeatroMarkup(zy.f, 1, 'class="zone-lbl zone-lato"');
 }
 /* DISTANZA DELLE SCRITTE (24/11/2026, Simone, dall'analisi del progetto di un utente: FONDO PALCO e PUBBLICO erano coperte da
    rack e casse vicini al bordo, e l'utente ci aveva sovrapposto le icone). `state.zonaGap` = centimetri in più rispetto a
@@ -21643,7 +21643,7 @@ function zonaEvitaNomi(y0, k, nome, giu){
   if(custEditorAttivo()) return y0;
   k=k>0 ? k : 1;
   var W=state.stage.w||0, fp=16*k, w=lblTextW(docZona(nome), fp)+8*2*k, x0=W/2-w/2, x1=W/2+w/2, aria=4, y=y0, i, n;
-  var rr=[]; (state.items||[]).forEach(function(it){ if(it && !FUORI_OK[it.type] && !it.avvertenza && !it.rackId) rr.push(ingombroStampa(it, k)); });
+  var rr=[]; (state.items||[]).forEach(function(it){ if(it && !FUORI_OK[it.type] && !it.avvertenza && !it.rackId) { var q=ingombroStampa(it, k, true); if(q) rr.push(q); } });
   for(i=0;i<12;i++){
     var t0=y-0.75*fp, t1=y+0.25*fp, ny=y;
     for(n=0;n<rr.length;n++){ var r=rr[n];
@@ -21654,6 +21654,7 @@ function zonaEvitaNomi(y0, k, nome, giu){
   }
   return giu ? Math.min(Math.round(y*10)/10, y0+ZONA_URTO_MAX) : Math.max(Math.round(y*10)/10, y0-ZONA_URTO_MAX);
 }
+function zonaYSchermo(){ var D=state.stage.d, zg=zonaGapCm(); return {f:zonaEvitaNomi(-42-zg, 1, "FONDO PALCO", false), p:zonaEvitaNomi(D+38+zg, 1, "PUBBLICO", true)}; }
 /* di quanto scendono PUBBLICO (p) e salgono FONDO PALCO (f) rispetto alla posizione scelta (0 senza urti): servono ai margini */
 function zonaUrtoExtra(k){
   var D=state.stage.d||0, zg=zonaGapCm();
