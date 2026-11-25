@@ -40174,7 +40174,9 @@ function pdfNomeFileTesto(){
         return;
       }
       /* Link fisso (25/11): il link porta la chiave della VERSIONE, e la chiave deve essere già nel cloud prima che il link compaia. */
-      var C2=window.__cloud, aperto=_shareIsCurrent && C2 && C2.currentId && C2.currentId()===id;
+      /* Rilettura 25/11 (C1): «aperto» = è il progetto aperto in questa scheda, ANCHE quando Condividi parte dalla lista. Se passasse da
+         chiaveLinkProgettoChiuso la chiave starebbe solo nel cloud, non in DOC_EXTRA, e il primo autosave la cancellerebbe (link → 404). */
+      var C2=window.__cloud, aperto=!!(C2 && C2.currentId && C2.currentId()===id);
       function fine(chiave, motivo){
         if(!shareRequestCurrent(seq,id)) return;
         if(!chiave){
@@ -49107,6 +49109,7 @@ function maybeAskStageSize(explicit){
     });
     confBar.querySelector("#cbCopy").addEventListener("click", function(){
       detachCloudDoc();   /* nuova identità: invalida INSERT/UPDATE e callback del progetto in conflitto */
+      togliChiaviCondivisione(DOC_EXTRA);   /* rilettura 25/11 (C2): la copia nata dal conflitto non porta le chiavi dei link del progetto di partenza */
       try{ state.titolo=((state.titolo||"Senza titolo")+" (copia)").slice(0,120); var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo; }catch(e){}
       exitConflict(); save();
       flushCloudAutosave(function(ok){
@@ -50174,6 +50177,7 @@ function maybeAskStageSize(explicit){
       if(!bozza){ cb(null,"chiave"); return; }
       if(!bozza.patch){ cb(bozza.chiave); return; }
       if(r.data.is_locked){ cb(null,"bloccato"); return; }
+      if(id===cloudCurrentId){ cb(null,"errore"); return; }   /* rilettura 25/11 (C1): il progetto aperto qui passa da DOC_EXTRA (assicuraChiaveVersioneAperta), mai da una scrittura diretta di `data` */
       var nuovo={}; Object.keys(doc).forEach(function(x){ nuovo[x]=doc[x]; }); Object.keys(bozza.patch).forEach(function(x){ nuovo[x]=bozza.patch[x]; });
       updateProjectMetadataCas(id,{data:nuovo},"updated_at",function(d){ if(d) cb(bozza.chiave); else cb(null,"conflitto"); }, r.data.updated_at);
     },function(){ cb(null,"errore"); });

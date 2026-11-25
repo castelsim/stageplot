@@ -42572,6 +42572,20 @@ t("Link fisso L2 · Condividi e lista: il link nasce con la chiave; progetto non
   ok(/is_locked/.test(cl) && /"conflitto"/.test(cl), "bloccato e conflitto sono casi a parte");
   ok(/cb\(data\.share_token\|\|tok, true\)/.test(appjs), "il token nuovo lo dice (shareLegacy:false)");
 });
+/* Rilettura Opus 25/11 (C1): Condividi dalla LISTA sul progetto APERTO passava da chiaveLinkProgettoChiuso, che scrive la chiave solo nel cloud
+   (e allinea la revisione locale): DOC_EXTRA restava senza chiave e il primo autosave la cancellava → chi aveva il link vedeva «non è più condivisa». */
+t("Link fisso L2 · rilettura C1: il progetto aperto passa sempre da DOC_EXTRA, anche quando Condividi parte dalla lista", () => {
+  const sh = appjs.slice(appjs.indexOf("function showForProject(id,request){"), appjs.indexOf("window.__shareUi"));
+  ok(/aperto=!!\(C2 && C2\.currentId && C2\.currentId\(\)===id\);/.test(sh), "«aperto» = progetto aperto in questa scheda");
+  ok(!/aperto=[^;]*_shareIsCurrent/.test(sh), "non dipende da dove si è premuto Condividi");
+  const cl = appjs.slice(appjs.indexOf("function chiaveLinkProgettoChiuso"), appjs.indexOf("function clearShareTokenFor"));
+  const guardia = cl.indexOf('if(id===cloudCurrentId){ cb(null,"errore"); return; }'), scrive = cl.indexOf("updateProjectMetadataCas(id,{data:nuovo}");
+  ok(guardia > 0 && scrive > guardia, "rete di sicurezza: mai una scrittura diretta di `data` sul progetto aperto");
+});
+t("Link fisso L2 · rilettura C2: «Continua qui come copia» (conflitto) non porta le chiavi dei link", () => {
+  const f = appjs.slice(appjs.indexOf('confBar.querySelector("#cbCopy")'), appjs.indexOf('confBar.querySelector("#cbCopy")') + 600);
+  ok(/detachCloudDoc\(\);[^\n]*\n\s*togliChiaviCondivisione\(DOC_EXTRA\);/.test(f), "dopo lo stacco, via le chiavi");
+});
 
 await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
