@@ -40839,9 +40839,9 @@ function elecDropBloccoPdf(doc, R, M, getY, setY){
   var T=elecDropTratte(R); if(!T.some(function(x){ return x.d.pct!=null; })) return;
   var en=docEn(), y=getY(), cx=[M, M+88, M+104, M+118, M+134, M+153];   /* «PERCORSO» entro 195 mm: ≥ 15 mm dal bordo (B4) */
   function colore(l){ return l==="err" ? "#dc2626" : (l==="warn" ? "#b45309" : "#111827"); }
-  function riga(a,b,c,d,e,f,bold,col){ if(y>274){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(8.5); doc.setTextColor(col||"#111827");
+  function riga(a,b,c,d,e,f,bold,col){ if(y>274){ doc.addPage(); y=22; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(8.5); doc.setTextColor(col||"#111827");
     [a,b,c,d,e,f].forEach(function(t,i){ doc.text(String(t), cx[i], y); }); y+=5; }
-  if(y>236){ doc.addPage(); y=18; }
+  if(y>236){ doc.addPage(); y=22; }
   y+=2; doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#b45309"); doc.text(en?"VOLTAGE DROP (limit 4 %)":"CADUTA DI TENSIONE (limite 4 %)", M, y); y+=6;
   doc.setDrawColor("#d97706"); doc.setLineWidth(0.4); doc.line(M, y-3.5, 194, y-3.5);
   riga(en?"RUN":"TRATTA","A","mm²","m",en?"RUN":"LINEA",en?"TOTAL":"PERCORSO", true, "#b45309");
@@ -40853,16 +40853,16 @@ function elecDropBloccoPdf(doc, R, M, getY, setY){
   T.forEach(function(x){ var f=elecDropAdvice(x.d, en); if(!f) return; var k=x.n+f; if(visti[k]) return; visti[k]=1; cand.push({x:x, f:f, tot:(x.d.tot!=null?x.d.tot:x.d.pct)}); });
   cand.sort(function(a,b){ return b.tot-a.tot; });
   cand.slice(0,10).forEach(function(c){ var x=c.x;
-    if(y>272){ doc.addPage(); y=18; } doc.setFont("helvetica", x.d.lvl==="err"?"bold":"normal"); doc.setFontSize(8.5); doc.setTextColor(colore(x.d.lvl));
+    if(y>272){ doc.addPage(); y=22; } doc.setFont("helvetica", x.d.lvl==="err"?"bold":"normal"); doc.setFontSize(8.5); doc.setTextColor(colore(x.d.lvl));
     var rr=doc.splitTextToSize("• "+x.n+": "+c.f, 178); doc.text(rr, M, y); y+=rr.length*4; });
-  if(cand.length>10){ if(y>272){ doc.addPage(); y=18; } doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#6b7280");
+  if(cand.length>10){ if(y>272){ doc.addPage(); y=22; } doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#6b7280");
     doc.text("+"+(cand.length-10)+(en?" more lines: see the table above.":" altre linee: vedi la tabella sopra."), M, y); y+=4; }
   var incompleto=T.some(function(x){ return x.d.pct!=null && x.d.completo===false; });
   doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor("#6b7280");
   var nota=doc.splitTextToSize(en
     ? "Calculation: copper, power factor 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (conservative values: about +/-3,5 % from the CEI UNEL tables). Limit 4 % from the supply point to the load (CEI 64-8), yellow above 3 %. Current (A) = estimated connected load on the most loaded phase, not the board rating; loads still to be connected and loads without power are left out; three-phase boards with single-phase loads: neutral included. * = size estimated from the current (1,5 mm2 up to 16 A, 4 mm2 up to 32 A): load cables have no size written in the project."+(incompleto?" ° = run up to the board shown: the run from the supply is not calculated (supply not set or manual mode).":"")+" Estimate: to be verified by the designer."
     : "Calcolo: rame, fattore di potenza 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (valori prudenti: scarto di circa ±3,5 % dalle tabelle CEI UNEL). Limite 4 % dal punto di consegna al carico (CEI 64-8), giallo oltre il 3 %. Corrente (A) = carico stimato collegato sulla fase più carica, non la portata del quadro; esclusi i carichi da collegare e quelli senza potenza; quadri trifase con carichi monofase: neutro compreso. * = sezione stimata dalla corrente (1,5 mm² fino a 16 A, 4 mm² fino a 32 A): i cavi dei carichi non hanno una sezione scritta nel progetto."+(incompleto?" ° = percorso fino al quadro indicato: tratta dall'ingresso non calcolata (ingresso non definito o modalità manuale).":"")+" Stima: la verifica spetta al progettista.", 178);
-  if(y+nota.length*3.4>280){ doc.addPage(); y=18; }
+  if(y+nota.length*3.4>280){ doc.addPage(); y=22; }
   doc.text(nota, M, y); y+=nota.length*3.4+2;
   setY(y);
 }
