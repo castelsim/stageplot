@@ -2593,6 +2593,11 @@
           <select id="pdfListaPerPagina" hidden><option value="32" selected>32</option><option value="48">48</option></select>
         </div>
         <!-- FORMATO DELL'OUTPUT LIST (13/11/2026, S8): Semplice (di sempre) o Service (un blocco A4 orizzontale per stage box, 16 uscite). Impostazione dell'export, non del progetto. -->
+        <!-- FOGLIO DEI CAMBI DI PALCO (L4, 25/11/2026): compare solo se la versione ha cambi. B = una fascia per cambio su un A4 verticale (di serie); A = un cambio per pagina, scritte grandi. Impostazione dell'export, non del progetto. -->
+        <div id="pdfCambiFmt" hidden>
+          <label for="pdfCambiFormato">Foglio dei cambi di palco</label>
+          <select id="pdfCambiFormato"><option value="b" selected>Tutti i cambi su una pagina</option><option value="a">Una pagina per cambio, scritte grandi</option></select>
+        </div>
         <!-- ORDINE DELL'ORGANICO (13/11/2026, S13): l'ordine delle sezioni del foglio Organico; si salva nel progetto. -->
         <div id="pdfOrgOrd" hidden>
           <label for="pdfOrgOrdine">Ordine dell'organico</label>
@@ -2708,6 +2713,11 @@
             <div class="pdf-altri-voce" id="pdfTeatroBox">
               <button type="button" class="btn" id="pdfTeatro"><span><b>Foglio per il teatro</b> · PDF A4</span></button>
               <small>Sedie, pedane, scalette e prese, con la stessa versione. Scarica subito.</small>
+            </div>
+            <!-- FOGLIO DEI CAMBI DI PALCO (L4, 25/11/2026): solo se la versione ha cambi; scarica SUBITO il foglio (formato B o A come scelto nel menu) -->
+            <div class="pdf-altri-voce" id="pdfCambiBox" hidden>
+              <button type="button" class="btn" id="pdfCambi"><span><b>Foglio dei cambi</b> · PDF A4</span></button>
+              <small>Un cambio per fascia, con cosa esce, entra e si sposta e il palco dopo il cambio. Scarica subito.</small>
             </div>
             <div class="pdf-altri-voce">
               <button type="button" class="btn" id="pdfAltZip" title="Un file .zip con un PDF per documento (stage plot, channel list, rider…), con la stessa versione e data nel nome">Pacchetto (.zip)</button>
@@ -12622,7 +12632,7 @@ function custEditorAvvisa(){ if(window.__toast) window.__toast(custEditorMsg(), 
 /* custshape ammessi da normalizeLoadedItems SOLO mentre l'editor costruisce il palco temporaneo o ne applica la cronologia:
    un documento esterno (prepareDoc: file, link, cloud) li rifiuta anche a editor aperto */
 var __custShapeAmmesse=false;
-function custEditorClasse(on){ try{ var cl=document.body.classList; cl[on?"add":"remove"]("cust-editor"); if(!on){ cl.remove("cambio-editor"); cl.remove("cambio-vista"); } }catch(e){} }   /* spegnere = spegne anche le classi dei cambi (L3) */
+function custEditorClasse(on){ try{ var cl=document.body.classList; cl[on?"add":"remove"]("cust-editor"); if(!on){ cl.remove("cambio-editor"); cl.remove("cambio-vista"); } }catch(e){} if(!on && typeof cambioBannerAggiorna==="function"){ try{ cambioBannerAggiorna(); }catch(e){} } }   /* L4 (N3): il banner del cambio si ritira anche se l'editor si chiude da sé (disconnessione) */   /* spegnere = spegne anche le classi dei cambi (L3) */
 function custEditorRidisegna(){
   render();
   if(typeof renderChannels==="function") renderChannels();
@@ -21475,6 +21485,10 @@ function controlliPrimaDelExport(){
       }
     }
   }catch(_e){}
+  /* 6c-bis · cambi di palco (L4): elementi con microfono che ENTRANO in un cambio e non stanno nel palco base: la channel list è quella del palco base */
+  try{ var _mf=cambiMicFuoriLista();
+    if(_mf.length) add("cambi-mic-fuori-lista", (_mf.length===1 ? "Il cambio "+_mf[0].cambio : "I cambi "+_mf.map(function(x){ return x.cambio; }).join(", "))+" fa entrare "+_mf.reduce(function(a,x){ return a+x.n; },0)+" element"+(_mf.reduce(function(a,x){ return a+x.n; },0)===1?"o":"i")+" con un microfono che non è nella channel list (è quella del palco base): aggiungili al palco base o avvisa il service.");
+  }catch(_e){}
   /* 6d · allegati richiesti ancora «da chiedere» (S14): solo se l'utente ha scritto l'elenco */
   var _al=allegatiPuliti(state.allegatiRichiesti), _dc=(_al||[]).filter(function(a){ return a.s==="da chiedere"; });
   if(_dc.length) add("allegati-da-chiedere",(_dc.length===1 ? "Allegato ancora da chiedere: " : _dc.length+" allegati ancora da chiedere: ")+_dc.map(function(a){ return a.n; }).join(", ")+".");
@@ -26368,7 +26382,7 @@ function objectSnap(dragItems, ddx, ddy, Tol){
    entro ~8 px di schermo (5 px coi passi fini, dove si lavora al centimetro); fuori soglia vale la griglia. ⌘/Ctrl sospende tutto (Alt resta la copia). */
 var SNAP_OBJ_PX=8, SNAP_OBJ_PX_FINE=5;
 function snapObjTol(){ return hSize(snapFine() ? SNAP_OBJ_PX_FINE : SNAP_OBJ_PX); }
-function snapCombinato(){ return !window.__custEditor && snapMode!=="0" && snapMode!=="obj"; }
+function snapCombinato(){ return !custEditorAttivo() && snapMode!=="0" && snapMode!=="obj"; }   /* L4 (N2 della rilettura): nel cambio vale come nel palco normale; fuori solo dall'editor «Crea elemento» */
 function combinedSnap(dragItems, ddx, ddy){
   var m=snapFine() ? null : magneticSnap(dragItems,ddx,ddy), o=objectSnap(dragItems,ddx,ddy,snapObjTol()), r={sdx:0,sdy:0,hx:false,hy:false,guides:[]};
   [["x","sdx","hx","gx"],["y","sdy","hy","gy"]].forEach(function(a){
@@ -43450,7 +43464,7 @@ function lightsList(){
    catena che costruisce il PDF (buildPdfDoc) — e le due copie erano già divergenti: la Lista luci
    usciva dopo la Lista monitor nel PDF e dopo la Lista rack in anteprima. Chi diceva al service
    «guarda a pagina 2» lo mandava sul foglio sbagliato. Chi aggiunge una pagina tocca SOLO qui. */
-var PDF_TECH_ORDER=["rider","organico","responsabilita","inputlist","monitorlist","lightslist","loadlist",
+var PDF_TECH_ORDER=["rider","organico","responsabilita","cambi","inputlist","monitorlist","lightslist","loadlist",
   "eleclines","backline","rf","notelist","pmlist","racklist","dantepatch","netlist","outputlist",
   "cabmap","elecmap","todefine"];
 function pdfTechRank(key){ var i=PDF_TECH_ORDER.indexOf(key); return i<0?-1:i; }
@@ -44059,6 +44073,236 @@ function cambiQuandoProposte(){
     out.push("dopo il brano "+n+(nv.titolo ? " – "+nv.titolo : ""));
   });
   return out.map(function(t){ return cambiTesto(t, CAMBI_QUANDO_MAX); });
+}
+
+/* ═══ FOGLIO DEI CAMBI (Versioni L4, 25/11/2026) ═══
+   Il documento che il capo palco legge durante lo spettacolo. Formato B (di serie): A4 verticale, una fascia per cambio con numero grande, il momento,
+   tre colonne ESCE / ENTRA / SI SPOSTA (per ruolo, mai per persona) e il mini palco DOPO il cambio; formato A (opzionale): A4 orizzontale, un cambio per
+   pagina, scritte grandi, PRIMA e DOPO affiancati. Si disegna in vettoriale (rettangoli ruotati, come gli altri fogli), dallo stesso stato che dà il pannello
+   (applicaCambi): niente tavola da ridisegnare, niente svg2pdf. Nessun cambio = nessuna pillola, nessuna pagina, nessun file: gli export di sempre non cambiano.
+   Piè «N di M · vN · data» da pdfCredit, come ogni foglio; testo nero; margini ≥15 mm. */
+var CAMBI_FOGLIO_VOCI=6, CAMBI_NON_DISEGNATI={custshape:1, testo:1, forma:1, tappeto:1, miczone:1, metro:1, platea:1};
+function cambiFoglioDisponibile(){ return cambiLista().length>0; }
+/* al massimo `max` voci per colonna, poi «+N altri» (con una voce sola in più si mostra quella: «+1 altri» occuperebbe la stessa riga) */
+function cambiVociMax(righe, max){
+  righe=righe||[]; max=max||CAMBI_FOGLIO_VOCI;
+  if(righe.length<=max+1) return righe.slice();
+  return righe.slice(0,max).concat(["+"+(righe.length-max)+" "+(docEn() ? "more" : "altri")]);
+}
+/* «Violino ×2, Viola»: i nomi del catalogo raggruppati; in inglese passano dal traduttore dei nomi automatici */
+function cambioNomiRighe(items){
+  var c=Object.create(null), ord=[];
+  (items||[]).forEach(function(it){ var n=cambioNomeRuolo(it); if(!c[n]){ c[n]=0; ord.push(n); } c[n]++; });
+  return ord.map(function(n){ var t=docTesto(n); return c[n]>1 ? t+" ×"+c[n] : t; });
+}
+/* di quanto e dove si è spostato un elemento, nel verso del disegno (sinistra/destra come lo si vede; «verso il pubblico» = in basso) */
+function cambioSpostaTesto(da, a){
+  var en=docEn(), dx=(+a.x||0)-(+da.x||0), dy=(+a.y||0)-(+da.y||0), p=[];
+  if(Math.abs(dx)>=10) p.push(docLen(Math.abs(dx))+(dx<0 ? (en ? " to the left" : " a sinistra") : (en ? " to the right" : " a destra")));
+  if(Math.abs(dy)>=10) p.push(docLen(Math.abs(dy))+(dy<0 ? (en ? " towards the back" : " verso il fondo") : (en ? " towards the audience" : " verso il pubblico")));
+  var dr=((cambioAngolo(a.rot)-cambioAngolo(da.rot)+540)%360)-180;
+  if(Math.abs(dr)>=1) p.push((en ? "rotated by " : "ruotato di ")+Math.round(Math.abs(dr))+"°");
+  return p.length ? p.join(", ") : (en ? "by a few cm" : "di pochi cm");
+}
+/* PURA sullo stato: le righe del foglio, un oggetto per cambio. I nomi sono ruoli del catalogo; gli elementi che non ci sono più si contano in `persi`. */
+function cambiFoglioDati(){
+  var base=state.items||[], cambi=cambiLista(), righe=[];
+  cambi.forEach(function(c, i){
+    var pre=applicaCambi(base, cambi, i), post=applicaCambi(base, cambi, i+1), byPre=Object.create(null);
+    pre.items.forEach(function(it){ byPre[it.id]=it; });
+    var esceIt=(c.esce||[]).map(function(k){ return byPre[k]; }).filter(Boolean);
+    var entraIt=(c.entra||[]).filter(function(it){ return !byPre[it.id] || (c.esce||[]).indexOf(it.id)>=0; });
+    var mosse=Object.create(null), ordM=[];
+    (c.sposta||[]).forEach(function(p){ var da=byPre[p.id]; if(!da) return; var k=cambioNomeRuolo(da)+"|"+cambioSpostaTesto(da, p);
+      if(!mosse[k]){ mosse[k]={n:0, nome:cambioNomeRuolo(da), dove:cambioSpostaTesto(da, p)}; ordM.push(k); } mosse[k].n++; });
+    var sposta=ordM.map(function(k){ var m=mosse[k]; return docTesto(m.nome)+(m.n>1 ? " ×"+m.n : "")+": "+m.dove; });
+    var persi=post.persi.filter(function(q){ return q.cambio===i; }).length;
+    var e=cambioNomiRighe(esceIt), n=cambioNomiRighe(entraIt);
+    righe.push({n:i+1, id:c.id, nome:c.nome||"", quando:c.quando||"", esce:e, entra:n, sposta:sposta, persi:persi, vuoto:!(e.length || n.length || sposta.length)});
+  });
+  return {righe:righe};
+}
+/* i palchi prima e dopo il cambio i (0-based): copie, mai il palco vero */
+function cambiPalchiDi(i){ var base=state.items||[], cambi=cambiLista(); return {prima:applicaCambi(base, cambi, i).items, dopo:applicaCambi(base, cambi, i+1).items}; }
+function cambioPoly(it){
+  var t=TYPES[it.type]||{}, w=+it.w||t.w||60, d=+it.d||t.d||60, a=(+it.rot||0)*Math.PI/180, c=Math.cos(a), s=Math.sin(a), x=+it.x||0, y=+it.y||0, hw=w/2, hd=d/2;
+  return [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]].map(function(p){ return [x+p[0]*c-p[1]*s, y+p[0]*s+p[1]*c]; });
+}
+/* PURA. Il mini palco dopo il cambio: ogni elemento è un rettangolo ruotato (stesse misure dello stage plot) con il suo tipo di disegno —
+   «entra» pieno, «sposta» con freccia dal punto di partenza, «resta» a contorno; chi è uscito non c'è. Forme di sfondo, annotazioni e interni di un rack no.
+   `stage` = {w,d}: il riquadro contiene sempre tutto il palco e tutti gli elementi (anche quelli fuori dal palco). */
+function cambioMiniPalco(prima, dopo, blocchi, stage){
+  var P=Object.create(null); (prima||[]).forEach(function(it){ if(it) P[it.id]=it; });
+  var poli=(blocchi&&blocchi.length ? blocchi : [{x:0,y:0,w:(stage&&stage.w)||0,d:(stage&&stage.d)||0}]).map(function(b){ return (b.shape==="semi" && typeof bglSemiPoligono==="function") ? bglSemiPoligono(b) : blockCorners(b); });
+  var forme=[], x0=Infinity, y0=Infinity, x1=-Infinity, y1=-Infinity;
+  function box(pl){ pl.forEach(function(p){ if(p[0]<x0) x0=p[0]; if(p[0]>x1) x1=p[0]; if(p[1]<y0) y0=p[1]; if(p[1]>y1) y1=p[1]; }); }
+  poli.forEach(box);
+  (dopo||[]).forEach(function(it){
+    if(!it || CAMBI_NON_DISEGNATI[it.type] || it.rackId) return;
+    var p=P[it.id], tipo=(!p || p.type!==it.type) ? "entra" : (cambioPosDiversa(p, it) ? "sposta" : "resta"), f={id:it.id, tipo:tipo, poly:cambioPoly(it), cx:+it.x||0, cy:+it.y||0};
+    if(tipo==="sposta") f.da={cx:+p.x||0, cy:+p.y||0};
+    box(f.poly); forme.push(f);
+  });
+  if(!isFinite(x0)){ x0=0; y0=0; x1=1; y1=1; }
+  return {forme:forme, stage:poli, bbox:{x0:x0, y0:y0, x1:x1, y1:y1}};
+}
+function cambioBboxUnione(a, b){ return {x0:Math.min(a.x0,b.x0), y0:Math.min(a.y0,b.y0), x1:Math.max(a.x1,b.x1), y1:Math.max(a.y1,b.y1)}; }
+/* il riquadro (w×h mm) riempito senza deformare: scala k (mm per cm), misure effettive */
+function cambioMiniAdatta(bbox, w, h){
+  var bw=Math.max(1, bbox.x1-bbox.x0), bh=Math.max(1, bbox.y1-bbox.y0), k=Math.min(w/bw, h/bh);
+  return {k:k, w:bw*k, h:bh*k};
+}
+/* disegna il mini palco in (bx,by,bw,bh) mm, centrato; `bbox` esplicito per avere la stessa scala in PRIMA e DOPO. Torna l'altezza usata, etichetta «PUBBLICO» compresa. */
+function cambioMiniDisegna(doc, M, bx, by, bw, bh, bbox){
+  bbox=bbox||M.bbox; var etichetta=3.4, F=cambioMiniAdatta(bbox, bw, Math.max(10, bh-etichetta)), ox=bx+(bw-F.w)/2, oy=by;
+  var X=function(x){ return ox+(x-bbox.x0)*F.k; }, Y=function(y){ return oy+(y-bbox.y0)*F.k; };
+  var poly=function(pl, st){ var r=[]; for(var i=1;i<pl.length;i++) r.push([X(pl[i][0])-X(pl[i-1][0]), Y(pl[i][1])-Y(pl[i-1][1])]); doc.lines(r, X(pl[0][0]), Y(pl[0][1]), [1,1], st, true); };
+  doc.setDrawColor(0,0,0); doc.setFillColor(0,0,0);
+  doc.setLineWidth(0.5); M.stage.forEach(function(pl){ poly(pl, "S"); });
+  M.forme.forEach(function(f){
+    if(f.tipo==="entra"){ doc.setLineWidth(0.2); poly(f.poly, "FD"); }
+    else { doc.setLineWidth(f.tipo==="sposta" ? 0.45 : 0.2); poly(f.poly, "S"); }
+  });
+  M.forme.forEach(function(f){   /* la freccia dal punto di partenza al nuovo (sopra tutto), se la distanza si vede */
+    if(f.tipo!=="sposta") return;
+    var ax=X(f.da.cx), ay=Y(f.da.cy), bx2=X(f.cx), by2=Y(f.cy), L=Math.sqrt((bx2-ax)*(bx2-ax)+(by2-ay)*(by2-ay)); if(L<2.5) return;
+    var ux=(bx2-ax)/L, uy=(by2-ay)/L, t=1.6, base={x:bx2-ux*t, y:by2-uy*t};
+    doc.setLineWidth(0.4); doc.line(ax, ay, base.x, base.y);
+    doc.triangle(bx2, by2, base.x-uy*0.9, base.y+ux*0.9, base.x+uy*0.9, base.y-ux*0.9, "F");
+  });
+  doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(0,0,0);
+  doc.text(docEn() ? "AUDIENCE" : "PUBBLICO", ox+F.w/2, oy+F.h+etichetta-0.8, {align:"center"});
+  return F.h+etichetta;
+}
+function cambiFoglioIntestazioneTesto(){
+  var v=versioneNumero(), l=String(state.luogo||"").replace(/\s+/g," ").trim(), d="";
+  if(/^\d{4}-\d{2}-\d{2}$/.test(String(state.evDate||""))){ var e=state.evDate.split("-"); d=e[2]+"/"+e[1]+"/"+e[0]; }
+  return [docEn() ? "STAGE CHANGES" : "CAMBI DI PALCO", titoloSenzaVersione(state.titolo)||"Stage plot", v ? "v"+v : "", l, d].filter(Boolean).join(" · ");
+}
+/* testo di una colonna in righe già a capo: [{t, nuova}] con `nuova` = prima riga di una voce (spazio in più sopra) */
+function cambiColonnaRighe(voci, w, pt){
+  var out=[]; cambiVociMax(voci, CAMBI_FOGLIO_VOCI).forEach(function(v){ pdfTxtRighe(v, w, pt, false).forEach(function(r, k){ out.push({t:r, nuova:k===0}); }); });
+  return out;
+}
+/* FORMATO B: una fascia per cambio, ad altezza variabile, a pagina nuova senza spezzarne una. Aggiunge le sue pagine al documento. */
+function cambiFoglioB(doc, D){
+  var en=docEn(), pw=210, ph=297, M=16, W=pw-2*M, CAP=272, MINI_W=70, MINI_H=46, xN=M, wN=14, xT=M+17, xM=pw-M-MINI_W, wT=xM-5-xT, gap=3, colW=(wT-2*gap)/3;
+  var y, nPag=0;
+  function pagina(){
+    doc.addPage("a4","portrait"); nPag++;
+    doc.setTextColor(0,0,0); doc.setDrawColor(0,0,0); doc.setFont("helvetica","bold"); doc.setFontSize(12.5);
+    var tit=pdfTxtRighe(cambiFoglioIntestazioneTesto(), W, 12.5, true); y=M+4.5;
+    tit.forEach(function(r){ doc.text(r, M, y); y+=5.4; });
+    y-=2.6; doc.setLineWidth(0.6); doc.line(M, y, pw-M, y); y+=3.6;
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5);
+    pdfTxtRighe(en ? "Drawing: filled = comes in with this change · arrow = moves · outline = stays as it was · names are roles, not people" : "Disegno: pieno = entra con questo cambio · freccia = si sposta · contorno = resta com'era · i nomi sono ruoli, non persone", W, 7.5, false).forEach(function(r){ doc.text(r, M, y); y+=3.4; });
+    y+=2.2;
+  }
+  pagina();
+  D.righe.forEach(function(r, i){
+    var quando=r.quando ? r.quando.toUpperCase() : (en ? "MOMENT NOT SET" : "MOMENTO DA INDICARE");
+    var qR=pdfTxtRighe(quando, wT, 10.5, true), nR=r.nome ? pdfTxtRighe(r.nome, wT, 9, false) : [];
+    var cols=[[en ? "OUT" : "ESCE", r.esce], [en ? "IN" : "ENTRA", r.entra], [en ? "MOVES" : "SI SPOSTA", r.sposta]].map(function(c){ return {h:c[0], righe:cambiColonnaRighe(c[1], colW-1, 8.5)}; });
+    var vuotoR=r.vuoto ? pdfTxtRighe(en ? "no differences from the previous stage" : "nessuna differenza dal palco precedente", wT, 9.5, false) : null;
+    var nRighe=vuotoR ? vuotoR.length : Math.max.apply(null, cols.map(function(c){ return c.righe.length || 1; }));
+    var voci=vuotoR ? 0 : Math.max.apply(null, cols.map(function(c){ return c.righe.filter(function(x){ return x.nuova; }).length; }));
+    var note=r.persi ? pdfTxtRighe(en ? r.persi+" item(s) are no longer on the stage: that part of the change is skipped." : r.persi+(r.persi===1 ? " elemento non c'è più nel palco: quella parte del cambio non si applica." : " elementi non ci sono più nel palco: quella parte del cambio non si applica."), wT, 8, false) : [];
+    var hT=qR.length*4.7+nR.length*3.9+2+(vuotoR ? vuotoR.length*4.2 : 5+nRighe*3.7+voci*0.6)+note.length*3.5+(note.length ? 1.5 : 0);
+    var h=Math.max(hT, MINI_H+3.4)+8;
+    if(y+h>CAP && nPag>0 && y>M+30){ pagina(); }
+    var top=y+3.5;
+    doc.setFont("helvetica","bold"); doc.setFontSize(26); doc.setTextColor(0,0,0); doc.text(String(r.n), xN+wN/2, top+9, {align:"center"});
+    var ty=top+3.6; doc.setFontSize(10.5);
+    qR.forEach(function(q){ doc.text(q, xT, ty); ty+=4.7; });
+    if(nR.length){ doc.setFont("helvetica","normal"); doc.setFontSize(9); nR.forEach(function(q){ doc.text(q, xT, ty); ty+=3.9; }); }
+    ty+=1.2;
+    if(vuotoR){ doc.setFont("helvetica","italic"); doc.setFontSize(9.5); vuotoR.forEach(function(q){ doc.text(q, xT, ty+1.5); ty+=4.2; }); }
+    else {
+      cols.forEach(function(c, k){
+        var cx=xT+k*(colW+gap), cy=ty;
+        doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.text(c.h, cx, cy); doc.setLineWidth(0.25); doc.line(cx, cy+1.2, cx+colW, cy+1.2); cy+=5;
+        doc.setFont("helvetica","normal"); doc.setFontSize(8.5);
+        if(!c.righe.length) doc.text("—", cx, cy); else c.righe.forEach(function(x){ if(x.nuova) cy+=0.6; doc.text(x.t, cx, cy); cy+=3.7; });
+      });
+      ty+=5+nRighe*3.7+voci*0.6;
+    }
+    if(note.length){ doc.setFont("helvetica","italic"); doc.setFontSize(8); note.forEach(function(q){ doc.text(q, xT, ty+1.5); ty+=3.5; }); }
+    var P=cambiPalchiDi(i), M2=cambioMiniPalco(P.prima, P.dopo, stageBlocks(), state.stage);
+    cambioMiniDisegna(doc, M2, xM, top, MINI_W, MINI_H+3.4, M2.bbox);
+    y+=h; doc.setDrawColor(0,0,0); doc.setLineWidth(0.3); doc.line(M, y-1.5, pw-M, y-1.5);
+  });
+}
+/* FORMATO A: un cambio per pagina A4 orizzontale, scritte grandi, PRIMA e DOPO affiancati con la stessa scala */
+function cambiFoglioA(doc, D){
+  var en=docEn(), pw=297, M=16, W=pw-2*M, LIM=184;
+  D.righe.forEach(function(r, i){
+    doc.addPage("a4","landscape"); doc.setTextColor(0,0,0); doc.setDrawColor(0,0,0);
+    doc.setFont("helvetica","bold"); doc.setFontSize(10); var y=M+4;
+    pdfTxtRighe(cambiFoglioIntestazioneTesto(), W, 10, true).forEach(function(q){ doc.text(q, M, y); y+=4.4; });
+    doc.setLineWidth(0.5); doc.line(M, y-2, pw-M, y-2); y+=9;
+    doc.setFontSize(30); doc.text((en ? "CHANGE " : "CAMBIO ")+r.n+(en ? " of " : " di ")+D.righe.length, M, y); y+=10;
+    doc.setFontSize(19); pdfTxtRighe(r.quando ? r.quando.toUpperCase() : (en ? "MOMENT NOT SET" : "MOMENTO DA INDICARE"), W, 19, true).slice(0,2).forEach(function(q){ doc.text(q, M, y); y+=8; });
+    if(r.nome){ doc.setFont("helvetica","normal"); doc.setFontSize(12); doc.text(pdfTxtRighe(r.nome, W, 12, false)[0], M, y); y+=6; }
+    y+=2; doc.setFontSize(14);
+    if(r.vuoto){ doc.setFont("helvetica","italic"); doc.setFontSize(16); doc.text(en ? "no differences from the previous stage" : "nessuna differenza dal palco precedente", M, y+3); y+=10; }
+    else [[en ? "OUT" : "ESCE", r.esce, false], [en ? "IN" : "ENTRA", r.entra, false], [en ? "MOVES" : "SI SPOSTA", r.sposta, true]].forEach(function(c){
+      if(!c[1].length) return;
+      /* nessun testo tagliato in silenzio: ESCE e ENTRA vanno in una frase, si accorcia con «+N altri» finché stanno in 3 righe; SI SPOSTA una voce per riga (al massimo 6, poi «+N altri») */
+      var righe;
+      if(c[2]) righe=cambiVociMax(c[1], 6).reduce(function(a, v){ return a.concat(pdfTxtRighe(v, W-34, 14, false)); }, []);
+      else { var nn=c[1].length, altri=function(k){ return c[1].slice(0,k).join(", ")+(k<nn ? ", +"+(nn-k)+" "+(en ? "more" : "altri") : ""); };
+        righe=pdfTxtRighe(altri(nn), W-34, 14, false); while(righe.length>3 && nn>1){ nn--; righe=pdfTxtRighe(altri(nn), W-34, 14, false); } }
+      doc.setFont("helvetica","bold"); doc.setFontSize(14); doc.text(c[0], M, y);
+      doc.setFont("helvetica","normal"); righe.forEach(function(q, k){ doc.text(q, M+34, y+k*6.2); }); y+=righe.length*6.2+1.8;
+    });
+    if(r.persi){ doc.setFont("helvetica","italic"); doc.setFontSize(9); doc.text(en ? r.persi+" item(s) are no longer on the stage: skipped." : r.persi+(r.persi===1 ? " elemento non c'è più nel palco: non si applica." : " elementi non ci sono più nel palco: non si applicano."), M, y+1); y+=5; }
+    y+=2;
+    var P=cambiPalchiDi(i), A1=cambioMiniPalco(P.prima, P.prima, stageBlocks(), state.stage), A2=cambioMiniPalco(P.prima, P.dopo, stageBlocks(), state.stage), U=cambioBboxUnione(A1.bbox, A2.bbox);
+    var bw=(W-12)/2, by=y+6, bh=Math.max(25, LIM-by);
+    doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(en ? "BEFORE" : "PRIMA", M, y+3.2); doc.text(en ? "AFTER" : "DOPO", M+bw+12, y+3.2);
+    cambioMiniDisegna(doc, A1, M, by, bw, bh, U); cambioMiniDisegna(doc, A2, M+bw+12, by, bw, bh, U);
+  });
+}
+/* le pagine del foglio nel documento `doc` (si aggiungono in coda); senza cambi non scrive niente. formato: "b" (di serie) | "a" */
+function cambiFoglioPdf(doc, formato){
+  if(!cambiFoglioDisponibile()) return;
+  var f=formato || (window.__pdfListaFmt && window.__pdfListaFmt.cambiFormato) || "b", D=cambiFoglioDati();
+  if(f==="a") cambiFoglioA(doc, D); else cambiFoglioB(doc, D);
+}
+function cambiFoglioNomeFile(d){
+  var v=versioneNumero(), _st=statoDocEtichetta();
+  var t=titoloSenzaVersione(state.titolo).replace(/[\\\/:*?"<>|\u0000-\u001f]+/g," ").replace(/\s+/g," ").trim().slice(0,100).trim().replace(/[. ]+$/,"");
+  if(!t) t="Stage plot";
+  var n=v ? t+" - cambi di palco - v"+v+" del "+dataGgMmAaaa(d||new Date(),"-")+(_st?" - "+_st:"")+".pdf" : nomeConStato(t+" - cambi di palco.pdf");
+  return docNomeFile(n);
+}
+/* un PDF col solo foglio dei cambi (il file singolo e, nel pacchetto, il suo documento) */
+function buildPdfFoglioCambi(d, formato){
+  d=d||new Date();
+  return loadJsPDF().then(function(){
+    var doc=new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true});
+    cambiFoglioPdf(doc, formato);
+    if(doc.getNumberOfPages()<2) throw new Error("nel progetto non ci sono cambi di palco");
+    doc.deletePage(1); pdfCredit(doc);
+    return doc;
+  });
+}
+function exportFoglioCambi(){
+  if(paloTemporaneoAttivo()){ custEditorAvvisa(); return Promise.resolve(false); }
+  var info=document.getElementById("pdfInfo"); info.className="mstatus"; info.textContent="Genero il foglio dei cambi…";
+  return buildPdfFoglioCambi(new Date()).then(function(doc){
+    pdfSave(doc, cambiFoglioNomeFile());
+    if(typeof segnaPdfEsportato==="function") segnaPdfEsportato();
+    info.className="mstatus ok"; info.textContent="✓ Foglio dei cambi scaricato ("+doc.getNumberOfPages()+(doc.getNumberOfPages()===1?" pagina":" pagine")+").";
+    try{ track("export",{format:"pdf-cambi"}); }catch(_e){}
+    return true;
+  }).catch(function(e){ info.className="mstatus err"; info.textContent="Errore: "+(e&&e.message||e); return false; });
+}
+/* «Prima di esportare»: quanti elementi con un microfono entrano nei cambi senza essere nel palco base (la channel list è quella del palco base) */
+function cambiMicFuoriLista(){
+  var base=state.items||[], cambi=cambiLista(), out=[];
+  cambi.forEach(function(c, i){ var R=cambioRiepilogo(base, cambi, i); if(R && R.micFuoriLista) out.push({cambio:i+1, n:R.micFuoriLista}); });
+  return out;
 }
 
 /* ───── il palco temporaneo: vedere o disegnare il palco DOPO il cambio idx ───── */
@@ -45272,6 +45516,7 @@ function buildPdfDoc(paperKey, N, orient, header, foglio){   /* foglio (lotto 2)
       var STAMPA={
         rider:function(){ riderPdf(doc); },                       /* T2: il rider apre le pagine tecniche */
         organico:function(){ organicoPdf(doc); },                 /* S7: il foglio organico, subito dopo il rider */
+        cambi:function(){ cambiFoglioPdf(doc); },                  /* L4: foglio dei cambi di palco (B o A), solo se ci sono cambi */
         responsabilita:function(){ responsabilitaPdf(doc); },      /* Decisione 5A */
         /* in consulenza input+monitor sono già nella channel list manuale */
         inputlist:function(){ if(window.__consultMode) return; var _f=window.__pdfListaFmt;
@@ -45608,7 +45853,7 @@ function pdfGateErrori(run){
    CRC32, nomi in UTF-8. Fase 1: solo la variante corrente (col suo nome nei file se il progetto ne ha più d'una). Il marcatore «cambiato da vN-1»
    verrà con la differenza fra versioni (S10): qui solo il punto d'aggancio, `pacchettoCostruisci(…, opz)`. Solo PDF; niente PDP, hospitality, camerini. */
 function pacchettoDocumentiTutti(){
-  return [["stageplot","stage plot"],["piantapalco","pianta palco"],["piantaluci","pianta luci"],["programmaluci","programma luci"],["inputlist","channel list"],["outputlist","output list"],["rider","rider"],["organico","organico"],["backline","backline"],["lightslist","lista luci"],["scaletta","scaletta"]];
+  return [["stageplot","stage plot"],["piantapalco","pianta palco"],["piantaluci","pianta luci"],["programmaluci","programma luci"],["inputlist","channel list"],["outputlist","output list"],["rider","rider"],["organico","organico"],["backline","backline"],["lightslist","lista luci"],["scaletta","scaletta"],["cambi","cambi di palco"]];
 }
 function pacchettoDocumenti(chiaviPillole, haScaletta, haPalco, haLuci){   /* haLuci (lotto 2): fari o truss → anche i fogli «pianta palco» e «pianta luci»; senza, non escono (sarebbero doppione o vuoti) */
   var have={}; (chiaviPillole||[]).forEach(function(k){ have[k]=true; });
@@ -45681,7 +45926,7 @@ function pacchettoProduci(chiave, ctx){
     }
     var doc=new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true});
     var F={ programmaluci:function(){ programmaLuciPdf(doc); }, inputlist:function(){ patchListServicePdf(doc, {perPagina:ctx.perPagina===48?48:32}); }, outputlist:function(){ outputListPdf(doc); }, rider:function(){ riderPdf(doc); },
-            organico:function(){ organicoPdf(doc); }, backline:function(){ backlineListPdf(doc); }, lightslist:function(){ lightsListPdf(doc); }, scaletta:function(){ scalettaPdf(doc); } };
+            organico:function(){ organicoPdf(doc); }, backline:function(){ backlineListPdf(doc); }, lightslist:function(){ lightsListPdf(doc); }, scaletta:function(){ scalettaPdf(doc); }, cambi:function(){ cambiFoglioPdf(doc); } };
     if(!F[chiave]) throw new Error("documento sconosciuto: "+chiave);
     F[chiave]();
     if(doc.getNumberOfPages()<2) throw new Error("«"+chiave+"» non ha niente da stampare");
@@ -46527,6 +46772,10 @@ function pdfChannelPage(doc, L, paperKey){
     if(bo) bo.hidden=!(_pdfTechPages||[]).some(function(p){ return p.key==="outputlist"; });
     if(fo) fo.value=window.__pdfListaFmt.outFormato||"semplice";
     /* ordine dell'organico (S13): compare solo se la pagina Organico è fra le possibili; mostra il valore del progetto */
+    var bc=document.getElementById("pdfCambiFmt"), fc=document.getElementById("pdfCambiFormato");   /* foglio dei cambi (L4): il menu compare solo se la pillola «Cambi di palco» è fra le pagine possibili */
+    if(bc) bc.hidden=!(_pdfTechPages||[]).some(function(p){ return p.key==="cambi"; });
+    var bcx=document.getElementById("pdfCambiBox"); if(bcx) bcx.hidden=bc ? bc.hidden : true;
+    if(fc) fc.value=window.__pdfListaFmt.cambiFormato==="a" ? "a" : "b";
     var bg=document.getElementById("pdfOrgOrd"), fg=document.getElementById("pdfOrgOrdine");
     if(bg) bg.hidden=!(_pdfTechPages||[]).some(function(p){ return p.key==="organico"; });
     if(fg) fg.value=organicoOrdineId();
@@ -46537,6 +46786,8 @@ function pdfChannelPage(doc, L, paperKey){
     if(pp) pp.addEventListener("change", function(){ window.__pdfListaFmt.perPagina=(pp.value==="48")?48:32; });
      var fo=document.getElementById("pdfOutFormato");
     if(fo) fo.addEventListener("change", function(){ window.__pdfListaFmt.outFormato=(fo.value==="service")?"service":"semplice"; });
+    var fcm=document.getElementById("pdfCambiFormato");
+    if(fcm) fcm.addEventListener("change", function(){ window.__pdfListaFmt.cambiFormato=(fcm.value==="a")?"a":"b"; });
   })();
   /* Il coro che nel PDF non ha canali (29/09). Stessa forma dell'avviso qui sopra: quello che si vedrà nel
      foglio, e il rimedio a un clic — gli stessi microfoni d'insieme che aggiunge l'audit. */
@@ -46651,6 +46902,7 @@ function pdfChannelPage(doc, L, paperKey){
     if(((state.lights&&state.lights.rows)||[]).length){ pages.push({key:"view-luci", label:"Vista: Luci"}); }
     if((state.items||[]).length){ pages.push({key:"rider", label:nomeDocumento()}); }   /* T2: rider generato dai dati */
     if(organicoDisponibile()){ pages.push({key:"organico", label:"Organico (orchestra)"}); }   /* S7: solo se c'è un'orchestra */
+    if(typeof cambiFoglioDisponibile==="function" && cambiFoglioDisponibile()){ pages.push({key:"cambi", label:"Cambi di palco"}); }   /* L4: solo se la versione ha cambi; nessun cambio = nessuna pillola */
     try{ var rd=window.currentRespData?window.currentRespData():null; if(rd && rd.assigns && typeof productionDepts==="function"){
       var hasResp=productionDepts().some(function(d){ return (rd.assigns[d.key]||[]).some(function(a){ return a.role==="__azienda__"; }); });
       if(hasResp) pages.push({key:"responsabilita", label:"Responsabilità (produzione)"});
@@ -47003,7 +47255,7 @@ function pdfChannelPage(doc, L, paperKey){
        progetto) e' preselezionata quando ce ne sono, e «Solo palco» e' a un clic, sempre in vista.
        Senza pagine suggerite si parte dal solo palco. La scelta NON si salva nel progetto (10/09: niente
        `pdfPages`): vive quanto la finestra, e alla riapertura si riparte da qui. */
-    window.__pdfListaFmt={formato:"semplice", perPagina:32, outFormato:"semplice"}; renderListaFormato();   /* formato della channel list: a ogni apertura da Semplice (12/11) */
+    window.__pdfListaFmt={formato:"semplice", perPagina:32, outFormato:"semplice"}; window.__pdfListaFmt.cambiFormato="b"; renderListaFormato();   /* formato della channel list: a ogni apertura da Semplice (12/11) */
     _pdfPillSel={};
     if(pdfScelteEsporta(_pdfTechPages).preselezione==="scheda") pdfScelteEsporta(_pdfTechPages).sugg.forEach(function(k){ _pdfPillSel[k]=true; });
     _prodOpen=false;
@@ -47068,6 +47320,13 @@ document.getElementById("bPdf").addEventListener("click", function(){ if(window.
     bt.addEventListener("click", function(){
       if(bt.disabled) return;
       pdfGateErrori(function(){ bt.disabled=true; exportFoglioTeatro().then(function(){ bt.disabled=false; }, function(){ bt.disabled=false; }); });
+    });
+  })();
+  (function(){   /* FOGLIO DEI CAMBI (L4): stesso gate sugli errori critici del foglio per il teatro */
+    var bk=document.getElementById("pdfCambi"); if(!bk) return;
+    bk.addEventListener("click", function(){
+      if(bk.disabled) return;
+      pdfGateErrori(function(){ bk.disabled=true; exportFoglioCambi().then(function(){ bk.disabled=false; }, function(){ bk.disabled=false; }); });
     });
   })();
   document.getElementById("pdfGo").addEventListener("click", function(){

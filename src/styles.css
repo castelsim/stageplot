@@ -4498,7 +4498,7 @@ body.cambio-editor #fileBtn, body.cambio-editor header .tbdiv, body.cambio-edito
 body.cambio-editor #variantBar, body.cambio-editor #projStatus, body.cambio-editor #projApprovedBy, body.cambio-editor #docState,
 body.cambio-editor header .hdr-actions, body.cambio-editor #vistaBanner, body.cambio-editor #funzBanner, body.cambio-editor #riapriBanner, body.cambio-editor #assunzioni,
 body.cambio-editor #chanlist, body.cambio-editor #areaEditPanel, body.cambio-editor #stageEditPanel, body.cambio-editor #eventoSec, body.cambio-editor #scalettaSec,
-body.cambio-editor #cambiSec, body.cambio-editor #verBanner{display:none !important}
+body.cambio-editor #cambiSec, body.cambio-editor #verBanner, body.cambio-editor #catCustom{display:none !important}   /* L4 (N1): «Elementi di questo progetto» non si posano in un cambio: si duplica o si copia */
 /* in un cambio contano solo uscite, entrate e spostamenti: misure, nome, modello e canali si spengono (la nota lo dice); resta viva la rotazione */
 body.cambio-editor #selProps input:not(#pRot),body.cambio-editor #selProps select,body.cambio-editor #selProps textarea,body.cambio-editor #selProps .chips button{pointer-events:none;opacity:.5}
 body.cambio-editor #selProps h3::after{content:"In un cambio si registrano solo uscite, entrate e spostamenti. Per cambiare nome, misure o modello usa il palco base.";display:block;font-size:11px;font-weight:400;line-height:1.4;color:var(--text-2);margin-top:3px}
