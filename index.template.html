@@ -21635,7 +21635,7 @@ function stageLayerMarkup(){
 function zonaGapCm(){ var g=Math.round(+(state && state.zonaGap)); return g>0 ? Math.min(g,200) : 0; }
 /* SCRITTE DI ZONA MAI SOPRA I NOMI (25/11/2026, «PICCOLI 25-11»): su un palco stretto (un carro da 2 m) i nomi degli elementi sul
    bordo davanti («SX», «DX», «SUB SX 2x18») finivano sotto «PUBBLICO», a schermo e in PDF. Se la scritta (al corpo k, 1 a schermo,
-   pdfTextK in stampa) urta il rettangolo di un elemento (corpo + nome: ingombroStampa), scende (FONDO PALCO: sale) quanto basta per
+   pdfTextK in stampa) urta il rettangolo del NOME di un elemento (ingombroStampa «stretto»: il corpo dell'elemento non conta), scende (FONDO PALCO: sale) quanto basta per
    passargli oltre, con 4 cm d'aria; senza urto la posizione resta quella di sempre, quindi progetti e PDF esistenti non cambiano.
    Non contano FOH, platea e sedie del pubblico (stanno in sala), l'avvertenza di Adatta (sta sotto «PUBBLICO» apposta), gli
    apparecchi in un rack. Tetto ZONA_URTO_MAX: oltre non si insegue (un elemento enorme non porta la scritta a metri di distanza). */
