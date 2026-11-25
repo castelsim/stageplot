@@ -25639,7 +25639,7 @@ function ricordaRecenteCatalogo(k, nome, over){
        ["bassstand","Postazione basso elettrico","basso stereo basso elettrico stereo bassista stereo pedaliera stereo uscita stereo L R doppia DI"]].forEach(function(v){
         entries.push({k:v[0], nome:v[1]+" \u00b7 stereo", over:{lineStereo:true, tapLine:true, _chain:1}, soloKw:true, dim:"linea L/R · 2 canali", kw:v[2]});
       });
-      entries.push({k:"dimono", nome:"DI stereo", over:{diCh:"stereo", w:19, d:13}, dim:"2 canali L/R", soloKw:true, kw:"di stereo di box stereo doppia di coppia di direct box stereo l r stereo"});
+      entries.push({k:"dimono", nome:"DI stereo", over:{diCh:"stereo", w:19, d:13}, dim:"2 canali L/R", soloKw:true, kw:"di stereo di box stereo doppia di coppia di l r stereo"});   /* niente «direct box»: è del DI box di sempre (rilettura 25/11) */
       /* LAPTOP SU TAVOLO (19/10/2026): una postazione unica — il tavolo e il Mac, in un gruppo (si spostano insieme) */
       addToGroup("DJ ed elettronica", makeActionBtn("Laptop su tavolo", "tavolo + Mac · postazione unica", "djset", aggiungiLaptopTavolo));
       entries.push({nome:"Laptop su tavolo", dim:"tavolo + Mac · postazione unica", icon:"djset", action:aggiungiLaptopTavolo,
@@ -26477,7 +26477,7 @@ function qaSearch(q){
     if(qaHaParola(_qaPrimo[i],q)) r=-1;
     hit.push({e:_qaOpts[i], n:n, r:r});
   }
-  hit.sort(function(a,b){ return (a.r-b.r) || (catW(a.e)-catW(b.e)) || a.n.localeCompare(b.n); });
+  hit.sort(function(a,b){ return ((a.e.soloKw?1:0)-(b.e.soloKw?1:0)) || (a.r-b.r) || (catW(a.e)-catW(b.e)) || a.n.localeCompare(b.n); });   /* soloKw (voci «· stereo», 25/11/2026) in coda: gli 8 posti restano ai risultati di sempre */
   if(!hit.length){   /* niente di esatto: per somiglianza (refusi), come nella barra del catalogo */
     var ok=[]; for(var k=0;k<_qaOpts.length;k++) if(!(_qaOpts[k].custNo && custEditorAttivo())) ok.push(k);
     return ricercaPerSomiglianza(q, ok.map(function(k){ return _qaAll[k]+" "+_qaEn[k]; }), ok.map(function(k){ return _qaName[k]; })).slice(0,8).map(function(i){ return _qaOpts[ok[i]]; });
@@ -35725,7 +35725,8 @@ function chainInputs(it){
   var c=chainOf(it), base=it.label||TYPES[it.type].nome, out=[];
   if(c.tapLine && c.st){   /* linea stereo: due canali, «Chitarra L / Chitarra R» (con più prelievi: «DI L / DI R») */
     var _lm=(c.lineBal?"XLR":"DI");
-    out.push({name:labelPrefix(it,c.taps>1?"DI L":"L"), mic:_lm}, {name:labelPrefix(it,c.taps>1?"DI R":"R"), mic:_lm});
+    var _ln=function(s){ var n=labelPrefix(it,s); return n===s ? base+" - "+s : n; };   /* strumento senza nome: «Chitarra acustica - L», mai «L» da solo (rilettura 25/11) */
+    out.push({name:_ln(c.taps>1?"DI L":"L"), mic:_lm}, {name:_ln(c.taps>1?"DI R":"R"), mic:_lm});
   } else if(c.tapLine) out.push({name:(c.taps>1?labelPrefix(it,"DI"):base), mic:(c.lineBal?"XLR":"DI")});
   if(c.strMic)  out.push({name:(c.taps>1?labelPrefix(it,"mic"):base), mic:"KM184"});
   if(c.ampMic)  out.push({name:(c.taps>1?labelPrefix(it,"ampli"):base), mic:(CHAIN_AMPMIC[it.type]||"SM57")});

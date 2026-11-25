@@ -9366,6 +9366,25 @@ t("STEREO · una DI stereo del catalogo posata/associata a una tastiera mono la 
   const k2 = add("tastiera", 300, 400); k2.stereo = false; const dm2 = add("dimono", 330, 420);
   A.diAdopt(dm2, k2); eq([A.diCh(dm2), A.itemChannels(k2)], ["mono", 1], "DI mono + tastiera mono: nulla cambia");
 });
+t("STEREO · chitarra senza nome: i canali L/R portano il nome dello strumento, mai «L» / «R» da soli", () => {
+  reset();
+  const g = add("gtacustica", 300, 400); g.label = ""; A.chainToggle(g, "stereo");
+  const n = nomiCh(g); eq(n.length, 2, "2 canali: " + n);
+  ok(n.every((x) => /Chitarra acustica/.test(x)), "nome dello strumento nei canali: " + n);
+  ok(/L$/.test(n[0]) && /R$/.test(n[1]), "L poi R: " + n);
+  const e = add("gtstand", 600, 400); e.label = ""; A.chainToggle(e, "stereo");
+  const m = nomiCh(e).filter((x) => /DI [LR]$/.test(x)); eq(m.length, 2, "DI L / DI R: " + nomiCh(e));
+  ok(m.every((x) => /Chitarra elettrica/.test(x)), "anche con piu' prelievi: " + m);
+});
+t("STEREO · ricerca: le voci nuove non tolgono posto ai risultati di sempre (ricerca rapida a 8) e «direct box» resta del DI box", () => {
+  const qa = (q) => A.__qaSearch(q).map((e) => e.nome);
+  ok(qa("chitarra").includes("Stack chitarra"), "chitarra: " + qa("chitarra"));
+  ok(qa("basso").includes("Pedaliera"), "basso: " + qa("basso"));
+  ok(qa("postazione").includes("Postazione FOH") && qa("postazione").includes("Laptop su tavolo"), "postazione: " + qa("postazione"));
+  eq(A.__spSearch("direct box")[0].nome, "DI box", "catalogo «direct box»");
+  eq(qa("direct box")[0], "DI box", "ricerca rapida «direct box»");
+  ok(qa("stereo").includes("DI stereo") && qa("chitarra stereo").length > 0, "le voci stereo si trovano con le loro parole");
+});
 t("STEREO · pannello: pulsante «Stereo» nella catena, voci di catalogo «· stereo» e «DI stereo», lineStereo sopravvive a salva/riapri", () => {
   ok(/id="pChainSt"/.test(readFileSync(join(root, "index.template.html"), "utf8")), "bottone Stereo nel pannello catena");
   ok(/chainToggle\(it, what\)[\s\S]{0,900}what==="stereo"/.test(appjs), "chainToggle gestisce «stereo»");
