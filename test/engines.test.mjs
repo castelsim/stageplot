@@ -31220,6 +31220,29 @@ t("DI posata accanto a una chitarra senza DI: agganciata, con avviso che si annu
     ok(di.diFor == null && gt.diId == null, "Annulla toglie l'aggancio"); ok(A.state.items.indexOf(di) >= 0, "la DI resta sul palco");
   } finally { delete A.__toast; }
 });
+t("STEREO 2 · Annulla dell'aggancio alla posa di una DI stereo: lo strumento torna com'era (mono, un canale), la DI resta stereo", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const gt = gtSenzaDi(300, 200);
+  const toast = []; A.__toast = (m, e, az) => toast.push({ m, az });
+  try {
+    const di = A.addItem("dimono", { x: 225, y: 200, diCh: "stereo" });
+    eq(di.diFor, gt.id, "agganciata alla posa"); ok(gt.lineStereo === true, "la chitarra è diventata stereo");
+    toast[0].az.run(); A.__cabRes = null;
+    ok(di.diFor == null && gt.diId == null, "aggancio tolto");
+    ok(gt.lineStereo == null, "la chitarra torna mono (niente linea stereo rimasta accesa)");
+    eq(A.diCh(di), "stereo", "la DI resta come l'ha posata l'utente");
+  } finally { delete A.__toast; }
+  /* tastiera messa mono dall'utente + DI stereo posata: idem */
+  reset();
+  const k = add("tastiera", 300, 200); k.stereo = false; const gen = A.diLinked(k);
+  if (gen) { A.state.items = A.state.items.filter((i) => i.id !== gen.id); delete k.diId; delete k.diOff; }
+  const toast2 = []; A.__toast = (m, e, az) => toast2.push({ m, az });
+  try {
+    const d2 = A.addItem("dimono", { x: 225, y: 200, diCh: "stereo" });
+    eq(d2.diFor, k.id, "agganciata alla posa"); eq(A.itemChannels(k), 2, "tastiera diventata stereo");
+    toast2[0].az.run(); A.__cabRes = null; eq([k.stereo, A.itemChannels(k)], [false, 1], "Annulla: la tastiera torna mono, un canale");
+  } finally { delete A.__toast; }
+});
 t("due candidati vicini: la DI non si aggancia (resta l'avviso «di-orfana»)", () => {
   reset();
   const g1 = gtSenzaDi(300, 200), g2 = gtSenzaDi(380, 200);

@@ -37560,6 +37560,7 @@ function diAgganciaAllaPosa(di){
   var cand=diCandidates(di);
   if(cand.length!==1 || cand[0].diBox===false) return null;
   var src=cand[0], tipoPrima=di.diType, utentePrima=di.diTypeUtente;
+  var srcPrima={lineStereo:src.lineStereo, _chain:src._chain, stereo:src.stereo}, diPrima={diCh:di.diCh, w:di.w, d:di.d};   /* STEREO 2: l'aggancio può cambiare mono/stereo di strumento e DI; Annulla li rimette (rilettura 25/11) */
   if(!diAdopt(di, src)) return null;
   try{ if(window.__toast) window.__toast("DI associata a «"+(src.label||(TYPES[src.type]&&TYPES[src.type].nome)||"strumento")+"»: ne porta il canale.", false, {label:"Annulla", run:function(){
     /* annulla solo l'aggancio (la DI resta dov'è): se nel frattempo il legame è cambiato, non tocca niente. Neanche se
@@ -37570,6 +37571,8 @@ function diAgganciaAllaPosa(di){
     delete di.diFor; delete src.diId; delete src.diOff;
     if(tipoPrima==null) delete di.diType; else di.diType=tipoPrima;
     if(utentePrima==null) delete di.diTypeUtente; else di.diTypeUtente=utentePrima;
+    Object.keys(srcPrima).forEach(function(k){ if(srcPrima[k]==null) delete src[k]; else src[k]=srcPrima[k]; });
+    Object.keys(diPrima).forEach(function(k){ if(diPrima[k]==null) delete di[k]; else di[k]=diPrima[k]; });
     __cabRes=null; save(); render(); renderChannels(); renderProps();
   }}); }catch(_e){}
   return src;
