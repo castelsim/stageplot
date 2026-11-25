@@ -4569,7 +4569,8 @@ body.cb-ro .cb-row input{opacity:.8}
 #cambioBanner button{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:7px;padding:5px 11px;font-weight:600;font-size:12px;cursor:pointer}
 #cambioBanner button[data-cb-b="fatto"],#cambioBanner[data-vista="1"] button[data-cb-b="annulla"]{background:var(--accent);border-color:var(--accent);color:#fff}
 #cambioBanner button[hidden]{display:none}
-@media (max-width:600px){ #cambioBanner{top:6px;padding:6px 9px;gap:6px} #cambioBanner .vb-testo span{display:none} #cambioBanner button{padding:5px 8px} }
+@media (max-width:600px){ #cambioBanner{top:62px;padding:6px 9px;gap:6px}   /* sotto la barra del titolo, senza coprire il chip «Vista girata» */
+  #cambioBanner .vb-testo span{display:none} #cambioBanner button{padding:5px 8px} }
 /* durante il cambio: niente di ciò che agirebbe sul progetto vero (intestazione, versioni, file, esportazione, liste); il catalogo resta, per far ENTRARE elementi */
 body.cambio-editor #fileBtn, body.cambio-editor header .tbdiv, body.cambio-editor #titolo, body.cambio-editor #evChip,
 body.cambio-editor #variantBar, body.cambio-editor #projStatus, body.cambio-editor #projApprovedBy, body.cambio-editor #docState,
