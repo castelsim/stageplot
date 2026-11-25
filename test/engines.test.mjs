@@ -36431,7 +36431,7 @@ t("Foglio per il teatro: PDF A4 vettoriale «N di M» (pdfCredit), margini ≥ 1
   ok(/body:not\(\.f-esporta\) #pdfTeatroBox\{display:none !important\}/.test(stylesCss), "chiuso di serie: si vede solo con «Esporta avanzato»");
   ok(/pdfGateErrori\(function\(\)\{ bt\.disabled=true; exportFoglioTeatro\(\)/.test(appjs), "gate sugli errori critici, niente doppio clic");
   const ex = appjs.slice(appjs.indexOf("function exportFoglioTeatro"), appjs.indexOf("function exportPdf(paperKey"));
-  ok(/custEditorAttivo\(\)/.test(ex) && /segnaPdfEsportato\(\)/.test(ex) && /pdf-foglio-teatro/.test(ex), "come gli altri export: editor aperto, segna e conta");
+  ok(/paloTemporaneoAttivo\(\)/.test(ex) && /segnaPdfEsportato\(\)/.test(ex) && /pdf-foglio-teatro/.test(ex), "come gli altri export: editor aperto, segna e conta");
 });
 
 /* ───────── L6 · lunghezze sul percorso disegnato, «cavi per taglio», scheda cavi per il service (16/11/2026, proposta CAVI_SUL_PALCO § 4 L6) ─────────
