@@ -41839,12 +41839,12 @@ t("Versioni L4 · cambiFoglioDati: per ogni cambio esce/entra/si sposta in righe
   eq(D.righe.length, 3); eq(D.righe.map((r) => r.n), [1, 2, 3]);
   const r1 = D.righe[0]; eq(r1.quando, "dopo il brano 5 – Titolo finto");
   ok(/Batteria/.test(r1.esce.join("|")) && r1.esce.length === 1, "esce la batteria: " + r1.esce);
-  ok(r1.entra.some((x) => /Violino musicista ×2/.test(x)) && r1.entra.some((x) => /Viola/.test(x)), "entra: due violini raggruppati: " + r1.entra);
+  ok(r1.entra.some((x) => /2× Violino musicista/.test(x)) && r1.entra.some((x) => /Viola/.test(x)), "entra: due violini raggruppati: " + r1.entra);
   ok(!/Mario|Gigi/.test(JSON.stringify(D)), "mai le etichette libere (possono essere persone)");
   eq(r1.sposta.length, 1); ok(/2 m a sinistra|2,00 m a sinistra/.test(r1.sposta[0]), "lo spostamento dice di quanto e dove: " + r1.sposta[0]);
   ok(D.righe[1].vuoto && D.righe[1].esce.length + D.righe[1].entra.length + D.righe[1].sposta.length === 0, "cambio 2 vuoto"); eq(D.righe[1].nome, "Coro");
   ok(/ruotat/.test(D.righe[2].sposta[0]) && /90/.test(D.righe[2].sposta[0]), "rotazione detta: " + D.righe[2].sposta[0]);
-  ok(/Violino musicista ×2/.test(D.righe[2].esce.join("|")), "esce il quartetto: dal palco DOPO il cambio 1");
+  ok(/2× Violino musicista/.test(D.righe[2].esce.join("|")), "esce il quartetto: dal palco DOPO il cambio 1");
   eq(JSON.stringify(A.state.cambi.map((c) => c.id)), JSON.stringify(["c1", "c2", "c3"]), "i dati non si toccano");
   delete A.state.cambi; eq(A.cambiFoglioDati().righe, [], "senza cambi: nessuna riga"); reset();
 });
@@ -41874,6 +41874,38 @@ t("Versioni L4 · cambioMiniPalco: entrati pieni, spostati con freccia, gli altr
   const f0 = r.forme[0], xs = f0.poly.map((p) => p[0]), ys = f0.poly.map((p) => p[1]);
   ok(Math.abs((Math.max(...xs) - Math.min(...xs)) - 90) < 1 && Math.abs((Math.max(...ys) - Math.min(...ys)) - 70) < 1, "ruotato di 90°: larghezza e profondità si scambiano");
   const f = A.cambioMiniAdatta(M.bbox, 70, 46); ok(Math.abs(f.k * (M.bbox.x1 - M.bbox.x0) - f.w) < 1e-6 && f.w <= 70 + 1e-6 && f.h <= 46 + 1e-6, "adattato al riquadro senza deformare: " + JSON.stringify(f)); reset();
+});
+t("Versioni L4 · C1 mini palco: il riquadro è palco + margine, una regia lontana in platea non lo allarga; palco segnaposto con tutto fuori = contiene tutto", () => {
+  cambiScena(); const bl = [{ x: 0, y: 0, w: 1200, d: 800 }];
+  const prima = A.applicaCambi(A.state.items, A.state.cambi, 0).items, dopo = A.applicaCambi(A.state.items, A.state.cambi, 1).items;
+  const lontano = dopo.concat([itC("foh", "tastiera", 600, 3300, { w: 200, d: 100 })]);
+  const M = A.cambioMiniPalco(prima, lontano, bl, A.state.stage), mg = Math.max(150, 0.15 * 1200);
+  ok(M.bbox.y1 <= 800 + mg + 1 && M.bbox.x1 <= 1200 + mg + 1, "bbox entro palco+margine: " + JSON.stringify(M.bbox)); ok(!M.forme.some((f) => f.id === "foh"), "la regia lontana non si disegna");
+  ok(M.forme.some((f) => f.tipo === "entra"), "gli elementi sul palco restano");
+  const tutti = [itC("a1", "tastiera", 5000, 5000), itC("a2", "tastiera", 5200, 5100), itC("a3", "tastiera", 5400, 5300)];
+  const S = A.cambioMiniPalco([], tutti, [{ x: 0, y: 0, w: 50, d: 50 }], { w: 50, d: 50 }); eq(S.forme.length, 3, "palco segnaposto: si torna a contenere tutto"); ok(S.bbox.x1 >= 5400, "bbox contiene tutto"); reset();
+});
+t("Versioni L4 · C2 quantità DAVANTI: «2× Violino musicista», mai «×2» in coda; con una colonna stretta «2×» non resta da sola a fine riga", () => {
+  cambiScena(); const D = A.cambiFoglioDati();
+  ok(D.righe[0].entra.some((x) => /^2× Violino musicista$/.test(x)), "entra: " + D.righe[0].entra); ok(!/×\d/.test(D.righe[0].entra.join("|") + D.righe[2].esce.join("|")), "nessun «×N» in coda");
+  A.state.cambi = A.cambiNorm([cambio("c1", { entra: [itC("p1", "musViolino1", 1, 1), itC("p2", "musViolino1", 2, 2)] })]);
+  const righe = A.pdfTxtRighe("Estintore portatile e 2× Violino musicista", 26, 8.5, false);
+  ok(righe.every((r) => !/×$/.test(r)), "«2×» non chiude mai una riga: " + JSON.stringify(righe)); ok(righe.some((r) => /×\s*Violino|× Violino/.test(r) || /×/.test(r) && /Violino/.test(r)), "la riga col × contiene anche il nome: " + JSON.stringify(righe));
+  reset();
+});
+taPdf("Versioni L4 · C3 legenda: sinistra/destra viste dalla platea in B e in A, IT ed EN", async () => {
+  cambiScena(); const prima = { jspdf: A.jspdf, l: A.loadJsPDF }; A.jspdf = { jsPDF: jsPdfCambi() }; A.loadJsPDF = () => Promise.resolve();
+  try {
+    const txt = async (f) => (await A.buildPdfFoglioCambi(new Date(2026, 10, 24), f)).pagine.map((p) => p.testi.map((x) => x.t).join(" ")).join(" ");
+    ok(/sinistra e destra viste dalla platea/i.test(await txt("b")), "B it"); ok(/sinistra e destra viste dalla platea/i.test(await txt("a")), "A it");
+    A.docLinguaImposta("en"); ok(A.docEn(), "inglese attivo"); { ok(/as seen from the audience/i.test(await txt("b")), "B en"); ok(/as seen from the audience/i.test(await txt("a")), "A en"); }
+  } finally { A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; A.docLinguaImposta("it"); reset(); }
+});
+t("Versioni L4 · C4 avviso microfoni: «Il cambio 1 fa entrare» al singolare, «I cambi 1, 3 fanno entrare» al plurale", () => {
+  cambiScena(); A.state.cambi = A.cambiNorm([cambio("c1", { entra: [itC("n1", "musViolino1", 5, 5)] })]);
+  let a = A.controlliPrimaDelExport().find((x) => x.id === "cambi-mic-fuori-lista"); ok(/Il cambio 1 fa entrare/.test(a.testo), a.testo);
+  A.state.cambi = A.cambiNorm([cambio("c1", { entra: [itC("n1", "musViolino1", 5, 5)] }), cambio("c2", {}), cambio("c3", { entra: [itC("n2", "batteria", 9, 9)] })]);
+  a = A.controlliPrimaDelExport().find((x) => x.id === "cambi-mic-fuori-lista"); ok(/I cambi 1, 3 fanno entrare/.test(a.testo), a.testo); reset();
 });
 t("Versioni L4 · file singolo: «Titolo - cambi di palco - v3 del 24-11-2026.pdf» (titolo senza «vN»), in inglese «of»", () => {
   cambiScena(); eq(A.cambiFoglioNomeFile(new Date(2026, 10, 24)), "Concerto di prova - cambi di palco - v3 del 24-11-2026.pdf");

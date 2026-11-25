@@ -21487,7 +21487,7 @@ function controlliPrimaDelExport(){
   }catch(_e){}
   /* 6c-bis · cambi di palco (L4): elementi con microfono che ENTRANO in un cambio e non stanno nel palco base: la channel list è quella del palco base */
   try{ var _mf=cambiMicFuoriLista();
-    if(_mf.length) add("cambi-mic-fuori-lista", (_mf.length===1 ? "Il cambio "+_mf[0].cambio : "I cambi "+_mf.map(function(x){ return x.cambio; }).join(", "))+" fa entrare "+_mf.reduce(function(a,x){ return a+x.n; },0)+" element"+(_mf.reduce(function(a,x){ return a+x.n; },0)===1?"o":"i")+" con un microfono che non è nella channel list (è quella del palco base): aggiungili al palco base o avvisa il service.");
+    if(_mf.length) add("cambi-mic-fuori-lista", (_mf.length===1 ? "Il cambio "+_mf[0].cambio : "I cambi "+_mf.map(function(x){ return x.cambio; }).join(", "))+(_mf.length===1 ? " fa" : " fanno")+" entrare "+_mf.reduce(function(a,x){ return a+x.n; },0)+" element"+(_mf.reduce(function(a,x){ return a+x.n; },0)===1?"o":"i")+" con un microfono che non è nella channel list (è quella del palco base): aggiungili al palco base o avvisa il service.");
   }catch(_e){}
   /* 6d · allegati richiesti ancora «da chiedere» (S14): solo se l'utente ha scritto l'elenco */
   var _al=allegatiPuliti(state.allegatiRichiesti), _dc=(_al||[]).filter(function(a){ return a.s==="da chiedere"; });
@@ -43102,6 +43102,8 @@ function pdfTxtW(s, pt, bold){
 function pdfTxtRighe(s, w, pt, bold){
   s=docTesto(String(s==null?"":s));   /* lingua e unità del documento (17/11/2026): si va a capo sul testo tradotto, non sui pezzi */
   var parole=String(s==null?"":s).trim().split(/\s+/).filter(Boolean), out=[], r="";
+  /* «2× Violino»: la quantità davanti resta attaccata al nome (mai «2×» da sola in fondo a una riga: al buio si leggerebbe un violino solo) */
+  parole=parole.reduce(function(a, p){ if(a.length && /^\d+×$/.test(a[a.length-1])) a[a.length-1]+=" "+p; else a.push(p); return a; }, []);
   parole.forEach(function(p){
     var prova=r ? r+" "+p : p;
     if(pdfTxtW(prova, pt, bold)<=w){ r=prova; return; }
@@ -44093,7 +44095,7 @@ function cambiVociMax(righe, max){
 function cambioNomiRighe(items){
   var c=Object.create(null), ord=[];
   (items||[]).forEach(function(it){ var n=cambioNomeRuolo(it); if(!c[n]){ c[n]=0; ord.push(n); } c[n]++; });
-  return ord.map(function(n){ var t=docTesto(n); return c[n]>1 ? t+" ×"+c[n] : t; });
+  return ord.map(function(n){ var t=docTesto(n); return c[n]>1 ? c[n]+"× "+t : t; });
 }
 /* di quanto e dove si è spostato un elemento, nel verso del disegno (sinistra/destra come lo si vede; «verso il pubblico» = in basso) */
 function cambioSpostaTesto(da, a){
@@ -44115,7 +44117,7 @@ function cambiFoglioDati(){
     var mosse=Object.create(null), ordM=[];
     (c.sposta||[]).forEach(function(p){ var da=byPre[p.id]; if(!da) return; var k=cambioNomeRuolo(da)+"|"+cambioSpostaTesto(da, p);
       if(!mosse[k]){ mosse[k]={n:0, nome:cambioNomeRuolo(da), dove:cambioSpostaTesto(da, p)}; ordM.push(k); } mosse[k].n++; });
-    var sposta=ordM.map(function(k){ var m=mosse[k]; return docTesto(m.nome)+(m.n>1 ? " ×"+m.n : "")+": "+m.dove; });
+    var sposta=ordM.map(function(k){ var m=mosse[k]; return (m.n>1 ? m.n+"× " : "")+docTesto(m.nome)+": "+m.dove; });
     var persi=post.persi.filter(function(q){ return q.cambio===i; }).length;
     var e=cambioNomiRighe(esceIt), n=cambioNomiRighe(entraIt);
     righe.push({n:i+1, id:c.id, nome:c.nome||"", quando:c.quando||"", esce:e, entra:n, sposta:sposta, persi:persi, vuoto:!(e.length || n.length || sposta.length)});
@@ -44130,15 +44132,20 @@ function cambioPoly(it){
 }
 /* PURA. Il mini palco dopo il cambio: ogni elemento è un rettangolo ruotato (stesse misure dello stage plot) con il suo tipo di disegno —
    «entra» pieno, «sposta» con freccia dal punto di partenza, «resta» a contorno; chi è uscito non c'è. Forme di sfondo, annotazioni e interni di un rack no.
-   `stage` = {w,d}: il riquadro contiene sempre tutto il palco e tutti gli elementi (anche quelli fuori dal palco). */
+   `stage` = {w,d}: il riquadro è il palco + un margine (max(150 cm, 15 % del lato maggiore)): gli elementi più lontani non si disegnano. */
 function cambioMiniPalco(prima, dopo, blocchi, stage){
   var P=Object.create(null); (prima||[]).forEach(function(it){ if(it) P[it.id]=it; });
   var poli=(blocchi&&blocchi.length ? blocchi : [{x:0,y:0,w:(stage&&stage.w)||0,d:(stage&&stage.d)||0}]).map(function(b){ return (b.shape==="semi" && typeof bglSemiPoligono==="function") ? bglSemiPoligono(b) : blockCorners(b); });
   var forme=[], x0=Infinity, y0=Infinity, x1=-Infinity, y1=-Infinity;
   function box(pl){ pl.forEach(function(p){ if(p[0]<x0) x0=p[0]; if(p[0]>x1) x1=p[0]; if(p[1]<y0) y0=p[1]; if(p[1]>y1) y1=p[1]; }); }
   poli.forEach(box);
-  (dopo||[]).forEach(function(it){
-    if(!it || CAMBI_NON_DISEGNATI[it.type] || it.rackId) return;
+  /* il riquadro è il PALCO + un margine: regia, gazebo e coperture in platea non lo allargano (e non rimpiccioliscono il palco). Se il palco è un segnaposto e fuori
+     sta più della metà degli elementi, si torna a contenere tutto. */
+  var mg=Math.max(150, 0.15*Math.max(x1-x0, y1-y0)), bx0=x0-mg, bx1=x1+mg, by0=y0-mg, by1=y1+mg;
+  var cand=(dopo||[]).filter(function(it){ return it && !CAMBI_NON_DISEGNATI[it.type] && !it.rackId; });
+  var fuoriN=cand.filter(function(it){ var cx=+it.x||0, cy=+it.y||0; return cx<bx0 || cx>bx1 || cy<by0 || cy>by1; }).length, escludi=fuoriN*2<=cand.length;
+  cand.forEach(function(it){
+    if(escludi){ var cx=+it.x||0, cy=+it.y||0; if(cx<bx0 || cx>bx1 || cy<by0 || cy>by1) return; }
     var p=P[it.id], tipo=(!p || p.type!==it.type) ? "entra" : (cambioPosDiversa(p, it) ? "sposta" : "resta"), f={id:it.id, tipo:tipo, poly:cambioPoly(it), cx:+it.x||0, cy:+it.y||0};
     if(tipo==="sposta") f.da={cx:+p.x||0, cy:+p.y||0};
     box(f.poly); forme.push(f);
@@ -44195,7 +44202,7 @@ function cambiFoglioB(doc, D){
     tit.forEach(function(r){ doc.text(r, M, y); y+=5.4; });
     y-=2.6; doc.setLineWidth(0.6); doc.line(M, y, pw-M, y); y+=3.6;
     doc.setFont("helvetica","normal"); doc.setFontSize(7.5);
-    pdfTxtRighe(en ? "Drawing: filled = comes in with this change · arrow = moves · outline = stays as it was · names are roles, not people" : "Disegno: pieno = entra con questo cambio · freccia = si sposta · contorno = resta com'era · i nomi sono ruoli, non persone", W, 7.5, false).forEach(function(r){ doc.text(r, M, y); y+=3.4; });
+    pdfTxtRighe(en ? "Drawing: filled = comes in with this change · arrow = moves · outline = stays as it was · names are roles, not people · left and right as seen from the audience (not stage left / stage right)" : "Disegno: pieno = entra con questo cambio · freccia = si sposta · contorno = resta com'era · i nomi sono ruoli, non persone · sinistra e destra viste dalla platea", W, 7.5, false).forEach(function(r){ doc.text(r, M, y); y+=3.4; });
     y+=2.2;
   }
   pagina();
@@ -44240,7 +44247,8 @@ function cambiFoglioA(doc, D){
     doc.setFont("helvetica","bold"); doc.setFontSize(10); var y=M+4;
     pdfTxtRighe(cambiFoglioIntestazioneTesto(), W, 10, true).forEach(function(q){ doc.text(q, M, y); y+=4.4; });
     doc.setLineWidth(0.5); doc.line(M, y-2, pw-M, y-2); y+=9;
-    doc.setFontSize(30); doc.text((en ? "CHANGE " : "CAMBIO ")+r.n+(en ? " of " : " di ")+D.righe.length, M, y); y+=10;
+    doc.setFontSize(30); doc.text((en ? "CHANGE " : "CAMBIO ")+r.n+(en ? " of " : " di ")+D.righe.length, M, y);
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.text(en ? "Left and right as seen from the audience (not stage left / stage right)" : "Sinistra e destra viste dalla platea", pw-M, y, {align:"right"}); doc.setFont("helvetica","bold"); y+=10;
     doc.setFontSize(19); pdfTxtRighe(r.quando ? r.quando.toUpperCase() : (en ? "MOMENT NOT SET" : "MOMENTO DA INDICARE"), W, 19, true).slice(0,2).forEach(function(q){ doc.text(q, M, y); y+=8; });
     if(r.nome){ doc.setFont("helvetica","normal"); doc.setFontSize(12); doc.text(pdfTxtRighe(r.nome, W, 12, false)[0], M, y); y+=6; }
     y+=2; doc.setFontSize(14);
