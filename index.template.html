@@ -42050,7 +42050,8 @@ function patchListServicePdf(shared, opts){
     var dt=(state.evDate||"").replace(/-/g,""), v=(typeof versioneNumero==="function") ? versioneNumero() : 0;
     var testata=[nome, dt, String(state.luogo||"").trim(), v?("v"+v):""].filter(Boolean).join(" \u2013 ");
     var ct=(typeof contatoreCanali==="function") ? contatoreCanali() : null;
-    function fit(t, w){ t=String(t==null?"":t); while(t.length>1 && doc.getTextWidth(t)>w){ t=t.slice(0,-2)+"\u2026"; if(t.length<3) break; } return t; }
+    /* si traduce PRIMA di tagliare (rilettura #234): tagliando l'italiano il pezzo «Vibrafono 1 Vibrafon…» non si traduceva più nel PDF inglese */
+    function fit(t, w){ t=String(t==null?"":t); if(typeof docTesto==="function") t=docTesto(t); while(t.length>1 && doc.getTextWidth(t)>w){ t=t.slice(0,-2)+"\u2026"; if(t.length<3) break; } return t; }
     for(var pg=0; pg<pagine; pg++){
       doc.addPage("a4","landscape");
       var r0=rows[pg*K], r1=rows[Math.min(rows.length,(pg+1)*K)-1];

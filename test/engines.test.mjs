@@ -30844,6 +30844,15 @@ t("Rifiniture · PDF in inglese: i nomi stereo senza trattino si traducono come 
     A.state.docLang = "it"; eq(A.docTesto("Batteria 1 Overhead L"), "Batteria 1 Overhead L", "in italiano nulla cambia");
   } finally { A.state.docLang = undefined; }
 });
+t("Rifiniture · Channel list Service in inglese: la colonna FOH si traduce prima di tagliare («Vibraphone 1 Vib…», mai «Vibrafono 1 Vibrafon…»)", () => {
+  s4Fix(0, [{ id: "vb", type: "vibrafono", x: 400, y: 300, label: "Vibrafono 1" }, { id: "hm", type: "organohammond", x: 700, y: 300, label: "Organo Hammond" }]);
+  A.state.docLang = "en"; A.__cabRes = null;
+  try {
+    const d = s4Pdf(32), tx = s4Testi(d)[0];
+    ok(tx.includes("Vibraphone 1 Vibraphone L") && tx.includes("Hammond organ Hammond R"), "colonna STRUMENTO in inglese: " + tx.filter((x) => /Vib|Hamm|Organ/.test(x)).join(" | "));
+    ok(!tx.some((x) => /Vibrafon|Organo/.test(x)), "nessun pezzo italiano, neppure tagliato: " + tx.filter((x) => /Vib|Hamm|Organ/.test(x)).join(" | "));
+  } finally { A.state.docLang = undefined; reset(); }
+});
 t("Rifiniture · CSV A&H: senza trattino il banco legge ancora la sorgente («Overhead», «Playback»), non lo strumento", () => {
   /* rilettura #234: lo split(" - ") non toglieva più il nome dello strumento → «Batteri2», «Laptop 2», «Piano 12», «Organo 2» */
   reset();
