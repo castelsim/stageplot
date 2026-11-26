@@ -1,7 +1,7 @@
 /* Biglietteria — la casella delle segnalazioni (segnala.js). Sopra bgl.css: stessi colori, tema chiaro e scuro.
    Una regola sola decide computer o telefono: la stessa stringa di MEDIA_COMPUTER in segnala.js (un test le confronta).
    - Di base (telefono, tablet col dito, finestra stretta): niente di fisso sulla pagina. Una voce di testo nel piè di pagina
-     («Un problema? Scrivici», nell'area «Cosa manca? Bug? Idea?») apre il pannello dal basso con la ✕.
+     («Un problema? Scrivici», nell'area «Scrivici: bug, idee») apre il pannello dal basso con la ✕.
    - Computer (schermo largo + mouse): il riquadro in basso a destra che si apre e si chiude, sopra la barra «Avanti /
      Prenota» quando c'è (--sg-giu lo calcola segnala.js); la pagina si allunga quanto basta per non coprire il fondo. */
 .sg-tasto{display:none}

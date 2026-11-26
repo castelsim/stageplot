@@ -576,7 +576,7 @@ Decisioni: `docs/UIUX_AUDIT_2026-07-02.md` §9 · spec `docs/superpowers/specs/2
 - **Menu File** (ordine canonico): Nuovo · Apri file… · I miei progetti · — · Rinomina ·
   Crea una copia · Scarica file progetto · — · Esporta PDF… · Esporta PNG · — ·
   Salva versione (⌘S) · Versioni… · Condividi…
-- **Menu "?"**: Cos'è uno stage plot — guida · Cosa manca? Scrivici. (Il feedback NON ha
+- **Menu "?"**: Cos'è uno stage plot — guida · Scrivici: bug, idee. (Il feedback NON ha
   più un fab flottante.)
 
 ### 24.2 Chip stato documento

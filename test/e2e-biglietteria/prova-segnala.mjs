@@ -221,12 +221,12 @@ for (const [nm, motore] of [["chromium", chromium], ["webkit", webkit]]) for (co
   ctx = await contesto(br, tipo, { sessione: org }); st = finta(ctx); p = await ctx.newPage(); sorveglia(p, chi, errori);
   await p.goto(`${sito.url}/biglietteria/gestione/`);
   await p.waitForSelector(".gst-righe", { timeout: 15000 });
-  E.ok((await p.textContent("#sg-titolo")) === "Cosa manca? Bug? Idea?", chi + ": nell'area, «Cosa manca? Bug? Idea?»");
+  E.ok((await p.textContent("#sg-titolo")) === "Scrivici: bug, idee", chi + ": nell'area, «Scrivici: bug, idee»");
   if (tel) {
     E.ok((await fissiVisibili(p)).length === 0, chi + ": area, sul telefono niente di fisso");
-    E.ok((await p.locator(".sg-piede:not([hidden]) .sg-voce").textContent()) === "Cosa manca? Bug? Idea?", chi + ": area, la voce nel piè di pagina tutto suo");
+    E.ok((await p.locator(".sg-piede:not([hidden]) .sg-voce").textContent()) === "Scrivici: bug, idee", chi + ": area, la voce nel piè di pagina tutto suo");
   }
-  if (!tel) E.ok(/Cosa manca\? Bug\? Idea\?/.test(await p.textContent("#sg-tasto")), chi + ": sul computer il titolo si legge sul pulsante");
+  if (!tel) E.ok(/Scrivici: bug, idee/.test(await p.textContent("#sg-tasto")), chi + ": sul computer il titolo si legge sul pulsante");
   await p.click(".gst-riga");
   await p.waitForFunction(() => /v=scheda/.test(location.search), null, { timeout: 10000 });
   await p.waitForTimeout(400);

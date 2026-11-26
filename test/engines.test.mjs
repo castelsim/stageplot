@@ -6520,7 +6520,7 @@ t("parità catalogo/quick-add sugli alias del corista", () => {
 t("non regredisce: nome, chiave tecnica e voci-azione", () => {
   ok(qaKeys("wedge").indexOf("wedge") > -1, "la chiave tecnica non trova più il wedge");
   ok(A.__qaSearch("violino").some(x => x.nome === "Violino I"), "manca Violino I");
-  ok(!A.__qaSearch("audit").some(x => x.nome === "Audit progetto"), "il quick-add non deve suggerire le azioni (noQuick)");
+  ok(!A.__qaSearch("audit").some(x => x.nome === "Cosa manca?"), "il quick-add non deve suggerire le azioni (noQuick)");
 });
 /* Il quick-add taglia a 8: un match sulla sola CATEGORIA non deve scavalcare chi ha quella parola
    come nome/chiave/alias, o l'elemento cercato esce dalla lista e Invio ne inserisce un altro. */
@@ -15501,17 +15501,17 @@ t("stateHasMeaningfulWork: false su default, true dopo un palco custom", () => {
 
 /* ---- Audit raggiungibile (regressione: ingresso perso con la rimozione di "Liste tecniche" il 17/07) ---- */
 console.log("\nAudit progetto (raggiungibilità):");
-t("il catalogo espone la voce-azione 'Audit progetto'", () => {
-  const e = (A.__catEntries || []).find(x => x.nome === "Audit progetto");
-  ok(e, "voce 'Audit progetto' assente dal catalogo (ingresso Audit perso)");
+t("il catalogo espone la voce-azione «Cosa manca?» (C2, 26/11/2026: prima «Audit progetto»)", () => {
+  const e = (A.__catEntries || []).find(x => x.nome === "Cosa manca?");
+  ok(e, "voce «Cosa manca?» assente dal catalogo (ingresso perso)");
   ok(typeof e.action === "function", "la voce Audit non ha un'azione");
 });
 t("toggleAuditView accende auditActive (unico gate del pannello #auditSec)", () => {
   A.auditActive = false; A.toggleAuditView(); ok(A.auditActive === true, "toggleAuditView non ha attivato l'audit"); A.auditActive = false;
 });
 t("ricerca 'audit' e 'controlla' trovano l'Audit", () => {
-  ok(A.__spSearch("audit").some(r => r.nome === "Audit progetto"), "'audit' non trova l'Audit");
-  ok(A.__spSearch("controlla").some(r => r.nome === "Audit progetto"), "'controlla' (alias) non trova l'Audit");
+  ok(A.__spSearch("audit").some(r => r.nome === "Cosa manca?"), "'audit' non trova l'Audit");
+  ok(A.__spSearch("controlla").some(r => r.nome === "Cosa manca?"), "'controlla' (alias) non trova l'Audit");
 });
 
 /* 25/09 — le ricerche senza risultati degli utenti veri (analytics): «espo», «freque», «cond».
@@ -16651,7 +16651,7 @@ t("contrasti misurati sui valori del CSS: tema scuro e pulsante del benvenuto", 
   ok(/#props input\[type=range\]:focus-visible\{[^}]*box-shadow:0 0 0 3px var\(--focus-ring\)/.test(stylesCss), "i cursori del pannello non mostrano il focus");
 });
 t("l'audit dice la gravità a parole, e non dice «pronto» a un palco vuoto", () => {
-  ok(/var lv=x\.lvl==="err"\?"Errore":\(x\.lvl==="todef"\?"Da definire":\(x\.lvl==="nota"\?"Nota":"Avviso"\)\);/.test(appjs) && /● '\+lv\+'</.test(appjs), "la gravità dei rilievi è data solo dal colore");
+  ok(/var lv=x\.lvl==="err"\?"Da sistemare":\(x\.lvl==="warn"\?"Da guardare":\(x\.lvl==="todef"\?"Da definire":\(x\.lvl==="nota"\?"Nota":"Info"\)\)\);/.test(appjs) && /● '\+lv\+'</.test(appjs), "la gravità dei rilievi è data solo dal colore");   /* C2 (26/11/2026): «Cosa manca?» dice Da sistemare / Da guardare */
   ok(/if\(!probs\.length && !\(state\.items\|\|\[\]\)\.length\)\{ host\.innerHTML='<div[^>]*>Palco vuoto/.test(appjs), "sul palco vuoto l'audit dice ancora «il rider sembra pronto»");
 });
 t("da tastiera si entra nel pannello proprietà (Invio) e si torna al palco (Esc)", () => {
@@ -21316,7 +21316,7 @@ t("Pacchetto: pulsante e finestrella nell'Esporta, ogni documento col suo PDF, c
   ok(/document\.getElementById\("pkgModal"\)\.hidden=true; \}\);/.test(a), "«Annulla» chiude la finestrella");
   ok(/if\(!\(_A && _A\.errs>0\)\)\{ run\(\); return; \}/.test(a), "il gate scatta con un errore critico o più");
   ok(/\.then\(function\(ok\)\{\s*if\(ok\)\{ run\(\); return; \}/.test(a), "«Esporta comunque» prosegue");
-  ok(/if\(_pm\) _pm\.hidden=true; if\(_pk\) _pk\.hidden=true;/.test(a), "«Vai all'Audit» chiude sia l'Esporta sia il pacchetto");
+  ok(/if\(_pm\) _pm\.hidden=true; if\(_pk\) _pk\.hidden=true;/.test(a), "«Apri «Cosa manca?»» chiude sia l'Esporta sia il pacchetto");
   ok(/if\(!F\[chiave\]\) throw new Error\("documento sconosciuto: "\+chiave\);/.test(a), "un documento sconosciuto è un errore, non un file vuoto");
 });
 /* ═══ CONTROLLO PRIMA DELL'EXPORT (12/11/2026, specifica S1 dalla posta: segnaposto nei testi, nomi doppi, mix senza uscita…).
@@ -22619,7 +22619,7 @@ t("l'audit non è una card del catalogo, ma si trova cercandolo", () => {
      "l'audit non è più una card fissa del catalogo");
   ok(/pin\.appendChild\(makeActionBtn\("Planimetria"/.test(zona),
      "ma le altre card ci sono ancora: non ho svuotato la sezione");
-  const voce = appjs.slice(appjs.indexOf('entries.push({nome:"Audit progetto"'), appjs.indexOf('entries.push({nome:"Audit progetto"') + 320);
+  const voce = appjs.slice(appjs.indexOf('entries.push({nome:"Cosa manca?"'), appjs.indexOf('entries.push({nome:"Cosa manca?"') + 320);
   ok(/action:toggleAuditView/.test(voce), "la voce cercabile porta ancora all'audit");
   ["audit", "verifica", "controlla", "manca"].forEach(k =>
     ok(voce.includes(k), `e si trova cercando «${k}»`));
@@ -23695,14 +23695,17 @@ t("quello che parte è ridotto e compresso, e l'utente vede quanto pesa", () => 
   ok(/count\.textContent="0";\s*\n\s*shotVuoto\(\)/.test(appjs), "dopo l'invio la schermata si svuota");
 });
 
-/* ===== «COSA MANCA?» VIVE NELLA COLONNA (17/08) =========================================== */
+/* ===== IL BOX DELLE SEGNALAZIONI VIVE NELLA COLONNA (17/08; dal 26/11/2026 si chiama «Scrivici: bug, idee») =========================================== */
 t("il box del feedback sta dentro la colonna, e la testata è il suo interruttore", () => {
   /* Prima galleggiava sopra il contenuto: 326 px di larghezza contro i 310 della colonna, cioè per
      forza fuori. Ora è una card in fondo alle Liste (variante scelta da Simone). */
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   const props = html.slice(html.indexOf('<aside id="props"'), html.indexOf("</aside>", html.indexOf('<aside id="props"')));
   ok(/id="fbBox"/.test(props), "il box è dentro la colonna di destra");
-  ok(/Cosa manca\? Bug\? Idea\?/.test(props), "e la testata fa le tre domande");
+  ok(/<strong>Scrivici: bug, idee<\/strong>/.test(props), "e la testata dice a cosa serve");
+  /* decisione di Simone del 26/11/2026: «Cosa manca?» è SOLO il pannello dei controlli (#auditSec); il box delle segnalazioni non lo usa più, da nessuna parte */
+  eq(/Cosa manca\? (Bug|Scrivici)/.test(html), false, "il box delle segnalazioni non si chiama più «Cosa manca?»");
+  ok(/data-act="feedback"><span class="mrow-t">Scrivici: bug, idee<\/span>/.test(html) && /aria-label="Scrivici: bug, idee"/.test(html), "stesso nome nel menu del telefono e per chi usa lo screen reader");
   ok(/id="fbHead"/.test(props) && /aria-expanded/.test(props), "la testata è un comando dichiarato");
   eq(/id="fbTrigger"/.test(html), false, "il pulsante galleggiante non serve più");
   ok(/testa\.addEventListener\("click"/.test(appjs), "e apre e chiude");
@@ -24880,7 +24883,7 @@ t("«Produzione avanzata» è un bottone vero, raggiungibile da tastiera", () =>
 t("la colonna dice a che punto è il rider, e apre il controllo", () => {
   ok(/function renderStatoRider\(rows\)/.test(appjs), "c'è la riga di stato");
   const fn = appjs.slice(appjs.indexOf("function renderStatoRider"), appjs.indexOf("function renderStatoRider") + 1800);
-  ok(/auditEngine\(\)/.test(fn), "usa il calcolo che già esiste, non ne inventa un altro");
+  ok(/cosaManca\(\)/.test(fn) && /M\.audit/.test(fn), "usa ciò che «Cosa manca?» mostra (C2, 26/11/2026), e il voto resta quello dell'audit");
   ok(/renderStatoRider\(rows\);/.test(appjs), "ed è chiamata dal render delle liste");
   /* Il click porta dove si può agire. */
   ok(/toggleAuditView/.test(fn), "il click apre l'audit");
@@ -24888,7 +24891,7 @@ t("la colonna dice a che punto è il rider, e apre il controllo", () => {
   ok(/if\(!rows \|\| !\(state\.items\|\|\[\]\)\.length\) return;/.test(fn),
      "sul palco vuoto sparisce");
   /* Se l'audit esplode, la colonna delle liste non deve sparire con lui. */
-  ok(/try\{ A=auditEngine\(\); \}catch\(_e\)\{ return; \}/.test(fn),
+  ok(/try\{ M=cosaManca\(\); \}catch\(_e\)\{ return; \}/.test(fn),
      "un errore nell'audit non porta giù le liste");
 });
 
@@ -24897,9 +24900,10 @@ t("lo stato del rider si legge senza distinguere i colori", () => {
      dal verde legge «2 cose da guardare» e capisce lo stesso. È la regola che vale per ogni segnale
      di stato — il colore aggiunge, non sostituisce. */
   const fn = appjs.slice(appjs.indexOf("function renderStatoRider"), appjs.indexOf("function renderStatoRider") + 1800);
-  ok(/errori da sistemare/.test(fn) && /cose da guardare/.test(fn) && /Rider pronto/.test(fn),
+  const frase = appjs.slice(appjs.indexOf("function cosaMancaFrase"), appjs.indexOf("function cosaMancaBreve"));   /* C2 (26/11/2026): la frase è una sola, per la riga e per il menu del telefono */
+  ok(/cosaMancaFrase\(M\)/.test(fn) && /cose da sistemare/.test(frase) && /cose da guardare/.test(frase) && /Rider pronto/.test(frase),
      "i tre stati hanno tre testi diversi");
-  ok(/A\.errs===1 \? "1 errore da sistemare"/.test(fn), "e il singolare è al singolare");
+  ok(/M\.rossi===1 \? "1 cosa da sistemare"/.test(frase) && /quante===1 \? "1 cosa da guardare"/.test(frase), "e il singolare è al singolare");
   ok(/\.sr-ok \.sr-pallino\{background/.test(stylesCss) && /\.sr-warn \.sr-pallino\{background/.test(stylesCss),
      "il colore c'è, ma è in aggiunta al testo");
   /* Ed è un bottone vero, raggiungibile da tastiera come tutto il resto. */
@@ -33495,11 +33499,12 @@ t("monitor storti: nell'audit è una nota — niente punti tolti, azioni pronte,
 });
 t("monitor storti: la nota si legge nel pannello ma non entra in nessun PDF e non ferma l'esportazione", () => {
   const html = readFileSync(join(root, "index.template.html"), "utf8");
-  ok(/var probs=A\.findings\.filter\(function\(x\)\{ return x\.lvl==="err"\|\|x\.lvl==="warn"\|\|x\.lvl==="todef"\|\|x\.lvl==="nota"; \}\);/.test(html), "nel pannello sì");
-  ok(/x\.lvl==="nota"\?"Nota":"Avviso"/.test(html), "con la parola «Nota», non «Avviso»");
+  /* C2 (26/11/2026): il pannello è «Cosa manca?» e legge le voci da cosaManca(); le note restano in vista (solo le «info» stanno ripiegate) */
+  ok(/var probs=M\.voci\.filter\(function\(x\)\{ return x\.lvl!=="info"; \}\);/.test(html), "nel pannello sì");
+  ok(/x\.lvl==="nota"\?"Nota":"Info"/.test(html), "con la parola «Nota», non «Avviso»");
   const righe = [...html.matchAll(/findings(?:\|\|\[\])?\)?\.filter\(function\(x\)\{\s*return [^}]*\}\)/g)].map(m => m[0]);
-  ok(righe.length >= 5, "le letture degli avvisi sono state trovate (" + righe.length + ")");
-  eq(righe.filter(r => /nota/.test(r)).length, 1, "una sola lettura conosce le note: il pannello");
+  ok(righe.length >= 4, "le letture degli avvisi sono state trovate (" + righe.length + ")");
+  eq(righe.filter(r => /nota/.test(r)).length, 0, "nessuna lettura diretta dei rilievi conosce le note: arrivano solo al pannello, da cosaManca()");
 });
 t("monitor storti: i monitor dei modelli sono tutti a posto", () => {
   ["buildMatrimonioOut", "buildDjOut", "buildTributoOut", "buildAcousticOut", "buildCoroOut", "buildBigBandOut", "buildJazzComboOut", "buildOrchBandOut"].forEach(nome => {
@@ -34365,8 +34370,8 @@ t("orientamento: «È giusto così» sopravvive a salvataggio e ricarica del pro
 });
 t("orientamento: il pannello Audit e la pillola «cose da guardare» lo mostrano (act3 e conteggio)", () => {
   const js = readFileSync(join(root, "app.js"), "utf8");
-  ok(/var azioni=\[x\.act, x\.act2, x\.act3\]/.test(js), "il pannello disegna anche la terza azione");
-  ok(/x\.rule==="orientamento"; \}\)\.length;/.test(js), "la pillola conta la domanda");
+  ok(/azioni:\[x\.act, x\.act2, x\.act3\]\.filter/.test(js), "il pannello disegna anche la terza azione (dal 26/11 passano da cosaManca)");
+  ok(/x\.rule==="orientamento"; \}\)\.length;/.test(js.slice(js.indexOf("function cosaMancaFrase"), js.indexOf("function cosaMancaBreve"))), "la pillola conta la domanda");
 });
 
 /* ---- STATO DEL DOCUMENTO: «Provvisorio» / «Definitivo» (15/11/2026, S22 parte 1) ---- */
@@ -42670,6 +42675,209 @@ t("Link fisso L2 · rilettura C1: il progetto aperto passa sempre da DOC_EXTRA, 
 t("Link fisso L2 · rilettura C2: «Continua qui come copia» (conflitto) non porta le chiavi dei link", () => {
   const f = appjs.slice(appjs.indexOf('confBar.querySelector("#cbCopy")'), appjs.indexOf('confBar.querySelector("#cbCopy")') + 600);
   ok(/detachCloudDoc\(\);[^\n]*\n\s*togliChiaviCondivisione\(DOC_EXTRA\);/.test(f), "dopo lo stacco, via le chiavi");
+});
+
+/* ════ «COSA MANCA?» (26/11/2026, lotto C2 dello studio cablaggi) ════
+   Un pannello a lista che raccoglie ciò che esiste già: i rilievi dell'audit, i controlli «Prima di esportare» e la caduta di tensione (C1), che non
+   entrava né nell'uno né negli altri. Nessun calcolo nuovo: l'audit, il voto e i fogli restano quelli di prima. */
+console.log("\n«Cosa manca?» (C2):");
+const cmScena = () => { reset(); ["gtstand", "bassstand", "batteria", "cantante"].forEach((k, i) => A.addItem(k, 200 + i * 150, 300)); };
+t("Cosa manca · ogni rilievo dell'audit c'è una volta sola, con la gravità giusta: errore = rosso, avviso = giallo, il resto = info", () => {
+  cmScena(); A.state.titolo = "";
+  const au = A.auditEngine(), M = A.cosaManca(), daAudit = M.voci.filter((v) => v.fonte === "audit");
+  ok(au.findings.length >= 3, "la scena ha rilievi: " + au.findings.length);
+  eq(daAudit.map((v) => v.msg).sort(), au.findings.map((x) => x.msg).sort(), "stessi rilievi, nessuno perso e nessuno doppio");
+  au.findings.forEach((x) => { const v = daAudit.find((k) => k.msg === x.msg);
+    eq(v.grav, x.lvl === "err" ? "rosso" : x.lvl === "warn" ? "giallo" : "info", "gravità di «" + x.msg.slice(0, 40) + "»");
+    eq(v.perche, x.fix || "", "il perché è quello dell'audit"); eq(v.fam, x.cat, "e la famiglia pure"); });
+  ok(daAudit.some((v) => v.lvl === "info"), "anche le «info», che prima non si vedevano da nessuna parte (es. «è ancora una Bozza»)");
+  eq(M.rossi, M.voci.filter((v) => v.grav === "rosso").length); eq(M.gialli, M.voci.filter((v) => v.grav === "giallo").length);
+  eq(M.info, M.voci.filter((v) => v.lvl === "info").length); eq(M.note, M.voci.filter((v) => v.lvl === "todef" || v.lvl === "nota").length);
+  reset();
+});
+t("Cosa manca · i rimedi a un clic dell'audit ci sono tutti (act, act2, act3) e funzionano", () => {
+  cmScena(); A.state.titolo = "";
+  const M = A.cosaManca(), au = A.auditEngine();
+  au.findings.forEach((x) => { const n = [x.act, x.act2, x.act3].filter((a) => a && typeof a.run === "function").length;
+    eq(M.voci.find((v) => v.msg === x.msg).azioni.length, n, "rimedi di «" + x.msg.slice(0, 40) + "»"); });
+  ok(M.voci.some((v) => v.azioni.some((a) => a.label === "Scrivi il titolo")), "il rimedio ha la sua etichetta");
+  /* una voce con DUE rimedi (il doppione sovrapposto: «Mostra» + «Togli il doppione») li porta tutti e due, nello stesso ordine */
+  const c0 = A.state.items[3]; A.state.items.push(Object.assign({}, c0, { id: A.uid() }));
+  const d = A.auditEngine().findings.find((x) => x.rule === "doppioni"); ok(d && d.act && d.act2, "scena: il doppione ha due rimedi");
+  eq(A.cosaManca().voci.find((v) => v.rule === "doppioni").azioni.map((a) => a.label), [d.act.label, d.act2.label]);
+  reset();
+});
+t("Cosa manca · non calcola niente di nuovo: voto, errori e avvisi dell'audit sono identici, e il progetto non viene toccato", () => {
+  cmScena();
+  const prima = A.docToJSON(), a0 = A.auditEngine(), M = A.cosaManca(), a1 = A.auditEngine();
+  eq([M.audit.score, M.audit.errs, M.audit.warns, M.audit.grade], [a0.score, a0.errs, a0.warns, a0.grade], "il voto è quello dell'audit");
+  eq(a1.findings.map((x) => x.lvl + x.msg), a0.findings.map((x) => x.lvl + x.msg), "l'audit dopo è quello di prima");
+  eq(A.docToJSON(), prima, "nessuna scrittura nel progetto");
+  reset();
+});
+t("Cosa manca · ordine: prima il rosso, poi il giallo, poi da definire e note, in fondo le informazioni", () => {
+  scenaCaduta("auto"); A.state.titolo = "Serata TBA";
+  const M = A.cosaManca(), R = { err: 0, warn: 1, todef: 2, nota: 3, info: 4 }, o = M.voci.map((v) => R[v.lvl]);
+  ok(M.rossi > 0 && M.gialli > 0 && M.info > 0, "ci sono le tre gravità: " + [M.rossi, M.gialli, M.info]);
+  eq(o, o.slice().sort((a, b) => a - b), "in ordine di gravità");
+  eq(new Set(M.voci.map((v) => v.id)).size, M.voci.length, "ogni voce ha un id suo");
+  reset();
+});
+t("Cosa manca · caduta di tensione: la tratta oltre il 4 % entra in rosso, col numero, il «cosa fare» e «Mostra la linea»", () => {
+  const R = scenaCaduta("auto"), u = R.uplinks[0], M = A.cosaManca(), cad = M.voci.filter((v) => v.fonte === "caduta");
+  ok(u.drop.tot > 4, "scena: dorsale oltre il 4 %: " + u.drop.tot);
+  const v = cad.find((k) => /dorsale/.test(k.msg)); ok(v, "la dorsale ha la sua voce: " + cad.map((k) => k.msg).join(" | "));
+  eq(v.grav, "rosso"); eq(v.fam, "Elettrico");
+  ok(v.msg.indexOf(A.elecPctTxt(u.drop.tot)) > 0, "col numero del percorso: " + v.msg);
+  ok(v.perche.indexOf(A.elecDropAdvice(u.drop)) === 0, "il perché è la frase «Cosa fare» di C1: " + v.perche);
+  ok(/stima/.test(v.perche), "e dice che è una stima");
+  eq(v.azioni.map((a) => a.label), ["Mostra la linea"]);
+  A.selElec = null; v.azioni[0].run(); eq(A.selElec, u.key, "«Mostra la linea» seleziona quella linea"); A.selElec = null;
+  const im = A.isMobile; A.isMobile = () => true; let tel; try { tel = A.cosaManca().voci.find((k) => k.id === v.id); } finally { A.isMobile = im; }
+  eq(tel.azioni.length, 0, "sul telefono le linee non si lavorano: niente pulsante che non porta a niente"); eq(tel.perche, v.perche, "ma la voce dice lo stesso cosa fare");
+  A.state.elec.visible = false; eq(A.cosaManca().voci.find((k) => k.id === v.id).azioni.length, 0, "con l'elettrico nascosto non c'è niente da mostrare"); A.state.elec.visible = true;
+  ok(!A.auditEngine().findings.some((x) => /[Cc]aduta di tensione/.test(x.msg)), "nell'audit non c'è (resta com'era): la raccoglie solo «Cosa manca?»");
+  reset();
+});
+t("Cosa manca · caduta di tensione: il carico che sfora per colpa della dorsale non ha una riga sua (una riga per tratta da sistemare)", () => {
+  const R = scenaCaduta("auto"), l = R.loadLinks[0], cad = A.cosaManca().voci.filter((v) => v.fonte === "caduta");
+  ok(l.drop.lvl === "err" && l.drop.colpa && !l.drop.colpa.self, "scena: il carico è rosso per colpa della dorsale");
+  ok(!cad.some((v) => /sulla linea di/.test(v.msg)), "nessuna riga per la linea innocente: " + cad.map((k) => k.msg).join(" | "));
+  ok(cad.length >= 1 && cad.length <= 2, "solo le tratte a monte (dorsale, e alimentazione se sfora): " + cad.length);
+  reset();
+});
+const cmCarichiLontani = (n, x) => {
+  const items = [{ id: "Q", type: "distro32", x: 100, y: 100 }], manual = {};
+  for (let i = 0; i < n; i++) { items.push({ id: "L" + i, type: "amprack", x: x, y: 100 + i * 90, watt: 3000 + i * 50 }); manual["L" + i] = { distro: "Q" }; }
+  A.loadDoc({ _v: A.SCHEMA_VERSION, inputs: [], outputs: [], stage: { w: 8000, d: 1200, blocks: [{ x: 0, y: 0, w: 8000, d: 1200 }] }, items,
+    elec: { on: true, mode: "auto", supply: { kind: "custom", x: 0, y: 0 }, manual } });
+  return A.elecResult(true);
+};
+t("Cosa manca · caduta di tensione: giallo oltre il 3 %, rosso oltre il 4 %, niente sotto (le soglie di C1, confermate da Simone)", () => {
+  let R = cmCarichiLontani(1, 400);
+  ok(R.loadLinks[0].drop.pct != null && R.loadLinks[0].drop.lvl === "ok", "linea corta: sotto il 3 %: " + R.loadLinks[0].drop.tot);
+  eq(A.cosaManca().voci.filter((v) => v.fonte === "caduta").length, 0, "sotto soglia nessuna voce");
+  /* si cerca la distanza che dà il giallo e quella che dà il rosso: il livello della voce deve seguire quello della linea */
+  const visti = {};
+  for (let x = 600; x <= 7800 && !(visti.warn && visti.err); x += 200) {
+    R = cmCarichiLontani(1, x); const l = R.loadLinks[0]; if (l.drop.lvl !== "warn" && l.drop.lvl !== "err") continue;
+    if (visti[l.drop.lvl]) continue; visti[l.drop.lvl] = 1;
+    const cad = A.cosaManca().voci.filter((v) => v.fonte === "caduta");
+    ok(cad.length >= 1, "oltre soglia c'è la voce (" + l.drop.lvl + " a " + x + " cm)");
+    const v = cad.find((k) => /sulla linea di/.test(k.msg)) || cad[0];
+    eq(v.grav, l.drop.lvl === "err" ? "rosso" : "giallo", "gravità a " + A.elecPctTxt(l.drop.tot));
+    ok(l.drop.lvl === "err" ? l.drop.tot > 4 : (l.drop.tot > 3 && l.drop.tot <= 4), "soglie 3 / 4: " + l.drop.tot);
+  }
+  ok(visti.warn && visti.err, "provati il giallo e il rosso: " + JSON.stringify(visti));
+  reset();
+});
+t("Cosa manca · caduta di tensione: tante linee lontane non fanno tante righe (le 4 peggiori, poi «Altre N linee»)", () => {
+  const R = cmCarichiLontani(6, 7600), fuori = R.loadLinks.filter((l) => l.drop.lvl === "warn" || l.drop.lvl === "err");
+  eq(fuori.length, 6, "scena: sei linee oltre soglia");
+  const cad = A.cosaManca().voci.filter((v) => v.fonte === "caduta"), linee = cad.filter((v) => /sulla linea di/.test(v.msg)), altre = cad.find((v) => v.id === "caduta:altre");
+  if (cad.some((v) => /alimentazione|dorsale/.test(v.msg) && !/linea di/.test(v.msg))) {
+    ok(linee.length <= A.COSA_MANCA_MAX_LINEE, "con una tratta a monte da sistemare le linee innocenti non si ripetono");
+  } else {
+    eq(linee.length, A.COSA_MANCA_MAX_LINEE, "quattro dette una per una"); ok(altre && /Altre 2 linee/.test(altre.msg), "le altre in una riga: " + (altre && altre.msg));
+    const pc = (v) => v.pct; eq(linee.map(pc), linee.map(pc).slice().sort((a, b) => b - a), "dalla peggiore");
+    ok(linee.every((v) => v.pct >= altre.pct - 1e-9), "le peggiori sono quelle dette per nome");
+  }
+  reset();
+});
+t("Cosa manca · i controlli «Prima di esportare» ci sono, in giallo, e quello su un elemento lo fa vedere", () => {
+  cmScena(); A.state.titolo = "Serata TBA"; A.state.items[0].label = "Chitarra XXX";
+  const pe = A.controlliPrimaDelExport(), M = A.cosaManca(), ex = M.voci.filter((v) => v.fonte === "export");
+  ok(pe.length >= 2, "scena: due segnaposto: " + pe.map((x) => x.testo).join(" | "));
+  eq(ex.map((v) => v.msg), pe.map((x) => x.testo), "tutti, con lo stesso testo e nello stesso ordine");
+  ok(ex.every((v) => v.grav === "giallo"), "mai rossi: sono cose da guardare");
+  const conEl = ex.find((v) => /XXX/.test(v.msg)), senza = ex.find((v) => /TBA/.test(v.msg));
+  eq(conEl.azioni.map((a) => a.label), ["Mostra"]); eq(senza.azioni.length, 0, "senza elemento non c'è niente da mostrare");
+  conEl.azioni[0].run(); eq(A.sel, A.state.items[0].id, "«Mostra» seleziona l'elemento");
+  eq(senza.fam, "Rider", "il titolo è affare del documento");
+  reset();
+});
+t("Cosa manca · ogni controllo «Prima di esportare» ha la sua famiglia", () => {
+  const src = appjs.slice(appjs.indexOf("function controlliPrimaDelExport"), appjs.indexOf("var COSA_MANCA_FAM"));
+  const ids = [...new Set([...src.matchAll(/add\("([a-z\-]+)",/g)].map((m) => m[1]))];
+  ok(ids.length >= 12, "letti gli id dal codice: " + ids.length);
+  ids.forEach((id) => ok(A.COSA_MANCA_FAM[id], "manca la famiglia di «" + id + "»: un controllo nuovo va aggiunto a COSA_MANCA_FAM"));
+});
+t("Cosa manca · la riga a mano senza microfono non si dice due volte (in consulenza la dice già l'audit, col rimedio)", () => {
+  cmScena(); A.state.inputs = [{ src: "Voce ospite", mic: "" }];
+  let M = A.cosaManca();
+  eq(M.voci.filter((v) => v.rule === "riga-senza-microfono").length, 1, "fuori dalla consulenza la dice il controllo dell'export");
+  A.window.__consultMode = true; M = A.cosaManca(); A.window.__consultMode = false;
+  ok(M.voci.some((v) => v.fonte === "audit" && /senza mic\/DI assegnato/.test(v.msg)), "in consulenza la dice l'audit");
+  eq(M.voci.filter((v) => v.rule === "riga-senza-microfono").length, 0, "e il doppione dell'export tace");
+  reset();
+});
+t("Cosa manca · il verdetto a parole: famiglie da sistemare e da guardare, mai «tutto ok» se manca qualcosa", () => {
+  const V = (L) => A.cosaMancaVerdetto(L.map((x) => ({ grav: x[0], fam: x[1] })));
+  eq(V([["rosso", "Elettrico"], ["rosso", "Luci"], ["giallo", "Audio"], ["info", "Stato"]]), "Elettrico e Luci da sistemare · Audio da guardare");
+  eq(V([["rosso", "Elettrico"], ["giallo", "Elettrico"]]), "Elettrico da sistemare", "una famiglia col rosso non si ripete nel giallo");
+  eq(V([["giallo", "Audio"], ["giallo", "Monitor"], ["giallo", "Palco"], ["giallo", "Audio"]]), "Audio, Monitor e Palco da guardare");
+  eq(V([["info", "Stato"]]), "", "con le sole informazioni non c'è niente da dire");
+  scenaCaduta("auto"); ok(/Elettrico[^·]* da sistemare/.test(A.cosaManca().verdetto), "sul progetto: " + A.cosaManca().verdetto);
+  reset();
+});
+t("Cosa manca · la frase breve (riga di stato e menu del telefono): tre stati, singolare e plurale", () => {
+  const F = (rossi, gialli, orient) => A.cosaMancaFrase({ rossi, gialli, voci: orient ? [{ rule: "orientamento" }] : [] });
+  eq([F(1, 5), F(3, 0), F(0, 1), F(0, 4), F(0, 0), F(0, 0, true)], ["1 cosa da sistemare", "3 cose da sistemare", "1 cosa da guardare", "4 cose da guardare", "Rider pronto", "1 cosa da guardare"]);
+  reset(); eq(A.cosaMancaBreve(), "", "sul palco vuoto il menu non dice niente");
+  scenaCaduta("auto"); const M = A.cosaManca();
+  eq(M.audit.errs, 0, "scena: per l'audit nessun errore"); eq(A.cosaMancaBreve(), M.rossi + " da sistemare", "ma con la caduta di tensione oltre il 4 % il menu dice che c'è da sistemare");
+  eq(A.cosaMancaFrase(M), M.rossi === 1 ? "1 cosa da sistemare" : M.rossi + " cose da sistemare", "e la riga di stato pure");
+  reset();
+});
+t("Cosa manca · caduta di tensione: alimentazione e dorsale non dicono due volte lo stesso guasto (ha la riga solo la tratta da sistemare)", () => {
+  const R = scenaCaduta("auto"), f = R.feeds[0], u = R.uplinks[0], cad = A.cosaManca().voci.filter((v) => v.fonte === "caduta");
+  ok(f.drop.lvl === "err" && f.drop.colpa && !f.drop.colpa.self && f.drop.colpa.pct > f.drop.pct + 0.05, "scena: l'alimentazione è rossa solo perché a valle c'è la dorsale lunga");
+  eq(cad.length, 1, "una riga sola: " + cad.map((k) => k.msg).join(" | ")); ok(/dalla dorsale/.test(cad[0].msg), "quella della dorsale: " + cad[0].msg);
+  eq(R.loadLinks[0].drop.colpa.n, "la dorsale " + u.from.letter + "-" + u.to.letter, "il nome della tratta colpevole è quello che il raccoglitore si aspetta da elecDropAnnota");
+  /* se il nome non combaciasse più, niente va perso: il carico torna ad avere la sua riga */
+  const giro = A.elecResult(); giro.loadLinks[0].drop.colpa.n = "una tratta con un altro nome";
+  const cad2 = A.cosaMancaCaduta(giro); ok(cad2.some((v) => /sulla linea di/.test(v.msg)), "rete di sicurezza: " + cad2.map((k) => k.msg).join(" | "));
+  A.elecResult(true); reset();
+});
+t("Cosa manca · sul telefono si apre davvero: voce nel menu, cassetto con la sola lista, chiusura dalla maniglia", () => {
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/data-act="manca"><span class="mrow-t">Cosa manca nel progetto<\/span><span class="mrow-v" id="mMenuManca">/.test(html), "la voce del menu, col conteggio accanto");
+  ok(/if\(a==="manca"\)\{ if\(!auditActive\) toggleAuditView\(\);/.test(appjs) && /txt\("mMenuManca", cosaMancaBreve\(\)\);/.test(appjs), "apre il pannello e dice a che punto è");
+  ok(/classList\.toggle\("cm-open", isMobile\(\) && typeof auditActive!=="undefined" && !!auditActive && n===0\)/.test(appjs), "il cassetto si apre col pannello (e lascia il posto all'elemento selezionato)");
+  ok(/contains\("cm-open"\)\)\{ auditActive=false; render\(\); \}/.test(appjs), "la maniglia del cassetto lo chiude");
+  const mob = stylesCss.slice(stylesCss.indexOf("@media (max-width:880px){"));
+  ok(/body\.tech-open #props,body\.cm-open #props,/.test(mob) && /body\.tech-open main,body\.cm-open main,/.test(mob), "«cm-open» è nell'elenco che apre il cassetto e alza il palco");
+  ok(/body\.cm-open #noSel>\*:not\(#auditSec\)[^{]*\{display:none !important\}/.test(mob), "nel cassetto resta solo «Cosa manca?»");
+  /* rilettura #235: dopo «Mostra» il cassetto è dell'elemento; la voce del menu deve riportare alla lista, non restare muta */
+  ok(/if\(a==="manca"\)\{ if\(!auditActive\) toggleAuditView\(\); else \{ clearSelection\(\); render\(\); \} return; \}/.test(appjs), "la voce del menu riapre la lista anche quando il pannello è già acceso sotto un elemento selezionato");
+  ok(/body\.cm-open #auditTrash\{min-width:44px;min-height:44px/.test(mob), "la ✕ è grande quanto un dito");
+});
+t("Cosa manca · se un motore esplode il pannello resta in piedi con gli altri rilievi", () => {
+  cmScena(); const pe = A.controlliPrimaDelExport, er = A.elecResult;
+  A.controlliPrimaDelExport = () => { throw new Error("x"); };
+  let M; try { M = A.cosaManca(); } finally { A.controlliPrimaDelExport = pe; }
+  ok(M.voci.length > 0 && !M.voci.some((v) => v.fonte === "export"), "senza i controlli dell'export restano quelli dell'audit");
+  reset();
+});
+t("Cosa manca · il pannello: un nome solo, la lista unica, le informazioni chiuse di serie, la gravità detta a parole", () => {
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/<b>Cosa manca\?<\/b><span id="auditQuante"/.test(html), "il titolo del pannello è «Cosa manca?», col numero accanto");
+  ok(!/Audit progetto<\/b>/.test(html), "il vecchio nome non c'è più");
+  const fn = appjs.slice(appjs.indexOf("function renderAuditPanel"), appjs.indexOf("function toggleAuditView"));
+  ok(/var M=cosaManca\(\), A=M\.audit;/.test(fn), "il pannello disegna ciò che raccoglie cosaManca");
+  ok(/"Da sistemare"/.test(fn) && /"Da guardare"/.test(fn) && /"Da definire"/.test(fn) && /"Info"/.test(fn), "gravità a parole, non solo col colore");
+  ok(/var cosaMancaInfoAperte=false;/.test(fn), "le informazioni partono chiuse");
+  ok(/if\(cosaMancaInfoAperte\) infos\.forEach/.test(fn) && /aria-expanded/.test(fn), "e si aprono con un bottone che dice se è aperto");
+  ok(/esc\(x\.msg\)/.test(fn) && /esc\(x\.perche\)/.test(fn) && /esc\(cosaMancaFamiglia\(x\.fam\)\)/.test(fn), "i testi (anche quelli scritti dall'utente) passano da esc");
+  ok(/var auditActive=false/.test(appjs), "chiuso di serie: si apre dalla riga di stato o dalla ricerca");
+  ok(/\.cm-altre:focus-visible\{[^}]*box-shadow:0 0 0 3px var\(--focus-ring\)/.test(stylesCss) && /\.cm-altre\{min-height:44px\}/.test(stylesCss), "il bottone delle informazioni si vede col fuoco e si tocca col dito");
+});
+t("Cosa manca · la riga di stato conta ciò che il pannello mostra (anche la caduta di tensione), e l'Esporta ci rimanda col suo nome", () => {
+  const fn = appjs.slice(appjs.indexOf("function renderStatoRider"), appjs.indexOf("function renderStatoRider") + 1900);
+  ok(/var stato = M\.rossi>0 \? "err" : \(quante>0 \? "warn" : "ok"\);/.test(fn), "rosso se c'è qualcosa da sistemare, giallo se c'è da guardare");
+  ok(/var quante=M\.gialli\+/.test(fn) && /var quante=M\.gialli\+/.test(appjs.slice(appjs.indexOf("function cosaMancaFrase"), appjs.indexOf("function cosaMancaBreve"))), "il giallo conta tutte le voci gialle, da qualunque fonte");
+  ok(/cancelText:"Apri «Cosa manca\?»"/.test(appjs) && !/Vai all'Audit/.test(appjs), "la finestra degli errori critici usa il nome nuovo");
+  ok(/_A\.errs>0/.test(appjs.slice(appjs.indexOf('title:(_A.errs>1 ? "Ci sono "') - 400, appjs.indexOf('title:(_A.errs>1 ? "Ci sono "'))), "e si ferma ancora solo sugli errori dell'audit: la caduta di tensione non blocca l'export");
 });
 
 await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */

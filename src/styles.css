@@ -1183,6 +1183,20 @@
   .audit-acts .audit-fix{align-self:stretch}   /* revisione 19/10/2026: l'align-self:center di .audit-fix vinceva sullo stretch e «Mostra» restava più stretto di «Togli il doppione» */
   body.dark .audit-fix{background:#141a1d}
   body.dark .audit-fix:hover{background:var(--accent);color:#fff}
+  /* «Cosa manca?» (C2, 26/11/2026): verdetto a parole, famiglia come targhetta (si legge anche senza colore), informazioni ripiegate in fondo */
+  .cm-quante{font-weight:600;color:var(--text-3)}
+  .cm-verdetto{font-weight:700;font-size:13px;line-height:1.35}
+  .cm-conta{font-size:12px;color:var(--text-3);margin-top:2px}
+  .cm-fam{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-2);
+    border:1px solid var(--border);border-radius:4px;padding:0 4px;line-height:1.5;vertical-align:1px}
+  .cm-altre{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--border);padding:8px 0 6px;margin-top:4px;
+    font:inherit;font-size:12px;color:var(--text-2);cursor:pointer}
+  .cm-altre:hover{color:var(--text)}
+  .cm-altre:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+  #auditFindings .audit-find{flex-direction:column;gap:5px;margin-bottom:10px}   /* i rimedi sotto il testo: nella colonna stretta accanto lo strozzavano */
+  #auditFindings .audit-acts{flex-direction:row;flex-wrap:wrap;gap:6px;align-self:flex-start;margin-left:14px}
+  #auditFindings .audit-acts .audit-fix{align-self:center}
+  @media (pointer:coarse){ .cm-altre{min-height:44px} #auditFindings .audit-fix{min-height:36px;padding:6px 14px;font-size:13px} }
   .cabfld{display:block;font-size:11px;color:var(--text-2);margin-top:8px}
   .cabfld select,.cabfld input{width:100%;margin-top:2px;padding:5px 7px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--n-800)}
   body.dark .cabfld select,body.dark .cabfld input{background:#141a1d;border-color:#314046;color:#e5e7eb}
@@ -2119,8 +2133,14 @@ svg.names-hidden .orc-name{display:none}
        da sempre, ma i loro stati non erano nell'elenco: si premeva la voce, il palco sbiadiva
        (`body.area-edit .item{opacity:.4}`) e non compariva NIENTE. Due funzioni raggiungibili e
        morte. Chi ne aggiunge una terza deve passare da qui. */
-    body.stage-edit #props,body.evento-edit #props,body.scaletta-edit #props,body.cambi-edit #props,body.chan-edit #props,body.tech-open #props,body.area-edit #props,body.vers-edit #props,body.m-has-sel.props-expanded #props{display:block}
-    body.stage-edit main,body.evento-edit main,body.scaletta-edit main,body.cambi-edit main,body.chan-edit main,body.tech-open main,body.area-edit main,body.vers-edit main,body.m-has-sel.props-expanded main{bottom:calc(46vh + 53px + env(safe-area-inset-bottom,0px))}
+    body.stage-edit #props,body.evento-edit #props,body.scaletta-edit #props,body.cambi-edit #props,body.chan-edit #props,body.tech-open #props,body.cm-open #props,body.area-edit #props,body.vers-edit #props,body.m-has-sel.props-expanded #props{display:block}
+    body.stage-edit main,body.evento-edit main,body.scaletta-edit main,body.cambi-edit main,body.chan-edit main,body.tech-open main,body.cm-open main,body.area-edit main,body.vers-edit main,body.m-has-sel.props-expanded main{bottom:calc(46vh + 53px + env(safe-area-inset-bottom,0px))}
+    /* «Cosa manca?» (C2, 26/11/2026): nel cassetto resta solo la sua lista, con la ✕ grande quanto un dito; testo a 14 px, da leggere senza zoom */
+    body.cm-open #noSel>*:not(#auditSec),body.cm-open #selProps,body.cm-open #groupProps,body.cm-open #eventoSec{display:none !important}
+    body.cm-open #auditSec{margin-top:0 !important;border-top:0 !important;padding-top:0 !important}
+    body.cm-open #auditTrash{min-width:44px;min-height:44px;justify-content:center}
+    body.cm-open #auditFindings .audit-find{font-size:14px}
+    body.cm-open #auditPdf,body.cm-open #auditMetrics{display:none}   /* nel cassetto resta la lista: voto, misure e report sono sul computer */
     /* In «Punti di ripristino» resta solo la lista delle versioni, come fa già «Area stampa». */
     body.vers-edit #selProps,body.vers-edit #noSel,body.vers-edit #groupProps,body.vers-edit #eventoSec{display:none !important}
     /* LA TESTA DEL FOGLIO DELL'ELEMENTO (13/09): nome e misure, sotto quattro azioni scritte da 52 px.
@@ -2359,7 +2379,7 @@ svg.names-hidden .orc-name{display:none}
     header select, #snapSel{min-height:44px}
     .layer-ico{min-width:44px}
     #evChip{min-height:44px}          /* «📅 Data e ora»: 102×23 */
-    #fbHead{min-height:44px}          /* «Cosa manca? Bug? Idea?»: 227×39 */
+    #fbHead{min-height:44px}          /* testata del box «Scrivici: bug, idee» */
     /* RESTA FUORI `.layer-solo` (17×17), e non per dimenticanza: ce n'è uno per ogni fetta di ogni
        riga del pannello layer, e portarli a 44 raddoppierebbe l'altezza di quel pannello. È un
        comando dell'interfaccia densa, che sul telefono non c'è: su un tablet resta scomodo, e
@@ -2746,8 +2766,8 @@ body.consult-viewer #fbTrigger{ display:none !important; }
 body.consult-viewer .grip{ cursor:default; }
 body.consult-viewer .clrow-in{ grid-template-columns:22px 1fr 92px 72px 34px 84px; }
 body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
-/* ===== Box feedback "Cosa manca?" ===== */
-/* «Cosa manca?» vive DENTRO la colonna di destra (scelta di Simone, 17/08, variante B): una card in
+/* ===== Box feedback «Scrivici: bug, idee» (fino al 26/11/2026 «Cosa manca?»; da allora quel nome è del pannello #auditSec) ===== */
+/* Il box vive DENTRO la colonna di destra (scelta di Simone, 17/08, variante B): una card in
    fondo alle Liste. Da chiusa è una riga; aprendosi spinge l'elenco verso l'alto invece di coprirlo
    — così non si sovrappone mai a quello che stavi guardando. Prima galleggiava sopra il contenuto:
    326 px di larghezza contro i 310 della colonna, cioè per forza fuori.
@@ -2865,7 +2885,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 #fbBox .fb-msg{font-size:13px;margin:10px 2px 0;line-height:var(--lh-snug)}
 #fbBox .fb-close{background:none;border:none;color:var(--text-2);font-size:20px;cursor:pointer;line-height:1}
 /* Su mobile #props è un drawer nascosto: là la card non si vedrebbe, quindi il box torna a essere un
-   pannello ancorato in basso — lo apre la voce «Cosa manca? Scrivici» del menu «?», che su telefono
+   pannello ancorato in basso — lo apre la voce «Scrivici: bug, idee» del menu «?», che su telefono
    lo sposta fuori dalla colonna (vedi openFeedbackBox). */
 @media (max-width:880px){
   #fbBox{position:fixed;left:0;right:0;bottom:0;margin:0;z-index:900;border-radius:14px 14px 0 0;
@@ -3894,7 +3914,7 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
 #pdfRigaProgetto .pis-no{border:0;background:none;color:var(--text-2);font:inherit;font-size:14px;padding:8px 8px;cursor:pointer;flex:0 0 auto}
 #pdfRigaProgetto .pis-no:hover{color:var(--text)}
 @media (max-width:720px){ #pdfRigaProgetto .pis-no{min-width:44px;min-height:44px} }
-/* Domanda di parere nel box «Cosa manca?» (15/11/2026, P5): compare solo dopo il primo PDF, dentro il box. */
+/* Domanda di parere nel box delle segnalazioni (15/11/2026, P5): compare solo dopo il primo PDF, dentro il box. */
 #fbParere{margin:6px 0 10px;padding:9px 10px;border-radius:9px;background:var(--accent-tint);border:1px solid var(--accent-soft);font-size:13px;color:var(--text)}
 #fbParere[hidden]{display:none}
 #fbParere .fbp-testa{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}

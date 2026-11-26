@@ -82,7 +82,7 @@ test("il corpo per submit-feedback: i campi del server, l'indirizzo pulito, nien
 });
 
 test("i testi: nell'area come nell'editor, al pubblico «Un problema? Scrivici»; i tipi sono quelli del server", () => {
-  assert.equal(SG.testi("gestione").titolo, "Cosa manca? Bug? Idea?");
+  assert.equal(SG.testi("gestione").titolo, "Scrivici: bug, idee");
   for (const p of ["scheda", "organizzatore", "disdetta", "mie", "ingresso"]) assert.equal(SG.testi(p).titolo, "Un problema? Scrivici", p);
   assert.deepEqual(SG.testi("scheda").tipi.map((t) => t[1]), ["Bug", "Manca qualcosa", "Idea"]);
   const server = leggi("supabase/functions/_shared/feedback-validation.ts");
