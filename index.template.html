@@ -1086,6 +1086,40 @@
         <button type="button" class="btn" id="pRigTutte" style="margin-top:6px">Numera tutte le americane</button>
       </div>
     </div>
+    <!-- PATCH DMX (C3, 26/11/2026): gruppo «DMX» del pannello, solo con «Opzioni complete». A patch spenta c'è un solo pulsante. -->
+    <div id="pDmxPatchWrap" style="display:none"><label>DMX <small class="lbl-note">— canali, universo e indirizzo</small></label>
+      <div id="pDxOff">
+        <div class="prop-hint">La patch DMX dà a ogni apparecchio luci un universo e un indirizzo, senza sovrapposizioni, e aggiunge il foglio «Patch luci».</div>
+        <button type="button" class="btn" id="pDxAttiva" style="margin-top:6px">Attiva la patch DMX</button>
+      </div>
+      <div id="pDxOn" style="display:none">
+        <div id="pDxModoWrap" style="display:none">
+          <label for="pDxModo">Modalità <small class="lbl-note">— quella impostata sull'apparecchio</small></label>
+          <select id="pDxModo"></select>
+        </div>
+        <div id="pDxChWrap" style="display:none;margin-top:7px">
+          <label for="pDxCh">Canali <small class="lbl-note">— quanti ne occupa</small></label>
+          <div class="row"><span><input type="number" id="pDxCh" min="1" max="512" step="1" inputmode="numeric" placeholder="es. 8"></span></div>
+        </div>
+        <div id="pDxInfo" class="prop-hint" style="display:none"></div>
+        <label class="chk" id="pDxNoWrap" style="display:none;margin-top:6px" title="Per un apparecchio che non si comanda in DMX: alogeno su dimmer, acceso da rete"><input type="checkbox" id="pDxNo"> Senza DMX</label>
+        <div id="pDxIndWrap" style="display:none;margin-top:7px">
+          <label>Universo · indirizzo</label>
+          <div class="row">
+            <span><input type="number" id="pDxU" min="1" max="999" step="1" inputmode="numeric" aria-label="Universo DMX"></span>
+            <span><input type="number" id="pDxA" min="1" max="512" step="1" inputmode="numeric" aria-label="Indirizzo DMX di partenza"></span>
+          </div>
+          <div id="pDxStato" class="prop-hint" style="margin-top:5px"></div>
+          <div id="pDxAvviso" class="prop-hint" style="display:none;margin-top:4px;color:var(--warning, #b45309)"></div>
+          <button type="button" class="btn" id="pDxLibero" style="display:none;margin-top:6px">Primo libero</button>
+        </div>
+        <button type="button" class="btn" id="pDxTutti" style="display:none;margin-top:8px"></button>
+        <div class="btns" id="pDxPatchRow" style="margin-top:10px">
+          <button type="button" class="btn" id="pDxRiassegna" title="Rimette in fila gli indirizzi di tutti gli apparecchi, nell'ordine dei numeri; quelli scritti a mano restano dove sono">Riassegna in ordine</button>
+          <button type="button" class="btn" id="pDxSpegni" title="Toglie la patch da questa versione: i dati sugli apparecchi restano, per riaccenderla">Spegni la patch</button>
+        </div>
+      </div>
+    </div>
     <div id="pRfWrap" style="display:none"><label title="Frequenza radio e banda: finiscono nella Lista RF del rider (per il coordinamento del service)">Frequenza RF</label>
       <div class="row">
         <span><input aria-label="Frequenza RF in MHz" type="text" id="pRf" placeholder="es. 606.400" inputmode="decimal"></span>
@@ -9083,6 +9117,7 @@ function save(){
   custTogliFormeOrfane();   /* rete di sicurezza: fuori dall'editor nessuna forma «custshape» resta sul palco vero */
   dropOrphanRows(state);   /* qualunque strada abbia tolto un elemento, la sua riga non sopravvive al salvataggio */
   dropOrphanLinks(state);  /* … e nemmeno i suoi collegamenti: un id riusato non deve ereditarli */
+  if(dmxAttiva()) dmxFissa();   /* Patch DMX (C3): gli indirizzi appena assegnati si scrivono, così un faro aggiunto dopo non sposta gli altri */
   if(window.scheduleCloudAutosave) scheduleCloudAutosave();   /* arma il pending durevole prima del commit locale */
   var localOk=persistLocalState();
   if(window.__consultDirty) window.__consultDirty();   /* indipendente dal debounce history e dal base64 escluso dagli snapshot undo */
@@ -10018,6 +10053,277 @@ function programmaLuciPdf(doc){
       doc.text(L("* senza i W degli apparecchi di cui la potenza non è nota","* excludes fixtures whose power is not known"), M, y);
     }
   }
+  return true;
+}
+/* ═══ PATCH DMX (26/11/2026, lotto C3 dello studio cablaggi — gradino 1: canali, universo, indirizzo) ═══
+   Chiusa di serie: senza `state.dmx.on` nessun calcolo, nessun foglio, nessun avviso, nessuna chiave nel documento.
+   · per versione: `state.dmx={on:true}`;
+   · sull'apparecchio: `it.dmx={m?, ch?, no?, u?, a?, fix?}` — m = modalità del catalogo DMX_MODI, ch = canali scritti a mano,
+     no = non comandato in DMX, u/a = universo e indirizzo di partenza, fix = scritti a mano dall'utente.
+   Chi entra: apparecchi luci (lightsIsGear) e dimmer (DIMMER_DEF); mai gli alogeni e la catena di LED (si comanda il dimmer)
+   né i modelli da studio la cui scheda non dichiara DMX. I canali: dimmer = i suoi; modalità del catalogo; canali a mano;
+   modello con UNA sola modalità = quella; altrimenti IGNOTI (niente indirizzo: l'app non indovina mai una modalità).
+   UN INDIRIZZO ASSEGNATO NON SI MUOVE PIÙ DA SOLO: sul palco gli indirizzi si impostano a mano su ogni faro, e un faro aggiunto
+   non deve spostare gli altri. `dmxPatch()` è pura: chi ha u/a salvati li tiene (prima i `fix`, poi gli altri; un non-`fix`
+   che urta torna da assegnare), i nuovi prendono il primo spazio libero (start massimo = 512 − canali + 1, mai a cavallo di due
+   universi: fonti/DMX.md F17). `save()` li scrive con `dmxFissa()`. Rimettere in ordine è un gesto: `dmxRiassegna()`.
+   Regole e fonti: analisi/2026-11-24_STUDIO_CABLAGGI/fonti/DMX.md e DMX_PATCH.md (fuori dal repo). */
+var DMX_CH=512, DMX_U_MAX=999, DMX_LINEA_MAX=32;   /* canali per universo · universi scrivibili a mano · apparecchi per linea (unit load) */
+var DMX_NO_TIPO={ ribaltaalogena:1, farope:1, fresnel:1, catenaled:1 };   /* alogeni e catena di LED: nessun ingresso DMX, li comanda il dimmer */
+/* Modalità dai manuali dei costruttori: tipo → {fonte, modi:[[chiave, nome, canali]]}. Un tipo assente = campo libero «Canali». */
+var DMX_MODI={
+  /* Briteq BT-THEATRE 200TW — manuale B06030 rev. 04, menu CH. MODE pag. 4/12 e tabelle pag. 10/12 */
+  bttheatre200:{fonte:"Briteq B06030-04 p.4 e 10", modi:[["1ch8","1CH 8b",1],["2ch8","2CH 8b",2],["3ch16","3CH 16b",3],["4ch16s","4CH 16bS",4],["5ch16f","5CH 16bF",5]]},
+  /* Spotlight serie Hyperion 200 W — scheda tecnica «DMX PERSONALITIES» pag. 2: le personalità dipendono dalla versione di colore
+     (suffisso del codice). Il PC del catalogo è la versione bianco variabile / RGBW / 6C; il sagomatore PR ZS esiste anche a bianco fisso. */
+  pcled:{fonte:"Spotlight, scheda Hyperion 200 W p.2", modi:[["tw-easy","TW · EASY (8 bit)",2],["tw-split8","TW · SPLIT (8 bit)",5],["tw-split16","TW · SPLIT (16 bit)",10],["tw-studio","TW · STUDIO (16 bit)",9],["tw-theatre","TW · THEATRE FULL (16 bit)",7],["rgbw-easy","RGBW · EASY (8 bit)",3],["rgbw-hsi","RGBW · HSI (8 bit)",6],["rgbw-cmy","RGBW · CMY (8 bit)",6],["rgbw-rgbw","RGBW · RGBW (8 bit)",9],["rgbw-full","RGBW · FULL (16 bit)",16],["6c-easy","6C · EASY (8 bit)",4],["6c-hsic","6C · HSIC (8 bit)",7],["6c-rgbacl8","6C · RGBACL (8 bit)",9],["6c-rgbacl16","6C · RGBACL (16 bit)",14],["6c-theater","6C · THEATER (16 bit)",25],["6c-studio","6C · STUDIO (16 bit)",24]]},
+  sagomatoreled:{fonte:"Spotlight, scheda Hyperion 200 W p.2", modi:[["w-1ch","Bianco fisso · 1CH (8 bit)",1],["w-2ch","Bianco fisso · 2CH (8 bit)",2],["w-3ch","Bianco fisso · 3CH (16 bit)",3],["tw-easy","TW · EASY (8 bit)",2],["tw-split8","TW · SPLIT (8 bit)",5],["tw-split16","TW · SPLIT (16 bit)",10],["tw-studio","TW · STUDIO (16 bit)",9],["tw-theatre","TW · THEATRE FULL (16 bit)",7],["rgbw-easy","RGBW · EASY (8 bit)",3],["rgbw-hsi","RGBW · HSI (8 bit)",6],["rgbw-cmy","RGBW · CMY (8 bit)",6],["rgbw-rgbw","RGBW · RGBW (8 bit)",9],["rgbw-full","RGBW · FULL (16 bit)",16],["6c-easy","6C · EASY (8 bit)",4],["6c-hsic","6C · HSIC (8 bit)",7],["6c-rgbacl8","6C · RGBACL (8 bit)",9],["6c-rgbacl16","6C · RGBACL (16 bit)",14],["6c-theater","6C · THEATER (16 bit)",25],["6c-studio","6C · STUDIO (16 bit)",24]]},
+  /* Chauvet Professional COLORado Solo Edge 3 — manuale Rev. 2, «Control Personalities» pag. 19-20: 32 personalità per 1, 2 o 4 celle */
+  ribaltaled:{fonte:"Chauvet, manuale Rev. 2 p.19-20", modi:[["1c-cct","1 cell · CCT",6],["1c-hsv","1 cell · HSV",6],["1c-rgb","1 cell · RGB",5],["1c-rgbw","1 cell · RGBW",6],["1c-rgbwl","1 cell · RGBWL",7],["1c-rgbwl16bit","1 cell · RGBWL 16-bit",12],["1c-rgbext","1 cell · RGB Ext.",12],["1c-rgbwext","1 cell · RGBW Ext.",13],["1c-rgbwlext","1 cell · RGBWL Ext.",14],["1c-rgbwlfull","1 cell · RGBWL Full",21],["1c-xy","1 cell · XY",6],["1c-xyext","1 cell · XY Ext.",11],["2c-cct","2 cell · CCT",9],["2c-hsv","2 cell · HSV",9],["2c-rgb","2 cell · RGB",8],["2c-rgbw","2 cell · RGBW",10],["2c-rgbwl","2 cell · RGBWL",12],["2c-rgbwl16bit","2 cell · RGBWL 16-bit",22],["2c-rgbext","2 cell · RGB Ext.",19],["2c-rgbwext","2 cell · RGBW Ext.",21],["2c-rgbwlext","2 cell · RGBWL Ext.",23],["2c-rgbwlfull","2 cell · RGBWL Full",37],["4c-cct","4 cell · CCT",15],["4c-hsv","4 cell · HSV",15],["4c-rgb","4 cell · RGB",14],["4c-rgbw","4 cell · RGBW",18],["4c-rgbwl","4 cell · RGBWL",22],["4c-rgbwl16bit","4 cell · RGBWL 16-bit",42],["4c-rgbext","4 cell · RGB Ext.",33],["4c-rgbwext","4 cell · RGBW Ext.",37],["4c-rgbwlext","4 cell · RGBWL Ext.",41],["4c-rgbwlfull","4 cell · RGBWL Full",69]]},
+  /* Martin Atomic 3000 LED — manuale P/N 35000290 Rev. C, «DMX modes» pag. 16 e protocollo pag. 26-29 */
+  stroboatomic:{fonte:"Martin 35000290 Rev. C p.16", modi:[["3ch","3-channel",3],["4ch","4-channel",4],["ext","Extended",14]]},
+  /* Chauvet DJ SlimPAR Pro H USB — manuale Rev. 6, pag. 6-9 */
+  parslimpar:{fonte:"Chauvet DJ, manuale Rev. 6 p.6-9", modi:[["6ch","6-CH",6],["7ch","7-CH",7],["12ch","12CH",12]]},
+  /* Chauvet DJ Intimidator Spot 360X — manuale Rev. 3, pag. 7-9 */
+  testaspot360x:{fonte:"Chauvet DJ, manuale Rev. 3 p.7-9", modi:[["8ch","08CH",8],["14ch","14CH",14]]},
+  /* Robert Juliat Roxie 1166 — manuale DN41087001-B (V2), «DMX chart» pag. EN-15 */
+  followroxie:{fonte:"Robert Juliat DN41087001-B p.EN-15", modi:[["theatre","Theatre",1],["studio","Studio",4],["followspot","Followspot",5],["direct","Direct DMX (variable white)",5]]},
+  /* Antari Z-1500 III (manuale, sez. 10.2) e HZ-400 (manuale Rev. 09, sez. 9.2): una sola modalità, 1 canale */
+  fumoz1500:{fonte:"Antari Z-1500 III, sez. 10.2", modi:[["1ch","1 Channel Mode",1]]},
+  hazerhz400:{fonte:"Antari HZ-400 Rev. 09, sez. 9.2", modi:[["1ch","1 canale",1]]}
+  /* senza modalità di proposito (campo libero «Canali»): Eurolite LED BAR-12 QCL RGBW (conteggi solo da scheda di rivendita, senza nomi)
+     e la lucciola Spotlight (manuale non trovato). I dimmer occupano i loro canali, in fila dall'indirizzo di partenza. */
+};
+function dmxAttiva(s){ s=s||state; return !!(s && s.dmx && s.dmx.on===true); }
+function dmxDimmer(it){ return !!(it && DIMMER_DEF[it.type]); }
+function dmxModi(it){ var c=it && DMX_MODI[it.type]; return (c && c.modi) || []; }
+function dmxCapace(it){
+  if(!it) return false;
+  if(dmxDimmer(it)) return true;
+  if(!lightsIsGear(it.type) || DMX_NO_TIPO[it.type]) return false;
+  var lm=lightModelOf(it);   /* modello da studio con la scheda letta: se non dichiara DMX, CRMX né Art-Net non si patcha */
+  if(lm && Array.isArray(lm.ctrl) && !lm.ctrl.some(function(c){ return c==="dmx" || c==="crmx" || c==="artnet"; })) return false;
+  return true;
+}
+function dmxDati(it){ return (it && it.dmx && typeof it.dmx==="object" && !Array.isArray(it.dmx)) ? it.dmx : null; }
+function dmxModo(it){ var d=dmxDati(it); if(!d || !d.m) return null; var L=dmxModi(it); for(var i=0;i<L.length;i++) if(L[i][0]===d.m) return L[i]; return null; }
+function dmxSenza(it){ var d=dmxDati(it); return !!(d && d.no===true && !dmxDimmer(it)); }
+/* quanti canali occupa; null = non si sa (da inserire) o non entra nella patch */
+function dmxCanali(it){
+  if(!dmxCapace(it) || dmxSenza(it)) return null;
+  if(dmxDimmer(it)) return Math.max(1, Math.min(48, Math.round(+it.prese || DIMMER_DEF[it.type])));
+  var m=dmxModo(it); if(m) return m[2];
+  var d=dmxDati(it); if(d && d.ch>=1 && d.ch<=DMX_CH) return Math.round(d.ch);
+  var L=dmxModi(it); return L.length===1 ? L[0][2] : null;
+}
+/* ciò che un file altrui può portare in `it.dmx`: solo i campi noti, nei limiti; vuoto o su un tipo senza DMX = via */
+function dmxPulita(it){
+  if(!it || it.dmx==null) return;
+  var d=it.dmx;
+  if(typeof d!=="object" || Array.isArray(d) || !dmxCapace(it)){ delete it.dmx; return; }
+  var o={}, n;
+  if(!dmxDimmer(it)){
+    if(typeof d.m==="string" && dmxModi(it).some(function(x){ return x[0]===d.m; })) o.m=d.m;
+    n=Math.round(+d.ch); if(!o.m && isFinite(n) && n>=1 && n<=DMX_CH) o.ch=n;
+    if(d.no===true) o.no=true;
+  }
+  var u=Math.round(+d.u), a=Math.round(+d.a);
+  if(!o.no && isFinite(u) && isFinite(a) && u>=1 && u<=DMX_U_MAX && a>=1 && a<=DMX_CH){ o.u=u; o.a=a; if(d.fix===true) o.fix=true; }
+  if(Object.keys(o).length) it.dmx=o; else delete it.dmx;
+}
+/* il punto unico che scrive: `patch` nomina solo ciò che cambia; null o false = togli */
+function dmxImposta(it, patch){
+  if(!it || !dmxCapace(it)) return;
+  var d=Object.assign({}, dmxDati(it)||{});
+  Object.keys(patch||{}).forEach(function(k){ if(patch[k]==null || patch[k]===false) delete d[k]; else d[k]=patch[k]; });
+  it.dmx=d; dmxPulita(it);
+}
+/* dopo un cambio di canali: se l'apparecchio (non scritto a mano), restando al suo posto, ora urta un vicino o esce dall'universo, è LUI
+   a lasciare il posto e a prendere il primo libero, non il vicino. Ritorna true se ha lasciato il posto. */
+function dmxDopoCanali(it){
+  if(!dmxAttiva()) return false;
+  var d=dmxDati(it), ch=dmxCanali(it); if(!d || d.fix===true || d.u==null || ch==null) return false;
+  var f=d.a+ch-1;
+  var urta=f>DMX_CH || (state.items||[]).some(function(x){ if(x===it) return false; var e=dmxDati(x), c=dmxCanali(x);
+    return !!(e && e.u===d.u && e.a>=1 && c!=null && d.a<=e.a+c-1 && f>=e.a); });
+  if(urta) dmxImposta(it, {u:null, a:null});
+  return urta;
+}
+/* la copia di un apparecchio tiene modalità e canali ma non l'indirizzo: prende il primo libero (due fari uguali non nascono sovrapposti) */
+function dmxCopiaPulita(c){ var d=dmxDati(c); if(!d) return c; delete d.u; delete d.a; delete d.fix; if(!Object.keys(d).length) delete c.dmx; return c; }
+function dmxInd(u, a){ return u+"."+("00"+a).slice(-3); }   /* «1.041»: universo.indirizzo, come lo scrivono le console */
+function dmxNome(it){ return (it.label||"").trim() || (TYPES[it.type] && TYPES[it.type].nome) || it.type; }
+/* gli apparecchi nell'ordine della patch: prima i dimmer (in teatro stanno a 1…N), da sinistra a destra; poi i fari con i
+   numeri di luciNumeri (gli stessi del foglio «pianta luci») */
+function dmxApparecchi(){
+  var out=[];
+  (state.items||[]).filter(dmxDimmer).sort(function(a,b){ return ((a.x||0)-(b.x||0)) || ((a.y||0)-(b.y||0)) || (String(a.id)<String(b.id)?-1:1); })
+    .forEach(function(d, i){ out.push({it:d, code:"D"+(i+1)}); });
+  luciNumeri().righe.forEach(function(r){ if(dmxCapace(r.it)) out.push({it:r.it, code:r.code}); });
+  return out;
+}
+/* → {on, righe:[{it, code, nome, modo, ch, u, a, fine, fix}], senzaDmx:[riga], senzaCanali:[riga], conflitti:[{tipo, a, b?}], universi:[{u, canali, n, fine}]}
+   conflitti: «sovrapposti» (a e b sugli stessi canali) · «fuori» (a esce dall'universo). Solo i `fix` possono farne: gli altri si spostano. */
+function dmxPatch(){
+  var out={on:dmxAttiva(), righe:[], senzaDmx:[], senzaCanali:[], conflitti:[], universi:[]};
+  if(!out.on) return out;
+  var occ={};   /* universo → [[da, a, riga]] */
+  function urta(u, a, f){ var L=occ[u]||[]; for(var i=0;i<L.length;i++) if(a<=L[i][1] && f>=L[i][0]) return L[i][2]; return null; }
+  function posa(r){ (occ[r.u]=occ[r.u]||[]).push([r.a, Math.min(r.fine, DMX_CH), r]); }
+  function primoLibero(u, ch){
+    var L=(occ[u]||[]).slice().sort(function(x,y){ return x[0]-y[0]; }), a=1;
+    for(var i=0;i<L.length;i++){ if(a+ch-1<L[i][0]) break; a=Math.max(a, L[i][1]+1); }
+    return a+ch-1<=DMX_CH ? a : 0;
+  }
+  dmxApparecchi().forEach(function(x){
+    var it=x.it, m=dmxModo(it), r={it:it, code:x.code, nome:dmxNome(it), modo:m ? m[1] : "", ch:dmxCanali(it), u:null, a:null, fine:null, fix:false};
+    if(dmxSenza(it)) out.senzaDmx.push(r); else out.righe.push(r);
+  });
+  function salvato(r){ var d=dmxDati(r.it); return (d && d.u>=1 && d.a>=1) ? d : null; }
+  out.righe.forEach(function(r){   /* 1 · scritti a mano: non si spostano mai */
+    var d=salvato(r); if(!d || d.fix!==true) return;
+    r.u=d.u; r.a=d.a; r.fix=true;
+    if(r.ch==null) return;   /* indirizzo sì, canali no: non occupa niente finché non si sa quanti sono */
+    r.fine=r.a+r.ch-1;
+    if(r.fine>DMX_CH) out.conflitti.push({tipo:"fuori", a:r});
+    var k=urta(r.u, r.a, Math.min(r.fine, DMX_CH)); if(k) out.conflitti.push({tipo:"sovrapposti", a:k, b:r});
+    posa(r);
+  });
+  out.righe.forEach(function(r){   /* 2 · già assegnati: tengono il posto se ci stanno ancora */
+    if(r.fix || r.ch==null) return;
+    var d=salvato(r); if(!d) return;
+    var f=d.a+r.ch-1; if(f>DMX_CH || urta(d.u, d.a, f)) return;
+    r.u=d.u; r.a=d.a; r.fine=f; posa(r);
+  });
+  out.righe.forEach(function(r){   /* 3 · da assegnare: il primo spazio libero, dall'universo 1 */
+    if(r.u!=null || r.ch==null) return;
+    for(var u=1; u<=DMX_U_MAX; u++){ var a=primoLibero(u, r.ch); if(a){ r.u=u; r.a=a; r.fine=a+r.ch-1; posa(r); break; } }
+  });
+  out.senzaCanali=out.righe.filter(function(r){ return r.ch==null; });
+  var U={};
+  out.righe.forEach(function(r){ if(r.u==null || r.ch==null) return; var o=U[r.u]||(U[r.u]={u:r.u, canali:0, n:0, fine:0}); o.canali+=r.ch; o.n++; o.fine=Math.max(o.fine, Math.min(r.fine, DMX_CH)); });
+  out.universi=Object.keys(U).map(function(k){ return U[k]; }).sort(function(a,b){ return a.u-b.u; });
+  return out;
+}
+/* scrive nel progetto gli indirizzi appena assegnati (chiamata da save, solo a patch accesa). Ritorna quanti ne ha scritti o tolti. */
+function dmxFissa(){
+  if(!dmxAttiva()) return 0;
+  var n=0;
+  dmxPatch().righe.forEach(function(r){
+    if(r.fix) return;
+    var d=dmxDati(r.it);
+    if(r.u!=null && r.ch!=null){ if(!d || d.u!==r.u || d.a!==r.a){ dmxImposta(r.it, {u:r.u, a:r.a}); n++; } }
+    else if(d && (d.u!=null || d.a!=null)){ dmxImposta(r.it, {u:null, a:null}); n++; }
+  });
+  return n;
+}
+function dmxAccendi(on){
+  if(on){ state.dmx={on:true}; dmxFissa(); } else delete state.dmx;   /* spenta: i dati sugli apparecchi restano, per chi la riaccende */
+}
+/* «Riassegna in ordine»: tutti quelli non scritti a mano ripartono dal primo libero, nell'ordine della patch */
+function dmxRiassegna(){
+  if(!dmxAttiva()) return 0;
+  (state.items||[]).forEach(function(it){ var d=dmxDati(it); if(d && d.fix!==true && (d.u!=null || d.a!=null)) dmxImposta(it, {u:null, a:null}); });
+  dmxFissa();
+  return dmxPatch().righe.filter(function(r){ return !r.fix && r.u!=null; }).length;
+}
+/* «Usa per tutti»: stessa modalità (o canali, o «senza DMX») sugli apparecchi dello stesso tipo; gli indirizzi non si toccano */
+function dmxStessoTipo(it){ return (state.items||[]).filter(function(x){ return x!==it && x.type===it.type && dmxCapace(x) && !dmxDimmer(x); }); }
+function dmxScelta(it){ var d=dmxDati(it)||{}; return [d.m||"", d.m ? "" : (d.ch||""), d.no===true ? 1 : 0].join("|"); }
+function dmxUsaPerTutti(it){
+  var d=dmxDati(it)||{}, n=0;
+  dmxStessoTipo(it).forEach(function(x){ if(dmxScelta(x)===dmxScelta(it)) return; dmxImposta(x, {m:d.m||null, ch:d.m ? null : (d.ch||null), no:d.no===true ? true : null}); dmxDopoCanali(x); n++; });
+  return n;
+}
+/* le voci per «Cosa manca?» (famiglia Luci). Non entrano nel voto dell'audit e non fermano l'export, come la caduta di tensione. */
+var DMX_MANCA_MAX=4;
+function cosaMancaDmx(P){
+  P=P||dmxPatch(); var out=[]; if(!P.on) return out;
+  function mostra(L){ return {label:"Mostra", run:function(){ auditFixMostraDoppioni(L.map(function(r){ return r.it; }).filter(function(it){ return (state.items||[]).indexOf(it)>=0; })); }}; }
+  function campo(r){ return dmxInd(r.u, r.a)+(r.fine!=null && r.fine!==r.a ? "–"+dmxInd(r.u, Math.min(r.fine, DMX_CH)) : ""); }
+  function chi(r){ return "«"+r.nome+"» ("+r.code+")"; }
+  P.conflitti.filter(function(c){ return c.tipo==="fuori"; }).forEach(function(c){ var r=c.a;
+    out.push({id:"dmx:fuori:"+r.it.id, fonte:"dmx", grav:"rosso", lvl:"err", fam:"Luci", rule:"dmx-fuori",
+      msg:chi(r)+" parte da "+dmxInd(r.u, r.a)+" con "+r.ch+" canali: esce dall'universo, che ne ha "+DMX_CH+".",
+      perche:"L'ultimo indirizzo valido per "+r.ch+" canali è "+(DMX_CH-r.ch+1)+". Cambialo nel pannello dell'apparecchio (DMX), o premi «Primo libero».", azioni:[mostra([r])]}); });
+  var sov=P.conflitti.filter(function(c){ return c.tipo==="sovrapposti"; });
+  sov.slice(0, DMX_MANCA_MAX).forEach(function(c){
+    var tandem=c.a.it.type===c.b.it.type && c.a.u===c.b.u && c.a.a===c.b.a && c.a.ch===c.b.ch;
+    out.push({id:"dmx:sovrapposti:"+c.a.it.id+":"+c.b.it.id, fonte:"dmx", grav:tandem?"giallo":"rosso", lvl:tandem?"warn":"err", fam:"Luci", rule:"dmx-sovrapposti",
+      msg:tandem ? chi(c.a)+" e "+chi(c.b)+" hanno lo stesso indirizzo DMX, "+dmxInd(c.a.u, c.a.a)+"."
+                 : "Indirizzi DMX sovrapposti: "+chi(c.a)+" su "+campo(c.a)+" e "+chi(c.b)+" su "+campo(c.b)+".",
+      perche:tandem ? "Faranno la stessa cosa insieme. Se è voluto va bene così; se no, nel pannello di uno dei due (DMX) premi «Primo libero»."
+                    : "Due apparecchi sugli stessi canali rispondono agli stessi comandi. Nel pannello di uno dei due (DMX) cambia l'indirizzo o premi «Primo libero».",
+      azioni:[mostra([c.a, c.b])]}); });
+  if(sov.length>DMX_MANCA_MAX){ var resto=sov.slice(DMX_MANCA_MAX);
+    out.push({id:"dmx:sovrapposti:altre", fonte:"dmx", grav:"rosso", lvl:"err", fam:"Luci", rule:"dmx-sovrapposti",
+      msg:(resto.length===1 ? "Un'altra coppia di apparecchi ha" : "Altre "+resto.length+" coppie di apparecchi hanno")+" indirizzi DMX sovrapposti.",
+      perche:"Le trovi nel foglio «Patch luci». Nel pannello dell'apparecchio (DMX), «Primo libero» lo sposta dove c'è posto.",
+      azioni:[mostra(resto.map(function(c){ return c.b; }))]}); }
+  if(P.senzaCanali.length){ var n=P.senzaCanali.length;
+    out.push({id:"dmx:senza-canali", fonte:"dmx", grav:"giallo", lvl:"warn", fam:"Luci", rule:"dmx-senza-canali",
+      msg:(n===1 ? "Un apparecchio luci non ha" : n+" apparecchi luci non hanno")+" i canali DMX: senza, non "+(n===1?"ha":"hanno")+" un indirizzo.",
+      perche:"Nel pannello dell'apparecchio (DMX) scegli la modalità o scrivi quanti canali occupa; se non è comandato in DMX, segna «Senza DMX».",
+      azioni:[mostra(P.senzaCanali)]}); }
+  /* una linea DMX regge 32 apparecchi (fonti F1-F3): con le linee non ancora disegnate si conta per universo, e si tace se c'è uno splitter */
+  if(!(state.items||[]).some(function(x){ return x.type==="dmxsplit"; }))
+    P.universi.filter(function(o){ return o.n>DMX_LINEA_MAX; }).forEach(function(o){
+      out.push({id:"dmx:linea:"+o.u, fonte:"dmx", grav:"giallo", lvl:"warn", fam:"Luci", rule:"dmx-linea",
+        msg:"Universo "+o.u+": "+o.n+" apparecchi. Una linea DMX ne regge "+DMX_LINEA_MAX+".",
+        perche:"Oltre il "+DMX_LINEA_MAX+"° il segnale diventa instabile. Serve uno splitter (ogni sua uscita è una linea nuova) oppure un secondo universo.", azioni:[]}); });
+  return out;
+}
+/* ── Foglio A4 «Patch luci»: una riga per universo in alto, poi una riga per apparecchio nell'ordine della patch. Solo a patch accesa. ── */
+function patchLuciDisponibile(){ if(!dmxAttiva()) return false; var P=dmxPatch(); return (P.righe.length+P.senzaDmx.length)>0; }
+function patchLuciPdf(doc){
+  var P=dmxPatch(); if(!P.on || !(P.righe.length+P.senzaDmx.length)) return false;
+  var en=docEn(), L=function(it,e){ return en ? e : it; };
+  var M=16, R=194, FONDO=272, y, croce=false;   /* stessi margini e stesso fondo del «programma luci»: sotto stanno «1 di N · vN · data» */
+  var cN=M, cA=M+17, cM=M+78, cC=M+128, cI=M+150, cF=R;
+  var COL="#db2777";   /* il colore della «Lista luci» */
+  doc.addPage("a4","portrait");
+  pdfTestata(doc, COL, "STAGE PLOT — "+L("Patch luci (DMX)","Lighting patch (DMX)"), docTesto(dataDocumento()), M, 210);
+  y=PDF_Y0;
+  if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
+  function nuova(){ doc.addPage("a4","portrait"); y=PDF_TOP+7; }
+  doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
+  P.universi.forEach(function(o){
+    if(y>FONDO) nuova();
+    doc.text(L("Universo","Universe")+" "+o.u+" · "+o.canali+" "+L("canali su","channels of")+" "+DMX_CH+" · "+o.n+" "+L(o.n===1?"apparecchio":"apparecchi", o.n===1?"fixture":"fixtures"), M, y); y+=5; });
+  y+=3;
+  function testaColonne(segue){
+    doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor("#9d174d");
+    doc.text(L("N.","No."), cN, y); doc.text(L("APPARECCHIO","FIXTURE")+(segue ? " ("+L("segue","cont.")+")" : ""), cA, y); doc.text(L("MODALITÀ","MODE"), cM, y);
+    doc.text(L("CANALI","CHANNELS"), cC, y, {align:"right"}); doc.text(L("INDIRIZZO","ADDRESS"), cI, y); doc.text(L("FINO A","UP TO"), cF, y, {align:"right"});
+    doc.setDrawColor(COL); doc.setLineWidth(0.4); doc.line(M, y+1.6, R, y+1.6); y+=6;
+  }
+  if(P.righe.length){
+    if(y+12>FONDO) nuova();
+    testaColonne(false);
+    P.righe.forEach(function(r){
+      var tipoNome=(TYPES[r.it.type] && TYPES[r.it.type].nome) || r.it.type;
+      var ap=docTesto(r.nome)+(r.nome!==tipoNome ? " ("+docTesto(tipoNome)+")" : "");
+      var al=doc.splitTextToSize(ap, cM-cA-3), ml=r.modo ? doc.splitTextToSize(docTesto(r.modo), cC-cM-14) : ["—"], nr=Math.max(al.length, ml.length);
+      if(y+(nr-1)*4.2>FONDO){ nuova(); testaColonne(true); }
+      doc.setFontSize(9.5); doc.setTextColor("#111827");
+      doc.setFont("helvetica","bold"); doc.text(r.code, cN, y); doc.setFont("helvetica","normal");
+      doc.text(al, cA, y); doc.text(ml, cM, y);
+      doc.text(r.ch==null ? "—" : String(r.ch), cC, y, {align:"right"});
+      if(r.u!=null){ doc.setFont("helvetica","bold"); doc.text(dmxInd(r.u, r.a)+(r.fix ? (croce=true, " †") : ""), cI, y); doc.setFont("helvetica","normal"); }
+      else doc.text("—", cI, y);
+      doc.text(r.fine==null ? "—" : dmxInd(r.u, Math.min(r.fine, DMX_CH)), cF, y, {align:"right"});
+      y+=5.2+(nr-1)*4.2;
+    });
+  }
+  /* note in fondo: solo quelle che servono. Mai sotto il fondo: se non ci stanno, pagina nuova. */
+  var note=[L("Indirizzo = universo.canale di partenza; «fino a» = l'ultimo canale occupato.","Address = universe.start channel; “up to” = last channel used.")];
+  if(croce) note.push(L("† indirizzo scritto a mano.","† address set by hand."));
+  if(P.conflitti.length) note.push(L("Attenzione: ci sono indirizzi sovrapposti o fuori dall'universo (vedi «Cosa manca?»).","Warning: some addresses overlap or exceed the universe."));
+  if(P.senzaCanali.length) note.push(P.senzaCanali.length+" "+L(P.senzaCanali.length===1?"apparecchio senza canali: non ha un indirizzo":"apparecchi senza canali: non hanno un indirizzo", P.senzaCanali.length===1?"fixture without channels: no address":"fixtures without channels: no address")+" ("+P.senzaCanali.map(function(r){ return r.code; }).join(", ")+").");
+  if(P.senzaDmx.length) note.push(L("Senza DMX","Without DMX")+": "+P.senzaDmx.length+" ("+P.senzaDmx.map(function(r){ return r.code; }).join(", ")+").");
+  note.push(L("Promemoria: una linea DMX regge "+DMX_LINEA_MAX+" apparecchi; terminatore da 120 Ω sull'ultimo; cavo DMX da 110-120 Ω, non microfonico.","Reminder: one DMX line carries "+DMX_LINEA_MAX+" fixtures; 120 Ω terminator on the last one; 110-120 Ω DMX cable, not microphone cable."));
+  y+=3; doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#555555");
+  note.forEach(function(t){ doc.splitTextToSize(t, R-M).forEach(function(riga){ if(y>FONDO){ nuova(); doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#555555"); } doc.text(riga, M, y); y+=4; }); });
   return true;
 }
 /* VISTA A UN TOCCO: Palco · Luci e truss · Tutto. È un modo di VEDERE e di prendere, non un dato: non si
@@ -11093,6 +11399,7 @@ function normalizeLoadedItems(arr){
         if(!_mt.mode && _mt.h==null && !_mt.safety && !_mt.note) delete it.mount;
       }
     }
+    dmxPulita(it);   /* PATCH DMX (C3): modalità del catalogo, canali 1-512, universo e indirizzo nei limiti; su un tipo senza DMX si toglie */
     if(it.tinta!==undefined){ var _tl=tinteDi(it.type); if(!_tl || typeof it.tinta!=="string" || _tl.indexOf(it.tinta)<1) delete it.tinta; }   /* colore di truss/tendaggi/linea: fuori elenco (anche null), o uguale a quello di serie → via */
     if(it.rug!=null && (it.type!=="tappeto" || (it.rug!=="nero" && it.rug!=="bianco"))) delete it.rug;   /* tappeto: colore fuori elenco → rosso di serie, mai markup arbitrario */
     if(it.type==="forma"){   /* forma: valori fuori elenco → si torna al default, mai markup arbitrario */
@@ -11366,6 +11673,7 @@ function normalizeState(s){
   s.items.forEach(function(x){ if(x.type==="custom" && x.cust && x.cust.modelId && !_cm.some(function(q){ return q.id===x.cust.modelId; })) delete x.cust.modelId; });
   s.status = (["bozza","revisione","approvato","superato"].indexOf(s.status)>=0) ? s.status : "bozza";   /* T5: stato di approvazione */
   if(s.status==="bozza" || !/^\d{4}-\d{2}-\d{2}$/.test(String(s.statusAt==null?"":s.statusAt))) delete s.statusAt;   /* Versioni (24/11): la data in cui lo stato è cambiato; una Bozza non ne ha */
+  if(s.dmx && typeof s.dmx==="object" && s.dmx.on===true) s.dmx={on:true}; else delete s.dmx;   /* Patch DMX (C3): solo «accesa»; un progetto che non la usa non porta la chiave */
   var _cbn=cambiNorm(s.cambi); if(_cbn.length) s.cambi=_cbn; else delete s.cambi;   /* Cambi di palco (L3): solo se ce n'è almeno uno valido; un progetto senza cambi non porta nemmeno la chiave */
   s.approval = (s.approval && typeof s.approval==="object") ? {by:String(s.approval.by||"").slice(0,80), at:String(s.approval.at||"").slice(0,10)} : {by:"",at:""};
   s.namesMode = (["auto","on","off"].indexOf(s.namesMode)>=0) ? s.namesMode : "auto";   /* K: visibilità nomi strumenti */
@@ -21758,6 +22066,9 @@ function cosaManca(){
   /* la caduta di tensione: accanto agli altri rilievi dell'elettrico */
   var cad=[]; try{ cad=cosaMancaCaduta(elecResult()); }catch(_e){ cad=[]; }
   cad.forEach(function(v){ voci.push(v); });
+  /* la patch DMX (C3): sovrapposizioni, indirizzi fuori dall'universo, apparecchi senza canali; niente a patch spenta */
+  var dx=[]; try{ dx=cosaMancaDmx(); }catch(_e){ dx=[]; }
+  dx.forEach(function(v){ voci.push(v); });
   /* i controlli «Prima di esportare». La riga a mano senza microfono in consulenza la dice già l'audit, col suo rimedio: una volta sola */
   var pe=[]; try{ pe=controlliPrimaDelExport(); }catch(_e){ pe=[]; }
   var giaSenzaMic=(A.findings||[]).some(function(x){ return /senza mic\/DI assegnato/.test(x.msg||""); });
@@ -23721,6 +24032,8 @@ function renderProps(){
         document.getElementById("pMountSafety").value = mountSafetyOf(it);
       }
     } }
+  var dxp=document.getElementById("pDmxPatchWrap");   /* PATCH DMX (C3): apparecchi luci e dimmer */
+  if(dxp){ var canDx=dmxCapace(it); dxp.style.display=canDx?"block":"none"; if(canDx) dmxRenderPannello(it); }
   var rgw=document.getElementById("pRigWrap");   /* AMERICANA NUMERATA (A4): solo americana e truss */
   if(rgw){ var isRg=isHangStruct(it); rgw.style.display=isRg?"block":"none";
     if(isRg){
@@ -24405,7 +24718,9 @@ document.getElementById("pNote").addEventListener("change", function(){ mutSelSo
 }); });
 (function(){ function setPrese(d){ var it=getSel(); if(!it||(it.type!=="ciabatta"&&!DIMMER_DEF[it.type])) return;
   var dim=!!DIMMER_DEF[it.type], def=dim?DIMMER_DEF[it.type]:6, max=dim?48:12;
-  it.prese=Math.max(1,Math.min(max,(it.prese||def)+d)); document.getElementById("pPreseVal").textContent=it.prese; __elecRes=null; save(); render(); }
+  it.prese=Math.max(1,Math.min(max,(it.prese||def)+d)); document.getElementById("pPreseVal").textContent=it.prese; __elecRes=null;
+  if(dim) dmxDopoCanali(it);   /* patch DMX (C3): il dimmer che cresce sopra un vicino cerca posto lui */
+  save(); render(); if(dim && dmxAttiva()) renderProps(); }
   var mm=document.getElementById("pPreseMinus"), mp=document.getElementById("pPresePlus");
   if(mm) mm.addEventListener("click", function(){ setPrese(-1); }); if(mp) mp.addEventListener("click", function(){ setPrese(1); }); })();
 (function(){ function setDmx(k,d){ var it=getSel(); if(!it||it.type!=="dmxsplit") return;
@@ -25303,6 +25618,101 @@ document.getElementById("pMountSafety").addEventListener("change", function(){
   mutSel(function(it){ if(isMountable(it)) mountSet(it, {safety:(v==="unspecified")?null:v}); });
   save();
 });
+/* PATCH DMX (C3, 26/11/2026): il gruppo «DMX» del pannello. A patch spenta un solo pulsante; accesa: modalità (dal catalogo) o canali
+   (a mano), «Senza DMX», universo e indirizzo (scriverli = fissarli a mano), e i due gesti sull'intera patch. Ogni gesto è un passo di Annulla. */
+var dmxAltroSel=null;   /* «Altro» scelto su questo elemento e canali non ancora scritti: stato della pagina, non del progetto */
+function dmxRenderPannello(it){
+  var g=function(id){ return document.getElementById(id); }, on=dmxAttiva();
+  g("pDxOff").style.display=on?"none":"block"; g("pDxOn").style.display=on?"block":"none";
+  if(!on) return;
+  var dim=dmxDimmer(it), L=dmxModi(it), d=dmxDati(it)||{}, senza=dmxSenza(it), ch=dmxCanali(it), m=dmxModo(it);
+  var P=dmxPatch(), r=P.righe.filter(function(x){ return x.it===it; })[0]||null;
+  var altro=!m && (d.ch!=null || dmxAltroSel===it.id), scelta=!dim && !senza && L.length>1;
+  g("pDxModoWrap").style.display=scelta?"block":"none";
+  if(scelta){
+    var h='<option value="">Scegli la modalità…</option>';
+    L.forEach(function(x){ h+='<option value="'+esc(x[0])+'"'+(m && m[0]===x[0] ? " selected" : "")+'>'+esc(x[1])+" — "+x[2]+(x[2]===1?" canale":" canali")+'</option>'; });
+    h+='<option value="__altro"'+(altro?" selected":"")+'>Altro: scrivo i canali</option>';
+    g("pDxModo").innerHTML=h;
+  }
+  g("pDxChWrap").style.display=(!dim && !senza && (!L.length || (scelta && altro)))?"block":"none";
+  var ci=g("pDxCh"); if(document.activeElement!==ci) ci.value=(d.ch!=null && !m) ? d.ch : "";
+  var info=g("pDxInfo"), it1=dim ? "Canali: "+ch+", quelli del dimmer." : (!senza && L.length===1 ? "Canali: "+L[0][2]+" ("+L[0][1]+", dal manuale)." : "");
+  info.style.display=it1?"block":"none"; info.textContent=it1;
+  g("pDxNoWrap").style.display=dim?"none":""; g("pDxNo").checked=senza;
+  g("pDxIndWrap").style.display=senza?"none":"block";
+  if(!senza){
+    var haInd=!!(r && r.u!=null), iu=g("pDxU"), ia=g("pDxA");
+    iu.disabled=ia.disabled=(ch==null);
+    if(document.activeElement!==iu) iu.value=haInd ? r.u : "";
+    if(document.activeElement!==ia) ia.value=haInd ? r.a : "";
+    g("pDxStato").textContent = ch==null ? "Senza i canali non ha un indirizzo: "+(scelta ? "scegli la modalità." : "scrivi quanti ne occupa.")
+      : (haInd ? "Occupa "+dmxInd(r.u, r.a)+(r.fine!==r.a ? "–"+dmxInd(r.u, Math.min(r.fine, DMX_CH)) : "")+(r.fix ? " · scritto a mano." : " · assegnato in automatico.") : "Non c'è più posto in nessun universo.");
+    var av=[];
+    P.conflitti.forEach(function(c){
+      if(c.tipo==="fuori" && c.a===r) av.push("Esce dall'universo: con "+r.ch+" canali l'ultimo indirizzo valido è "+(DMX_CH-r.ch+1)+".");
+      if(c.tipo==="sovrapposti" && (c.a===r || c.b===r)){ var o=c.a===r ? c.b : c.a; av.push("Si sovrappone a «"+o.nome+"» ("+o.code+"), che sta su "+dmxInd(o.u, o.a)+"–"+dmxInd(o.u, Math.min(o.fine, DMX_CH))+"."); }
+    });
+    g("pDxAvviso").style.display=av.length?"block":"none"; g("pDxAvviso").textContent=av.join(" ");
+    g("pDxLibero").style.display=(r && r.fix)?"":"none";
+  }
+  var bt=g("pDxTutti"), altri=dim ? [] : dmxStessoTipo(it).filter(function(x){ return dmxScelta(x)!==dmxScelta(it); });
+  var haScelta=!!(d.m || d.ch || d.no===true);
+  bt.style.display=(haScelta && altri.length)?"":"none";
+  if(haScelta && altri.length) bt.textContent="Usa anche per "+(altri.length===1 ? "l'altro" : "gli altri "+altri.length)+" «"+((TYPES[it.type] && TYPES[it.type].nome) || it.type)+"»";
+}
+function dmxGesto(fn){
+  if(typeof soloLetturaProgetto==="function" && soloLetturaProgetto()) return;
+  primaDiAgire(); var it=getSel(); var msg=fn(it);
+  render(); save(); renderProps();
+  if(msg && typeof showToast==="function") showToast(msg, "ok");
+}
+document.getElementById("pDxAttiva").addEventListener("click", function(){
+  dmxGesto(function(){ dmxAccendi(true); var P=dmxPatch(), n=P.righe.filter(function(r){ return r.u!=null && r.ch!=null; }).length, m=P.senzaCanali.length;
+    return "Patch DMX attiva: "+n+(n===1?" apparecchio ha":" apparecchi hanno")+" un indirizzo"+(m ? ", "+m+(m===1?" aspetta":" aspettano")+" i canali" : "")+"."; });
+});
+document.getElementById("pDxModo").addEventListener("change", function(){
+  var v=document.getElementById("pDxModo").value;
+  dmxGesto(function(it){ if(!it) return;
+    if(v==="__altro"){ dmxAltroSel=it.id; dmxImposta(it, {m:null}); }
+    else { dmxAltroSel=null; dmxImposta(it, {m:v||null, ch:null}); }
+    dmxDopoCanali(it); });
+});
+document.getElementById("pDxCh").addEventListener("change", function(){
+  var n=Math.round(+document.getElementById("pDxCh").value);
+  dmxGesto(function(it){ if(!it) return; dmxImposta(it, {ch:(isFinite(n) && n>=1 && n<=DMX_CH) ? n : null, m:null}); dmxDopoCanali(it); });
+});
+document.getElementById("pDxNo").addEventListener("change", function(){
+  var si=document.getElementById("pDxNo").checked;
+  dmxGesto(function(it){ if(it) dmxImposta(it, si ? {no:true, u:null, a:null, fix:null} : {no:null}); });
+});
+["pDxU","pDxA"].forEach(function(id){
+  document.getElementById(id).addEventListener("change", function(){
+    var u=Math.round(+document.getElementById("pDxU").value), a=Math.round(+document.getElementById("pDxA").value);
+    dmxGesto(function(it){ if(!it) return;
+      var r=dmxPatch().righe.filter(function(x){ return x.it===it; })[0];
+      if(!(u>=1) && r && r.u!=null) u=r.u; if(!(u>=1)) u=1;   /* scritto solo l'indirizzo: l'universo resta il suo */
+      if(!(a>=1) && r && r.a!=null) a=r.a;
+      if(!(u>=1 && u<=DMX_U_MAX && a>=1 && a<=DMX_CH)) return;   /* fuori dai limiti: non si scrive, il campo torna com'era */
+      var prima={}; dmxPatch().righe.forEach(function(x){ if(x.it!==it && x.u!=null) prima[x.it.id]=dmxInd(x.u, x.a); });
+      dmxImposta(it, {u:u, a:a, fix:true});
+      /* chi era stato assegnato in automatico su quei canali lascia il posto: si dice, perché il suo indirizzo è cambiato */
+      var mossi=dmxPatch().righe.filter(function(x){ return x.it!==it && x.u!=null && prima[x.it.id] && prima[x.it.id]!==dmxInd(x.u, x.a); });
+      return mossi.length ? "Per fare posto "+(mossi.length===1 ? "ha cambiato indirizzo «"+mossi[0].nome+"» ("+mossi[0].code+"): ora "+dmxInd(mossi[0].u, mossi[0].a) : "hanno cambiato indirizzo "+mossi.length+" apparecchi: "+mossi.map(function(x){ return x.code+" → "+dmxInd(x.u, x.a); }).join(", "))+"." : ""; });
+  });
+});
+document.getElementById("pDxLibero").addEventListener("click", function(){
+  dmxGesto(function(it){ if(it) dmxImposta(it, {u:null, a:null, fix:null}); });
+});
+document.getElementById("pDxTutti").addEventListener("click", function(){
+  dmxGesto(function(it){ if(!it) return; var n=dmxUsaPerTutti(it); return n ? (n===1 ? "Un altro apparecchio aggiornato." : n+" apparecchi aggiornati.") : ""; });
+});
+document.getElementById("pDxRiassegna").addEventListener("click", function(){
+  dmxGesto(function(){ var n=dmxRiassegna(); return "Indirizzi rimessi in ordine: "+n+". Quelli scritti a mano restano dove sono."; });
+});
+document.getElementById("pDxSpegni").addEventListener("click", function(){
+  dmxGesto(function(){ dmxAccendi(false); return "Patch DMX spenta. I dati sugli apparecchi restano: puoi riaccenderla."; });
+});
 /* AMERICANA NUMERATA (A4, 15/11/2026): numero, trim, lunghezza e «Numera tutte». Tutto passa da mutSel (annulla/ripeti). */
 document.getElementById("pRigOn").addEventListener("click", function(e){
   var b=e.target.closest("button[data-rig]"); if(!b) return;
@@ -25398,7 +25808,7 @@ function funzUsateDalProgetto(s){
   var tecn=!!((s.cab&&s.cab.on) || (s.elec&&s.elec.on) || (s.mond&&s.mond.on));
   var rig=(s.items||[]).some(function(x){ return x && x.rig && isHangStruct(x); });   /* americane numerate (A4): stanno dietro «Opzioni complete» */
   var out=tecn ? ["conn","liste"] : [];
-  if(rig) out.push("opzioni");
+  if(rig || dmxAttiva(s)) out.push("opzioni");   /* la patch DMX (C3) sta dietro «Opzioni complete», come le americane numerate */
   return out;
 }
 /* «Cavi e corrente» (caso Zuliani, 03/11): per vedere metri e potenza servivano tre passi nascosti
@@ -25680,7 +26090,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   }
   /* La label interna che ripete il titolo del gruppo è rumore: il gruppo la dice già. */
   function muteLabel(id){ var e=get(id); if(!e) return; var l=e.querySelector("label"); if(l) l.style.display="none"; }
-  muteLabel("pLblModeWrap"); muteLabel("pAscoltoWrap"); muteLabel("pMikeWrap"); muteLabel("pLookWrap"); muteLabel("pMountWrap"); muteLabel("pRigWrap");
+  muteLabel("pLblModeWrap"); muteLabel("pAscoltoWrap"); muteLabel("pMikeWrap"); muteLabel("pLookWrap"); muteLabel("pMountWrap"); muteLabel("pRigWrap"); muteLabel("pDmxPatchWrap");
   /* SP-08 (audit esterno 05/09): «le proprietà danno priorità alla grafica rispetto al compito».
      Il primo gruppo del pannello — quindi la prima cosa che si incontra su QUALUNQUE elemento —
      teneva insieme come si chiama e come si vede: nome, sigla, poi dimensione del carattere,
@@ -25706,6 +26116,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pSgabWrap","pLeggioGenWrap","pLucettaWrap","pLegDistWrap","pRampWrap","pGazWrap","pPreseWrap","pDmxWrap"]);
   group("Installazione", null, ["pMountWrap"]);
   group("Americana", null, ["pRigWrap"]);   /* A4: numero, trim e peso appeso, solo con «Opzioni complete» */
+  group("DMX", "canali, universo e indirizzo", ["pDmxPatchWrap"]);   /* C3: la patch, solo con «Opzioni complete» */
   group("Appendimento", "carico e portata scritti", ["pPtWrap"]);   /* icone approvate 16/11: come l'americana, solo con «Opzioni complete» */
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pPassWrap","pFinaleChWrap","pKvaWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoMicWrap","pNoteWrap"]);   /* «Nessun microfono» scritto nel file: sempre in vista, non dietro «Mostra tutte le opzioni» */
@@ -26196,7 +26607,7 @@ function duplicateSel(noOffset, opts){
   if(!noOffset && isMobile()){ offX=Math.round((its[0].w||60)+40); offY=40; }
   var copies=set.map(function(it){ var c=JSON.parse(JSON.stringify(it)); idmap[it.id]=c.id=uid();
     if(!noOffset){ c.x+=offX; c.y+=offY; }   /* offset solo per duplica con Ctrl+D; ALT+drag parte dalla posizione originale */
-    bumpItemLabels(c); custCopiaPulita(c, false);
+    bumpItemLabels(c); custCopiaPulita(c, false); dmxCopiaPulita(c);
     if(c.grp){ if(!gmap[c.grp]) gmap[c.grp]=grpLibero(); c.grp=gmap[c.grp]; }
     state.items.push(c); return c; });
   postiCopie(copies);   /* il duplicato di un posto numerato nasce senza numero: quel posto c'è già */
@@ -26243,7 +26654,7 @@ function pasteClip(){
   clipPastes++; var off=40*clipPastes;
   var hasRiser=clipboard.some(pedanaAgganciata);   /* blocco solo con una pedana agganciata, come in duplicateSel */
   var gmap={}, idmap={};
-  var copies=clipboard.map(function(it){ var c=JSON.parse(JSON.stringify(it)); idmap[it.id]=c.id=uid(); c.x+=off; c.y+=off; bumpItemLabels(c); custCopiaPulita(c, true);
+  var copies=clipboard.map(function(it){ var c=JSON.parse(JSON.stringify(it)); idmap[it.id]=c.id=uid(); c.x+=off; c.y+=off; bumpItemLabels(c); custCopiaPulita(c, true); dmxCopiaPulita(c);
     if(c.grp){ if(!gmap[c.grp]) gmap[c.grp]=grpLibero(); c.grp=gmap[c.grp]; } return c; });
   /* i legami per id puntano alle COPIE incollate, o se ne vanno (rimappaLegamiCopie): incollare lo strumento da solo,
      anche nella stessa scena, non lo lega alla DI dell'originale */
@@ -43984,7 +44395,7 @@ function lightsList(){
    catena che costruisce il PDF (buildPdfDoc) — e le due copie erano già divergenti: la Lista luci
    usciva dopo la Lista monitor nel PDF e dopo la Lista rack in anteprima. Chi diceva al service
    «guarda a pagina 2» lo mandava sul foglio sbagliato. Chi aggiunge una pagina tocca SOLO qui. */
-var PDF_TECH_ORDER=["rider","organico","responsabilita","cambi","inputlist","monitorlist","lightslist","loadlist",
+var PDF_TECH_ORDER=["rider","organico","responsabilita","cambi","inputlist","monitorlist","lightslist","patchluci","loadlist",
   "eleclines","backline","rf","notelist","pmlist","racklist","dantepatch","netlist","outputlist",
   "cabmap","elecmap","todefine"];
 function pdfTechRank(key){ var i=PDF_TECH_ORDER.indexOf(key); return i<0?-1:i; }
@@ -46045,6 +46456,7 @@ function buildPdfDoc(paperKey, N, orient, header, foglio){   /* foglio (lotto 2)
           if(_f && _f.formato==="service") patchListServicePdf(doc, {perPagina:_f.perPagina}); else patchListPdf(doc); },   /* formato Service = opzione dell'Esporta (12/11), il semplice resta il predefinito */
         monitorlist:function(){ if(!window.__consultMode) monitorListPdf(doc); },
         lightslist:function(){ lightsListPdf(doc); },
+        patchluci:function(){ patchLuciPdf(doc); },                 /* C3: la patch DMX, solo a patch accesa */
         loadlist:function(){ loadListPdf(doc); },
         eleclines:function(){ elecLinesPdf(doc); },
         backline:function(){ backlineListPdf(doc); },
@@ -46127,7 +46539,7 @@ function riassuntoDocumento(){
 }
 /* Impronta di CIASCUN documento del pacchetto (S10, richiesta di Simone 13/11: «cambiato / invariato da vN-1» accanto a ogni file): un hash breve del
    contenuto che quel documento stampa (non del progetto intero: un'asta in più non cambia il rider). Dentro il riassunto, quindi nello storico. */
-var DOC_NOMI={stageplot:"stage plot", inputlist:"channel list", outputlist:"output list", rider:"rider", organico:"organico", backline:"backline", lightslist:"lista luci", scaletta:"scaletta", cambi:"cambi di palco"};
+var DOC_NOMI={stageplot:"stage plot", inputlist:"channel list", outputlist:"output list", rider:"rider", organico:"organico", backline:"backline", lightslist:"lista luci", patchluci:"patch luci", scaletta:"scaletta", cambi:"cambi di palco"};
 /* ═══ CONTROLLI DI COERENZA 2 (13/11/2026, specifica S14) ═══ «Allegati richiesti»: elenco libero (≤30 voci) con stato «ricevuto» / «da chiedere»;
    se resta qualcosa «da chiedere» lo dice «Prima di esportare». Solo se l'utente lo usa (assente di serie). */
 function allegatiPuliti(l){
@@ -46155,6 +46567,7 @@ function impronteDocumenti(){
   out.backline=g(function(){ return backlineList().rows; });
   out.lightslist=g(function(){ return state.lights; });
   out.scaletta=g(function(){ return state.scaletta; });
+  if(dmxAttiva()) out.patchluci=g(function(){ var P=dmxPatch(); return [P.righe.map(function(r){ return [r.code, r.nome, r.modo, r.ch, r.u, r.a, r.fix]; }), P.senzaDmx.map(function(r){ return r.code; })]; });   /* C3: solo a patch accesa — i progetti vecchi hanno impronte identiche */
   if(Array.isArray(state.cambi) && state.cambi.length) out.cambi=g(function(){ return state.cambi; });   /* L3: solo se ci sono cambi — i progetti vecchi hanno impronte identiche */
   Object.keys(out).forEach(function(k){ if(!out[k]) delete out[k]; });
   return out;
@@ -46375,7 +46788,7 @@ function pdfGateErrori(run){
    CRC32, nomi in UTF-8. Fase 1: solo la variante corrente (col suo nome nei file se il progetto ne ha più d'una). Il marcatore «cambiato da vN-1»
    verrà con la differenza fra versioni (S10): qui solo il punto d'aggancio, `pacchettoCostruisci(…, opz)`. Solo PDF; niente PDP, hospitality, camerini. */
 function pacchettoDocumentiTutti(){
-  return [["stageplot","stage plot"],["piantapalco","pianta palco"],["piantaluci","pianta luci"],["programmaluci","programma luci"],["inputlist","channel list"],["outputlist","output list"],["rider","rider"],["organico","organico"],["backline","backline"],["lightslist","lista luci"],["scaletta","scaletta"],["cambi","cambi di palco"]];
+  return [["stageplot","stage plot"],["piantapalco","pianta palco"],["piantaluci","pianta luci"],["programmaluci","programma luci"],["patchluci","patch luci"],["inputlist","channel list"],["outputlist","output list"],["rider","rider"],["organico","organico"],["backline","backline"],["lightslist","lista luci"],["scaletta","scaletta"],["cambi","cambi di palco"]];
 }
 function pacchettoDocumenti(chiaviPillole, haScaletta, haPalco, haLuci){   /* haLuci (lotto 2): fari o truss → anche i fogli «pianta palco» e «pianta luci»; senza, non escono (sarebbero doppione o vuoti) */
   var have={}; (chiaviPillole||[]).forEach(function(k){ have[k]=true; });
@@ -46447,7 +46860,7 @@ function pacchettoProduci(chiave, ctx){
       return buildPdfDoc(ctx.paper, ctx.N, ctx.orient, ctx.header, chiave==="piantapalco" ? "palco" : chiave==="piantaluci" ? "luci" : null).then(function(doc){ ripristina(); return doc; }, function(e){ ripristina(); throw e; });
     }
     var doc=new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true});
-    var F={ programmaluci:function(){ programmaLuciPdf(doc); }, inputlist:function(){ patchListServicePdf(doc, {perPagina:ctx.perPagina===48?48:32}); }, outputlist:function(){ outputListPdf(doc); }, rider:function(){ riderPdf(doc); },
+    var F={ programmaluci:function(){ programmaLuciPdf(doc); }, patchluci:function(){ patchLuciPdf(doc); }, inputlist:function(){ patchListServicePdf(doc, {perPagina:ctx.perPagina===48?48:32}); }, outputlist:function(){ outputListPdf(doc); }, rider:function(){ riderPdf(doc); },
             organico:function(){ organicoPdf(doc); }, backline:function(){ backlineListPdf(doc); }, lightslist:function(){ lightsListPdf(doc); }, scaletta:function(){ scalettaPdf(doc); }, cambi:function(){ cambiFoglioPdf(doc); } };
     if(!F[chiave]) throw new Error("documento sconosciuto: "+chiave);
     F[chiave]();
@@ -47441,6 +47854,7 @@ function pdfChannelPage(doc, L, paperKey){
     if((state.items||[]).some(function(x){ return !!pmOf(x); })){ pages.push({key:"pmlist", label:"Lista personal monitor"}); }
     if((state.items||[]).some(function(x){ return x.type==="rack"; })){ pages.push({key:"racklist", label:"Lista rack"}); }
     if(((state.lights&&state.lights.rows)||[]).length){ pages.push({key:"lightslist", label:"Lista luci"}); }
+    if(typeof patchLuciDisponibile==="function" && patchLuciDisponibile()){ pages.push({key:"patchluci", label:"Patch luci (DMX)"}); }   /* C3: solo a patch accesa; senza, nessuna pillola */
     try{ var bb=Rc.boxes||[];
       if(bb.length>1 || bb.some(function(b){ return b.sbId||b.res.length||Object.keys(b.pins).length; })) pages.push({key:"dantepatch", label:"Patch stage box"});
     }catch(_e){}

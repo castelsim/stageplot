@@ -3789,6 +3789,7 @@ body.venue-calib #vistaBanner{display:none}
 /* A4 americane numerate: solo con «Opzioni complete» accesa, anche dopo «Mostra tutte le opzioni» */
 body:not(.f-opzioni) #selProps .pgrp[data-grp="americana"]{display:none !important}
 body:not(.f-opzioni) #selProps .pgrp[data-grp="appendimento"]{display:none !important}   /* carico e portata del punto di appendimento (16/11) */
+body:not(.f-opzioni) #selProps .pgrp[data-grp="dmx"]{display:none !important}   /* patch DMX (C3, 26/11): universo e indirizzo degli apparecchi luci */
 @media (min-width:881px){
   body:not(.f-opzioni):not(.props-tutte) #selProps .pgrp[data-grp="microfono"],
   body:not(.f-opzioni):not(.props-tutte) #selProps .pgrp[data-grp="stage-box"],
@@ -5619,6 +5620,40 @@ body.cambio-vista #catalog{pointer-events:none;opacity:.55}
         <div class="seg" id="pRigLen" role="group" aria-label="Lunghezze standard"></div>
         <div id="pRigPeso" class="prop-hint" style="margin-top:6px"></div>
         <button type="button" class="btn" id="pRigTutte" style="margin-top:6px">Numera tutte le americane</button>
+      </div>
+    </div>
+    <!-- PATCH DMX (C3, 26/11/2026): gruppo «DMX» del pannello, solo con «Opzioni complete». A patch spenta c'è un solo pulsante. -->
+    <div id="pDmxPatchWrap" style="display:none"><label>DMX <small class="lbl-note">— canali, universo e indirizzo</small></label>
+      <div id="pDxOff">
+        <div class="prop-hint">La patch DMX dà a ogni apparecchio luci un universo e un indirizzo, senza sovrapposizioni, e aggiunge il foglio «Patch luci».</div>
+        <button type="button" class="btn" id="pDxAttiva" style="margin-top:6px">Attiva la patch DMX</button>
+      </div>
+      <div id="pDxOn" style="display:none">
+        <div id="pDxModoWrap" style="display:none">
+          <label for="pDxModo">Modalità <small class="lbl-note">— quella impostata sull'apparecchio</small></label>
+          <select id="pDxModo"></select>
+        </div>
+        <div id="pDxChWrap" style="display:none;margin-top:7px">
+          <label for="pDxCh">Canali <small class="lbl-note">— quanti ne occupa</small></label>
+          <div class="row"><span><input type="number" id="pDxCh" min="1" max="512" step="1" inputmode="numeric" placeholder="es. 8"></span></div>
+        </div>
+        <div id="pDxInfo" class="prop-hint" style="display:none"></div>
+        <label class="chk" id="pDxNoWrap" style="display:none;margin-top:6px" title="Per un apparecchio che non si comanda in DMX: alogeno su dimmer, acceso da rete"><input type="checkbox" id="pDxNo"> Senza DMX</label>
+        <div id="pDxIndWrap" style="display:none;margin-top:7px">
+          <label>Universo · indirizzo</label>
+          <div class="row">
+            <span><input type="number" id="pDxU" min="1" max="999" step="1" inputmode="numeric" aria-label="Universo DMX"></span>
+            <span><input type="number" id="pDxA" min="1" max="512" step="1" inputmode="numeric" aria-label="Indirizzo DMX di partenza"></span>
+          </div>
+          <div id="pDxStato" class="prop-hint" style="margin-top:5px"></div>
+          <div id="pDxAvviso" class="prop-hint" style="display:none;margin-top:4px;color:var(--warning, #b45309)"></div>
+          <button type="button" class="btn" id="pDxLibero" style="display:none;margin-top:6px">Primo libero</button>
+        </div>
+        <button type="button" class="btn" id="pDxTutti" style="display:none;margin-top:8px"></button>
+        <div class="btns" id="pDxPatchRow" style="margin-top:10px">
+          <button type="button" class="btn" id="pDxRiassegna" title="Rimette in fila gli indirizzi di tutti gli apparecchi, nell'ordine dei numeri; quelli scritti a mano restano dove sono">Riassegna in ordine</button>
+          <button type="button" class="btn" id="pDxSpegni" title="Toglie la patch da questa versione: i dati sugli apparecchi restano, per riaccenderla">Spegni la patch</button>
+        </div>
       </div>
     </div>
     <div id="pRfWrap" style="display:none"><label title="Frequenza radio e banda: finiscono nella Lista RF del rider (per il coordinamento del service)">Frequenza RF</label>
