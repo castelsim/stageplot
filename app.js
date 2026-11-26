@@ -20527,6 +20527,102 @@ function controlliPrimaDelExport(){
     add("manca-luogo","Manca il luogo dell'evento: nel PDF il titolo esce senza il posto.");
   return out;
 }
+/* ═══ «COSA MANCA?» (26/11/2026, lotto C2 dello studio cablaggi — idea B) ═══
+   Un posto solo per ciò che non torna. NON calcola niente di nuovo: mette in fila tre cose che esistono già e che stavano in tre posti diversi:
+   · i rilievi dell'audit (`auditEngine`, che assorbe già i motori audio, rete, percorsi, RF, uscite ed elettrico), anche quelli «info» che prima
+     non comparivano da nessuna parte;
+   · i controlli «Prima di esportare» (`controlliPrimaDelExport`), che si leggevano solo dentro la finestra Esporta;
+   · la caduta di tensione delle linee (`drop` del motore elettrico, C1), che non entra in `issues` e quindi né nell'audit né nell'Esporta.
+   Tre gravità: rosso (da sistemare) · giallo (da guardare) · info (da definire, note, informazioni). `auditEngine` resta com'è: voto, PDF del report,
+   finestra «errori critici» dell'Esporta e collaudo sui progetti veri non cambiano. Funzione pura → {voci, rossi, gialli, note, info, verdetto, audit}. */
+var COSA_MANCA_FAM={ "segnaposto":"Rider", "etichetta-duplicata":"Audio", "mix-senza-uscita":"Monitor", "riga-senza-microfono":"Audio",
+  "data-nel-titolo":"Rider", "data-nella-scaletta":"Rider", "stessa-versione-cambiata":"Rider", "cambi-mic-fuori-lista":"Audio",
+  "allegati-da-chiedere":"Rider", "dotazione-superata":"Palco", "violini-senza-sezione":"Palco", "planimetria-mancante":"Palco", "manca-luogo":"Rider" };
+var COSA_MANCA_MAX_LINEE=4;   /* linee dei carichi dette una per una; le altre in una riga sola (un palco con 30 ciabatte lontane non fa 30 righe) */
+/* La caduta di tensione detta una volta per tratta. Un carico che sfora per colpa della dorsale o dell'alimentazione a monte non ha una riga sua:
+   la riga è quella della tratta da sistemare (stessa regola di «Cosa fare» nel pannello della linea). */
+function cosaMancaCaduta(R){
+  R=R||{}; var out=[];
+  function fuori(d){ return !!(d && d.pct!=null && (d.lvl==="warn" || d.lvl==="err")); }
+  function tot(d){ return d.tot!=null ? d.tot : d.pct; }
+  function perche(d){
+    var p=elecDropAdvice(d);
+    if(d.completo===false) p+=" Calcolata fino al quadro "+(d.fino||"?")+": la tratta dall'ingresso non è compresa.";
+    return p+(d.stim?" Sezione del cavo stimata.":"")+" È una stima: la verifica chi firma l'impianto.";
+  }
+  function voce(key, dove, d){
+    var v={id:"caduta:"+(key||dove), fonte:"caduta", grav:d.lvl==="err"?"rosso":"giallo", lvl:d.lvl, fam:"Elettrico",
+           msg:"Caduta di tensione "+elecPctTxt(tot(d))+" "+dove+".", perche:perche(d), azioni:[], pct:tot(d)};
+    if(key && state.elec && state.elec.on && state.elec.visible!==false) v.azioni.push({label:"Mostra la linea", run:function(){ cosaMancaMostraLinea(key); }});
+    out.push(v);
+  }
+  var monte=0;
+  (R.feeds||[]).forEach(function(f){ if(!fuori(f.drop)) return; monte++;
+    var q="l'alimentazione del quadro "+(f.distro.letter||"?");
+    voce(f.key, Math.abs(tot(f.drop)-f.drop.pct)>0.05 ? "sui carichi che passano dal"+q : "sul"+q, f.drop); });
+  (R.uplinks||[]).forEach(function(u){ if(!fuori(u.drop)) return; monte++;
+    var q="la dorsale "+(u.from.letter||"?")+" → "+((u.to&&u.to.letter)||"?");
+    voce(u.key, Math.abs(tot(u.drop)-u.drop.pct)>0.05 ? "sui carichi che passano dal"+q : "sul"+q, u.drop); });
+  var carichi=(R.loadLinks||[]).filter(function(l){
+    if(!fuori(l.drop)) return false;
+    var c=l.drop.colpa;   /* la tratta da sistemare è a monte, e ha già la sua riga */
+    return !(monte && c && !c.self && c.pct>l.drop.pct+0.05);
+  }).sort(function(a,b){ return tot(b.drop)-tot(a.drop); });
+  carichi.slice(0, COSA_MANCA_MAX_LINEE).forEach(function(l){ voce(l.key, "sulla linea di «"+loadName(l.load.it)+"»", l.drop); });
+  var resto=carichi.slice(COSA_MANCA_MAX_LINEE);
+  if(resto.length){
+    var rossa=resto.some(function(l){ return l.drop.lvl==="err"; });
+    out.push({id:"caduta:altre", fonte:"caduta", grav:rossa?"rosso":"giallo", lvl:rossa?"err":"warn", fam:"Elettrico",
+      msg:(resto.length===1 ? "Un'altra linea ha" : "Altre "+resto.length+" linee hanno")+" una caduta di tensione oltre il "+ELEC_DROP.giallo+" % (fino a "+elecPctTxt(tot(resto[0].drop))+").",
+      perche:"Le trovi nella Lista carichi, con il segno ⚠ accanto alla linea. È una stima: la verifica chi firma l'impianto.", azioni:[], pct:tot(resto[0].drop)});
+  }
+  return out;
+}
+function cosaMancaMostraLinea(key){
+  if(!key) return;
+  selElec=key; selCab=null; selCabSet={}; selMond=null;
+  if(typeof clearSelection==="function") clearSelection();
+  render(); if(typeof renderProps==="function") renderProps();
+}
+function cosaMancaFamiglia(fam){ return (fam==="Rider" && eventoConferenza()) ? "Scheda" : (fam||"Generale"); }
+/* «Elettrico e Luci da sistemare · Audio da guardare»: mai «tutto ok» se manca qualcosa; una famiglia col rosso non si ripete nel giallo */
+function cosaMancaVerdetto(voci){
+  var r=[], g=[];
+  function elenco(L){ return L.length<2 ? L.join("") : L.slice(0,-1).join(", ")+" e "+L[L.length-1]; }
+  (voci||[]).forEach(function(v){ var f=cosaMancaFamiglia(v.fam); if(v.grav==="rosso" && r.indexOf(f)<0) r.push(f); });
+  (voci||[]).forEach(function(v){ var f=cosaMancaFamiglia(v.fam); if(v.grav==="giallo" && r.indexOf(f)<0 && g.indexOf(f)<0) g.push(f); });
+  var parti=[]; if(r.length) parti.push(elenco(r)+" da sistemare"); if(g.length) parti.push(elenco(g)+" da guardare");
+  return parti.join(" · ");
+}
+function cosaManca(){
+  var A=auditEngine(), voci=[];
+  (A.findings||[]).forEach(function(x, i){
+    voci.push({id:"audit:"+(x.rule||("#"+i)), fonte:"audit", grav:x.lvl==="err"?"rosso":(x.lvl==="warn"?"giallo":"info"), lvl:x.lvl, fam:x.cat||"Generale",
+      msg:x.msg, perche:x.fix||"", rule:x.rule||"",
+      azioni:[x.act, x.act2, x.act3].filter(function(a){ return a && typeof a.run==="function"; })});   /* act2 (19/10): un secondo rimedio, es. «Mostra» + «Togli il doppione» */
+  });
+  /* la caduta di tensione: accanto agli altri rilievi dell'elettrico */
+  var cad=[]; try{ cad=cosaMancaCaduta(elecResult()); }catch(_e){ cad=[]; }
+  cad.forEach(function(v){ voci.push(v); });
+  /* i controlli «Prima di esportare». La riga a mano senza microfono in consulenza la dice già l'audit, col suo rimedio: una volta sola */
+  var pe=[]; try{ pe=controlliPrimaDelExport(); }catch(_e){ pe=[]; }
+  var giaSenzaMic=(A.findings||[]).some(function(x){ return /senza mic\/DI assegnato/.test(x.msg||""); });
+  pe.forEach(function(x, i){
+    if(x.id==="riga-senza-microfono" && giaSenzaMic) return;
+    var v={id:"export:"+x.id+":"+i, fonte:"export", grav:"giallo", lvl:"warn", fam:COSA_MANCA_FAM[x.id]||"Rider", msg:x.testo, perche:"", rule:x.id, azioni:[]};
+    if(x.itemId!=null) v.azioni.push({label:"Mostra", run:function(){ var it=(state.items||[]).filter(function(k){ return k.id===x.itemId; })[0]; if(it) auditFixMostraDoppioni([it]); }});
+    voci.push(v);
+  });
+  var ORD={err:0, warn:1, todef:2, nota:3, info:4};
+  voci.forEach(function(v, i){ v._i=i; });
+  voci.sort(function(a,b){ var d=(ORD[a.lvl]!=null?ORD[a.lvl]:4)-(ORD[b.lvl]!=null?ORD[b.lvl]:4); return d || (a._i-b._i); });
+  voci.forEach(function(v){ delete v._i; });
+  function quante(f){ return voci.filter(f).length; }
+  return { voci:voci, audit:A,
+    rossi:quante(function(v){ return v.grav==="rosso"; }), gialli:quante(function(v){ return v.grav==="giallo"; }),
+    note:quante(function(v){ return v.lvl==="todef" || v.lvl==="nota"; }), info:quante(function(v){ return v.lvl==="info"; }),
+    verdetto:cosaMancaVerdetto(voci) };
+}
 function auditFixAddDistro(){
   /* 11/11: in modalità "manual" (di serie) il cavo quadro→sorgente non si disegna mai: il quadro appena posato risultava
      «senza alimentazione a monte» (errore critico «nofeed», export fermo) e nessun gesto poteva sistemarlo. Se
@@ -26023,7 +26119,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   entries.push({nome:"Palco", fn:true, dim:"blocchi, misure e altezze", icon:"pedana", action:toggleStageEdit, noQuick:true,
                 kw:"palco stage forma del palco blocchi misure altezza semicerchio pedana pedane praticabile"});   /* cercando "pedana" si arriva qui, dove le pedane si fanno davvero */
   entries.push({nome:"Planimetria", fn:true, dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON, noQuick:true});
-  entries.push({nome:"Audit progetto", fn:true, dim:"controlla se manca qualcosa", action:toggleAuditView, iconHtml:AUDIT_ICON, kw:"audit controlla verifica diagnostica analisi problemi manca prontezza checklist errori avvisi punteggio", noQuick:true});
+  entries.push({nome:"Cosa manca?", fn:true, dim:"controlla il progetto", action:toggleAuditView, iconHtml:AUDIT_ICON, kw:"cosa manca audit progetto controllo caduta tensione controlla verifica diagnostica analisi problemi manca prontezza checklist errori avvisi punteggio", noQuick:true});
   /* Comandi cercati per nome (25/09, dalle ricerche senza risultati degli utenti): «espo» e
      «freque» non trovavano niente. Chi scrive nella ricerca non sempre vuole un oggetto: a volte
      cerca una FUNZIONE, e se non la trova lì non sa dove altro guardarla. */
@@ -33447,19 +33543,20 @@ function renderScalettaRiga(rows){
 }
 function renderStatoRider(rows){
   if(!rows || !(state.items||[]).length) return;
-  var A; try{ A=auditEngine(); }catch(_e){ return; }
-  if(!A) return;
+  /* C2 (26/11/2026): la riga conta ciò che «Cosa manca?» mostra — rilievi dell'audit, controlli «Prima di esportare» e caduta di tensione. Il voto resta quello dell'audit. */
+  var M; try{ M=cosaManca(); }catch(_e){ return; }
+  var A=M && M.audit; if(!A) return;
   var b=document.createElement("button");
   b.type="button"; b.className="stato-rider";
-  var quante=(A.errs||0)+(A.warns||0)+A.findings.filter(function(x){ return x.rule==="orientamento"; }).length;   /* la domanda sull'orientamento (15/11) si vede anche qui, senza aprire niente */
-  var stato = A.errs>0 ? "err" : (quante>0 ? "warn" : "ok");
+  var quante=M.gialli+M.voci.filter(function(x){ return x.rule==="orientamento"; }).length;   /* la domanda sull'orientamento (15/11) si vede anche qui, senza aprire niente */
+  var stato = M.rossi>0 ? "err" : (quante>0 ? "warn" : "ok");
   b.classList.add("sr-"+stato);
-  var testo = A.errs>0 ? (A.errs===1 ? "1 errore da sistemare" : A.errs+" errori da sistemare")
+  var testo = M.rossi>0 ? (M.rossi===1 ? "1 cosa da sistemare" : M.rossi+" cose da sistemare")
     : (quante>0 ? (quante===1 ? "1 cosa da guardare" : quante+" cose da guardare")
     : (eventoConferenza() ? "Scheda pronta" : "Rider pronto"));   /* revisione 25/09: in conferenza il documento è la scheda tecnica */
   b.innerHTML='<span class="sr-pallino" aria-hidden="true"></span><span class="sr-txt">'+esc(testo)+'</span>'+
               '<span class="sr-score">'+A.score+'</span>';
-  b.title = "Apri il controllo del progetto: ogni voce dice cosa manca, e molte si sistemano con un clic";
+  b.title = "Apri «Cosa manca?»: ogni voce dice perché, e molte si sistemano con un clic";
   b.addEventListener("click", function(){
     if(typeof toggleAuditView==="function" && typeof auditActive!=="undefined" && !auditActive) toggleAuditView();
     else if(typeof techAccordionOpen==="function") techAccordionOpen("audit");
@@ -36830,30 +36927,33 @@ function renderAuditPanel(){
   document.getElementById("auditBody").style.display = auditOpen ? "block" : "none";
   document.getElementById("auditCaret").textContent = auditOpen ? "▾" : "▸";
   if(!auditOpen) return;
-  var A=auditEngine();
-  var col = A.grade==="Pronto"?"#0d9488" : A.grade==="Da rivedere"?"#b45309" : (A.grade==="Vuoto"?"#9ca3af":"#dc2626");
-  document.getElementById("auditScore").innerHTML =
-    '<div style="display:flex;align-items:center;gap:12px">'
-    +'<div style="width:52px;height:52px;border-radius:50%;border:3px solid '+col+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:'+col+'">'+A.score+'</div>'
-    +'<div><div style="font-weight:700;color:'+col+'">'+esc(A.grade)+'</div><div style="font-size:12px;color:var(--text-3)">'+A.errs+' error'+(A.errs===1?'e':'i')+' · '+A.warns+' avvis'+(A.warns===1?'o':'i')+((A.todefs||0)>0?(' · '+A.todefs+' da definire'):'')+'</div></div></div>';
-  document.getElementById("auditMetrics").innerHTML = A.audioSrc+' ingressi · '+A.monitors+' mix monitor · '+(A.totW/1000).toFixed(1).replace(".",",")+' kW · cavo ~'+A.totCableM.toFixed(0)+' m'
+  /* «COSA MANCA?» (C2, 26/11/2026): la lista unica. In testa il verdetto a parole («Elettrico da sistemare · Audio da guardare»), poi una riga per
+     voce: gravità detta anche a parole (WCAG 1.4.1), famiglia, cosa, perché, e il rimedio quando ce n'è uno sicuro. Le sole informazioni stanno in
+     fondo, chiuse di serie. Il voto dell'audit resta, in piccolo, con le misure del progetto. */
+  var M=cosaManca(), A=M.audit;
+  var q=document.getElementById("auditQuante"); if(q) q.textContent=(M.rossi+M.gialli) ? " · "+(M.rossi+M.gialli) : "";
+  var conta=[]; if(M.rossi) conta.push(M.rossi+" da sistemare"); if(M.gialli) conta.push(M.gialli+" da guardare");
+  if(M.note) conta.push(M.note+(M.note===1?" nota":" note"));
+  var colV = M.rossi ? "var(--danger)" : (M.gialli ? "var(--warning)" : "var(--accent-strong)");
+  document.getElementById("auditScore").innerHTML = (M.verdetto || conta.length)
+    ? '<div class="cm-verdetto" style="color:'+colV+'">'+esc(M.verdetto || "Niente da sistemare")+'</div>'+(conta.length?'<div class="cm-conta">'+esc(conta.join(" · "))+'</div>':'')
+    : '';
+  document.getElementById("auditMetrics").innerHTML = '<span title="Il voto di prontezza del documento: scende con gli errori e gli avvisi dell\'audit">Voto '+A.score+'/100</span> · '+A.audioSrc+' ingressi · '+A.monitors+' mix monitor · '+(A.totW/1000).toFixed(1).replace(".",",")+' kW · cavo ~'+A.totCableM.toFixed(0)+' m'
     +(A.weightKg>0?' · ⚖ '+fmtKg(A.weightKg):'')+(A.rackU>0?' · ▭ '+A.rackU+' U':'');
   var host=document.getElementById("auditFindings");
   host.innerHTML="";
-  var probs=A.findings.filter(function(x){ return x.lvl==="err"||x.lvl==="warn"||x.lvl==="todef"||x.lvl==="nota"; });   /* todef = aspetto da definire (fase 4): visibile ma non penalizza lo score. nota (09/11): solo qui, mai nei PDF */
+  var probs=M.voci.filter(function(x){ return x.lvl!=="info"; });   /* todef = aspetto da definire (fase 4): visibile ma non penalizza lo score. nota (09/11): solo qui, mai nei PDF */
+  var infos=M.voci.filter(function(x){ return x.lvl==="info"; });
   /* palco vuoto: «il rider sembra pronto» sotto un voto «Vuoto · 0» era il contrario del vero (revisione 25/09) */
   if(!probs.length && !(state.items||[]).length){ host.innerHTML='<div style="color:var(--text-2);font-size:12px">Palco vuoto: aggiungi strumenti, voci o microfoni dal catalogo, poi torna qui.</div>'; return; }
-  if(!probs.length){ host.innerHTML='<div style="color:var(--accent-strong);font-size:12px">✓ Nessuna criticità: '+(eventoConferenza()?"la scheda sembra pronta.":"il rider sembra pronto.")+'</div>'; return; }
-  var ORD={err:0,warn:1,todef:2,nota:3};
-  probs.sort(function(a,b){ return (ORD[a.lvl]||3)-(ORD[b.lvl]||3); });
-  probs.forEach(function(x){
-    /* la gravità si dice anche a parole, non solo col colore del pallino (WCAG 1.4.1), e i colori vengono dai
-       token: gli esadecimali scritti a mano restavano quelli del tema chiaro anche in scuro (3,1–3,3:1) — revisione 25/09 */
-    var c=x.lvl==="err"?"var(--danger)":(x.lvl==="todef"?"var(--info)":(x.lvl==="nota"?"var(--text-2)":"var(--warning)"));
-    var lv=x.lvl==="err"?"Errore":(x.lvl==="todef"?"Da definire":(x.lvl==="nota"?"Nota":"Avviso"));
-    var row=document.createElement("div"); row.className="audit-find";
-    row.innerHTML='<div class="audit-find-txt"><span class="audit-lv" style="color:'+c+'">● '+lv+'</span> · <b>'+esc((x.cat==="Rider" && eventoConferenza())?"Scheda":x.cat)+'</b> — '+esc(x.msg)+(x.fix?'<div class="audit-hint">↳ '+esc(x.fix)+'</div>':'')+'</div>';
-    var azioni=[x.act, x.act2, x.act3].filter(function(a){ return a && typeof a.run==="function"; });   /* act2 (19/10): un secondo rimedio, es. «Mostra» + «Togli il doppione» */
+  if(!probs.length){ var okd=document.createElement("div"); okd.style.cssText="color:var(--accent-strong);font-size:12px"; okd.textContent="✓ Nessuna criticità: "+(eventoConferenza()?"la scheda sembra pronta.":"il rider sembra pronto."); host.appendChild(okd); }
+  function riga(x, dove){
+    /* i colori vengono dai token: gli esadecimali scritti a mano restavano quelli del tema chiaro anche in scuro (3,1–3,3:1) — revisione 25/09 */
+    var c=x.lvl==="err"?"var(--danger)":(x.lvl==="warn"?"var(--warning)":(x.lvl==="todef"?"var(--info)":"var(--text-2)"));
+    var lv=x.lvl==="err"?"Da sistemare":(x.lvl==="warn"?"Da guardare":(x.lvl==="todef"?"Da definire":(x.lvl==="nota"?"Nota":"Info")));
+    var row=document.createElement("div"); row.className="audit-find cm-"+x.grav; row.setAttribute("data-cm", x.id);
+    row.innerHTML='<div class="audit-find-txt"><span class="audit-lv" style="color:'+c+'">● '+lv+'</span> <span class="cm-fam">'+esc(cosaMancaFamiglia(x.fam))+'</span> '+esc(x.msg)+(x.perche?'<div class="audit-hint">↳ '+esc(x.perche)+'</div>':'')+'</div>';
+    var azioni=x.azioni||[];
     if(azioni.length){
       var hostB=row;
       if(azioni.length>1){ hostB=document.createElement("div"); hostB.className="audit-acts"; row.appendChild(hostB); }
@@ -36863,9 +36963,19 @@ function renderAuditPanel(){
         hostB.appendChild(b);
       });
     }
-    host.appendChild(row);
-  });
+    dove.appendChild(row);
+  }
+  probs.forEach(function(x){ riga(x, host); });
+  if(infos.length){
+    var t=document.createElement("button"); t.type="button"; t.className="cm-altre"; t.id="auditAltre";
+    t.setAttribute("aria-expanded", cosaMancaInfoAperte?"true":"false");
+    t.textContent=(cosaMancaInfoAperte?"▾ ":"▸ ")+(infos.length===1?"1 informazione":infos.length+" informazioni");
+    t.addEventListener("click", function(){ cosaMancaInfoAperte=!cosaMancaInfoAperte; renderAuditPanel(); });
+    host.appendChild(t);
+    if(cosaMancaInfoAperte) infos.forEach(function(x){ riga(x, host); });
+  }
 }
+var cosaMancaInfoAperte=false;   /* le sole informazioni («È ancora una Bozza», «manca il contatto del service»): chiuse di serie */
 function toggleAuditView(){ if(paloTemporaneoAttivo() && !auditActive) return custEditorAvvisa(); auditActive=!auditActive; if(auditActive){ techAccordionOpen("audit"); closeMobileDrawers(); clearSelection(); } render(); }
 (function(){
   var head=document.getElementById("auditSecHead"); if(!head) return;
@@ -45088,8 +45198,8 @@ function pdfGateErrori(run){
   confirmDialog({
     icon:"warn",
     title:(_A.errs>1 ? "Ci sono "+_A.errs+" errori critici" : "C'è un errore critico"),
-    message:(_first ? "«"+_first.msg+"»\n\n" : "")+"Il documento esportato potrebbe essere incompleto o errato. Puoi esportarlo lo stesso, oppure sistemarlo prima: nell'Audit ogni voce ha la sua correzione a un click.",
-    confirmText:"Esporta comunque", cancelText:"Vai all'Audit"
+    message:(_first ? "«"+_first.msg+"»\n\n" : "")+"Il documento esportato potrebbe essere incompleto o errato. Puoi esportarlo lo stesso, oppure sistemarlo prima: in «Cosa manca?» ogni voce dice perché, e molte si sistemano con un clic.",
+    confirmText:"Esporta comunque", cancelText:"Apri «Cosa manca?»"
   }).then(function(ok){
     if(ok){ run(); return; }
     var _pm=document.getElementById("pdfModal"), _pk=document.getElementById("pkgModal"); if(_pm) _pm.hidden=true; if(_pk) _pk.hidden=true; window.__pdfScope="full";

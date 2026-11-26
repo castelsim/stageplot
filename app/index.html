@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.11.25";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.11.26";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -1261,6 +1261,17 @@
   .audit-acts .audit-fix{align-self:stretch}   /* revisione 19/10/2026: l'align-self:center di .audit-fix vinceva sullo stretch e «Mostra» restava più stretto di «Togli il doppione» */
   body.dark .audit-fix{background:#141a1d}
   body.dark .audit-fix:hover{background:var(--accent);color:#fff}
+  /* «Cosa manca?» (C2, 26/11/2026): verdetto a parole, famiglia come targhetta (si legge anche senza colore), informazioni ripiegate in fondo */
+  .cm-quante{font-weight:600;color:var(--text-3)}
+  .cm-verdetto{font-weight:700;font-size:13px;line-height:1.35}
+  .cm-conta{font-size:12px;color:var(--text-3);margin-top:2px}
+  .cm-fam{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-2);
+    border:1px solid var(--border);border-radius:4px;padding:0 4px;line-height:1.5;vertical-align:1px}
+  .cm-altre{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--border);padding:8px 0 6px;margin-top:4px;
+    font:inherit;font-size:12px;color:var(--text-2);cursor:pointer}
+  .cm-altre:hover{color:var(--text)}
+  .cm-altre:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+  @media (pointer:coarse){ .cm-altre{min-height:44px} .audit-fix{min-height:32px;padding:6px 12px} }
   .cabfld{display:block;font-size:11px;color:var(--text-2);margin-top:8px}
   .cabfld select,.cabfld input{width:100%;margin-top:2px;padding:5px 7px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--n-800)}
   body.dark .cabfld select,body.dark .cabfld input{background:#141a1d;border-color:#314046;color:#e5e7eb}
@@ -6080,12 +6091,12 @@ body.cambio-vista #catalog{pointer-events:none;opacity:.55}
     <div id="accPark" style="display:none"></div>
     <div id="progSec"></div>
     <div id="accessoriCount" style="margin-top:8px;font-size:12px;color:var(--text-2);line-height:1.8"></div>
-    <!-- Audit / diagnostica: analisi automatica del progetto (AI deterministica) -->
+    <!-- «Cosa manca?» (C2, 26/11/2026; prima «Audit progetto»): un posto solo per ciò che non torna. Gli id restano quelli dell'audit. -->
     <div id="auditSec" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
       <div class="cab-sechead" id="auditSecHead">
         <span class="caret" id="auditCaret">▾</span>
-        <span class="cab-sectitle"><b>Audit progetto</b></span>
-        <button type="button" class="cab-trash" id="auditTrash" title="Chiudi l'audit" aria-label="Chiudi l'audit"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        <span class="cab-sectitle"><b>Cosa manca?</b><span id="auditQuante" class="cm-quante"></span></span>
+        <button type="button" class="cab-trash" id="auditTrash" title="Chiudi «Cosa manca?»" aria-label="Chiudi «Cosa manca?»"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div id="auditBody" style="margin-top:8px">
         <div id="auditScore"></div>

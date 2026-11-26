@@ -1183,6 +1183,17 @@
   .audit-acts .audit-fix{align-self:stretch}   /* revisione 19/10/2026: l'align-self:center di .audit-fix vinceva sullo stretch e «Mostra» restava più stretto di «Togli il doppione» */
   body.dark .audit-fix{background:#141a1d}
   body.dark .audit-fix:hover{background:var(--accent);color:#fff}
+  /* «Cosa manca?» (C2, 26/11/2026): verdetto a parole, famiglia come targhetta (si legge anche senza colore), informazioni ripiegate in fondo */
+  .cm-quante{font-weight:600;color:var(--text-3)}
+  .cm-verdetto{font-weight:700;font-size:13px;line-height:1.35}
+  .cm-conta{font-size:12px;color:var(--text-3);margin-top:2px}
+  .cm-fam{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-2);
+    border:1px solid var(--border);border-radius:4px;padding:0 4px;line-height:1.5;vertical-align:1px}
+  .cm-altre{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--border);padding:8px 0 6px;margin-top:4px;
+    font:inherit;font-size:12px;color:var(--text-2);cursor:pointer}
+  .cm-altre:hover{color:var(--text)}
+  .cm-altre:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+  @media (pointer:coarse){ .cm-altre{min-height:44px} .audit-fix{min-height:32px;padding:6px 12px} }
   .cabfld{display:block;font-size:11px;color:var(--text-2);margin-top:8px}
   .cabfld select,.cabfld input{width:100%;margin-top:2px;padding:5px 7px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--n-800)}
   body.dark .cabfld select,body.dark .cabfld input{background:#141a1d;border-color:#314046;color:#e5e7eb}
