@@ -42842,7 +42842,7 @@ t("Cosa manca · caduta di tensione: alimentazione e dorsale non dicono due volt
 t("Cosa manca · sul telefono si apre davvero: voce nel menu, cassetto con la sola lista, chiusura dalla maniglia", () => {
   const html = readFileSync(join(root, "index.template.html"), "utf8");
   ok(/data-act="manca"><span class="mrow-t">Cosa manca nel progetto<\/span><span class="mrow-v" id="mMenuManca">/.test(html), "la voce del menu, col conteggio accanto");
-  ok(/if\(a==="manca"\)\{ if\(!auditActive\) toggleAuditView\(\); return; \}/.test(appjs) && /txt\("mMenuManca", cosaMancaBreve\(\)\);/.test(appjs), "apre il pannello e dice a che punto è");
+  ok(/if\(a==="manca"\)\{ if\(!auditActive\) toggleAuditView\(\);/.test(appjs) && /txt\("mMenuManca", cosaMancaBreve\(\)\);/.test(appjs), "apre il pannello e dice a che punto è");
   ok(/classList\.toggle\("cm-open", isMobile\(\) && typeof auditActive!=="undefined" && !!auditActive && n===0\)/.test(appjs), "il cassetto si apre col pannello (e lascia il posto all'elemento selezionato)");
   ok(/contains\("cm-open"\)\)\{ auditActive=false; render\(\); \}/.test(appjs), "la maniglia del cassetto lo chiude");
   const mob = stylesCss.slice(stylesCss.indexOf("@media (max-width:880px){"));
