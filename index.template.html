@@ -9158,6 +9158,7 @@ var CHIP_SVG={
   cloud:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .3-9 6 6 0 0 0-11.6 1.6A4 4 0 0 0 6.5 19z"/></svg>',
   warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>'
 };
+var dcMinPx=0;   /* larghezza minima misurata della pastiglia del salvataggio (icona + ora), in px; 0 = non ancora misurata */
 function setDocState(mode){
   /* Due stati sono DEFINITIVI finché non si ricarica: il conflitto fra schede e l'archivio pieno.
      In entrambi il salvataggio è fermo, ma il primo save() successivo rimetteva la pastiglia su
@@ -9167,7 +9168,7 @@ function setDocState(mode){
   else if(window.__localStorageUnavailable && (mode==="local"||mode==="offline-warn"||!mode)) mode="local-error";
   var el=document.getElementById("docState"), elM=document.getElementById("docStateM");
   var cls="doc-chip", html="", htmlM="", tip="";   /* mobile: testi più corti (spazio ridotto, evita troncamenti) */
-  if(mode==="online"){ cls+=" on"; var d=new Date(), hh=String(d.getHours()).padStart(2,"0"), mm=String(d.getMinutes()).padStart(2,"0"); html=CHIP_SVG.cloud+"Salvato online · "+hh+":"+mm; htmlM=CHIP_SVG.cloud+"Online · "+hh+":"+mm; }
+  if(mode==="online"){ cls+=" on"; var d=new Date(), hh=String(d.getHours()).padStart(2,"0"), mm=String(d.getMinutes()).padStart(2,"0"); html=CHIP_SVG.cloud+"Salvato online · \u0001"+hh+":"+mm; htmlM=CHIP_SVG.cloud+"Online · "+hh+":"+mm; }
   else if(mode==="saving"){ html="Salvataggio…"; htmlM="Salvataggio…"; }
   else if(mode==="offline-warn"){ cls+=" invito"; html=CHIP_SVG.ok+"Solo su questo dispositivo · Accedi"; htmlM=CHIP_SVG.ok+"Su questo dispositivo"; tip="Salvato su questo dispositivo. Accedi per ritrovarlo ovunque."; }   /* non loggato: dire la verità (è salvato in locale), non allarmare — nudge soft (ciclo #3, A) */
   else if(mode==="blocked"){ cls+=" warn"; html=CHIP_SVG.warn+"Documento incompatibile — salvataggio sospeso"; htmlM=CHIP_SVG.warn+"Salvataggio sospeso"; }
@@ -9178,7 +9179,20 @@ function setDocState(mode){
   else { html=CHIP_SVG.ok+"Salvato sul dispositivo"; htmlM=CHIP_SVG.ok+"Salvato"; }
   /* il testo in uno <span> suo: quando la barra è stretta la pastiglia si restringe (flex-shrink) e deve
      sparire prima il testo, con i puntini, lasciando intera l'icona — non il contrario (revisione 25/09) */
-  if(el){ el.className=cls; el.innerHTML=html.replace(/^(<svg[\s\S]*?<\/svg>)?([\s\S]*)$/, function(_,s,tx){ return (s||"")+(tx?'<span class="dc-t">'+tx+'</span>':""); }); el.hidden=false; el.title=tip||el.textContent||""; }   /* la pastiglia ha una larghezza massima: la frase intera sta nel title */
+  /* L'ORA NON SI TAGLIA (pezzetti 26/11): a 1440 px con tre versioni la barra trabocca e la pastiglia scendeva a 28 px, cioè all'icona sola
+     (durante il salvataggio, senza icona, a una «S»): lo stato del salvataggio non si leggeva più. Ciò che sta dopo \u0001 è il nucleo
+     (`.dc-k`, l'ora): non si restringe mai; cede solo la frase che lo precede. `dc-min` dà alla pastiglia il minimo per icona + ora,
+     uguale mentre salva e a salvataggio fatto, così i bottoni accanto non si spostano a ogni salvataggio. */
+  if(el){ el.className=cls+((mode==="online"||mode==="saving")?" dc-min":""); el.innerHTML=html.replace(/^(<svg[\s\S]*?<\/svg>)?([\s\S]*)$/, function(_,s,tx){ var q=tx.split("\u0001"); return (s||"")+(q[0]?'<span class="dc-t">'+q[0]+'</span>':"")+(q[1]?'<span class="dc-k">'+q[1]+'</span>':""); }); el.hidden=false;
+    /* il minimo ESATTO si misura (dipende dal carattere): margini interni e bordo + icona + ora + i due spazi fra i pezzi. Con un minimo
+       «a occhio» restava in vista un pezzetto della «S» o si tagliava l'ultima cifra. Mentre salva vale l'ultimo misurato. */
+    try{
+      var _k=el.querySelector ? el.querySelector(".dc-k") : null, _kw=_k ? _k.getBoundingClientRect().width : 0;
+      if(_kw>0){ var _cs=getComputedStyle(el), _sv=el.querySelector("svg"), _gap=parseFloat(_cs.columnGap)||0;
+        dcMinPx=Math.ceil(_kw+(_sv ? _sv.getBoundingClientRect().width+_gap : 0)+_gap+parseFloat(_cs.paddingLeft)+parseFloat(_cs.paddingRight)+parseFloat(_cs.borderLeftWidth)+parseFloat(_cs.borderRightWidth)+1); }
+      if(el.style) el.style.minWidth=(/\bdc-min\b/.test(el.className) && dcMinPx) ? dcMinPx+"px" : "";
+    }catch(_e){}
+    el.title=tip||el.textContent||""; }   /* la pastiglia ha una larghezza massima: la frase intera sta nel title */
   if(elM){ elM.className=cls+" doc-chip-m"; elM.innerHTML=htmlM; elM.hidden=false; }
 }
 window.setDocState=setDocState;

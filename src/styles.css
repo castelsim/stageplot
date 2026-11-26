@@ -278,6 +278,11 @@
     max-width:260px;overflow:hidden;text-overflow:ellipsis}   /* 25/09: una pastiglia lunga allargava la barra fino a coprire Annulla, Ripeti e Adatta; la frase intera resta nel title */
   .doc-chip svg{width:12px;height:12px;flex:0 0 auto}
   .doc-chip .dc-t{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  /* il nucleo (l'ora di «Salvato online · hh:mm») non si restringe e la pastiglia non scende sotto icona + ora. Il minimo esatto lo
+     scrive setDocState misurando il carattere; questo è il ripiego prima della prima misura (5 cifre + icona, spazi, margini e bordo).
+     Solo «online» e «salvataggio»: gli avvisi restano come prima (icona + frase nel title). In barra larga non cambia niente. */
+  .doc-chip .dc-k{flex:0 0 auto}
+  .doc-chip.dc-min{min-width:calc(5ch + 34px)}
   .doc-chip.on{color:var(--success);background:var(--success-bg);border-color:var(--success-border)}
   .doc-chip.warn{color:var(--warning);background:var(--warning-bg);border-color:var(--warning-border);cursor:pointer}
   /* «invito» e non «nudge»: .nudge è il riquadro Produzione dell'Esporta (margine 12, padding 8×11, 12 px, blu) e la

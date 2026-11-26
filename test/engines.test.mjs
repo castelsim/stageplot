@@ -43420,6 +43420,47 @@ t("Pezzetti · tema scuro: il bottone del pannello col mouse sopra non diventa c
   ok(!/body\.dark #selProps \.btn:hover\{/.test(stylesCss), "non con `body.dark` nudo: (1,3,1) batterebbe «Elimina» (#props .btn.danger:hover) e i bottoni teal (#pDivide:hover)");
 });
 
+t("Pezzetti · pastiglia del salvataggio: l'ora è un pezzo a sé che non si taglia; il minimo vale solo per «online» e «salvataggio»", () => {
+  const finto = (misura) => ({ className: "", innerHTML: "", hidden: true, title: "", style: {}, get textContent() { return this.innerHTML.replace(/<svg[\s\S]*?<\/svg>/g, "").replace(/<[^>]+>/g, ""); },
+    querySelector(q) { if (!misura) return null; if (q === ".dc-k") return /dc-k/.test(this.innerHTML) ? { getBoundingClientRect: () => ({ width: 30.2 }) } : null; if (q === "svg") return /<svg/.test(this.innerHTML) ? { getBoundingClientRect: () => ({ width: 12 }) } : null; return null; } });
+  const d = A.document, gcs = A.getComputedStyle; let el = finto(true), elM = finto(false);
+  A.document = new Proxy({}, { get: (t, k) => k === "getElementById" ? (id) => (id === "docState" ? el : id === "docStateM" ? elM : d.getElementById(id)) : d[k] });
+  A.getComputedStyle = () => ({ columnGap: "5px", paddingLeft: "9px", paddingRight: "9px", borderLeftWidth: "1px", borderRightWidth: "1px" });
+  A.dcMinPx = 0;
+  try {
+    A.setDocState("saving"); eq(el.innerHTML, '<span class="dc-t">Salvataggio…</span>', "mentre salva la frase è quella di sempre");
+    ok(/\bdc-min\b/.test(el.className), "ma con il minimo"); eq(el.style.minWidth, "", "prima della prima misura vale il ripiego del foglio di stile");
+    A.setDocState("online");
+    ok(/^<svg[\s\S]*<\/svg><span class="dc-t">Salvato online · <\/span><span class="dc-k">\d\d:\d\d<\/span>$/.test(el.innerHTML), "icona, frase che può cedere, ora che non cede: " + el.innerHTML.slice(-90));
+    ok(/\bdc-min\b/.test(el.className) && /\bon\b/.test(el.className), el.className);
+    ok(/^Salvato online · \d\d:\d\d$/.test(el.title), "la frase intera resta nel title: " + el.title);
+    eq(el.style.minWidth, "74px", "minimo misurato: ora 30,2 + icona 12 + due spazi da 5 + margini 18 + bordo 2 + 1, arrotondato in su");
+    ok(!/dc-min|dc-k/.test(elM.className + elM.innerHTML) && !elM.innerHTML.includes("\u0001") && /Online · \d\d:\d\d$/.test(elM.innerHTML), "sul telefono niente cambia: " + elM.innerHTML.slice(-30));
+    A.setDocState("saving"); eq(el.style.minWidth, "74px", "mentre salva la larghezza minima è la stessa: i bottoni accanto non si spostano a ogni salvataggio");
+    for (const m of ["local", "offline-warn", "error", "locked", "blocked"]) {
+      A.setDocState(m);
+      ok(!/dc-min/.test(el.className) && !/dc-k/.test(el.innerHTML) && !el.innerHTML.includes("\u0001") && el.style.minWidth === "", "«" + m + "» resta com'era: " + el.className + " / " + el.style.minWidth);
+      ok(!el.title.includes("\u0001") && el.title.length > 5, "title pulito");
+    }
+  } finally { A.document = d; if (gcs === undefined) delete A.getComputedStyle; else A.getComputedStyle = gcs; A.dcMinPx = 0; }
+  ok(/\.doc-chip \.dc-k\{flex:0 0 auto\}/.test(stylesCss), "il nucleo non si restringe");
+  ok(/\.doc-chip\.dc-min\{min-width:calc\(5ch \+ 34px\)\}/.test(stylesCss), "ripiego nel foglio di stile");
+  ok(/\.doc-chip\{[^}]*min-width:28px[^}]*max-width:260px/.test(stylesCss), "gli avvisi tengono il minimo e il tetto di prima");
+});
+t("Pezzetti · FAQ «misura di una torre»: dice ciò che fa l'app (misure di catalogo, niente maniglie) e rimanda alla «Forma»", () => {
+  const pag = readFileSync(join(root, "guida/stage-plot-in-scala/index.html"), "utf8");
+  const ld = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(pag)[1]);
+  const faq = ld["@graph"].find((x) => x["@type"] === "FAQPage").mainEntity, vis = [...pag.matchAll(/<details><summary>(.*?)<\/summary><p>(.*?)<\/p><\/details>/g)].map((m) => [m[1], m[2]]);
+  eq(faq.map((q) => [q.name, q.acceptedAnswer.text]), vis, "le domande dei dati strutturati sono quelle scritte in pagina, parola per parola");
+  const q = faq.find((x) => /misura di una torre/.test(x.name)); ok(q, "la domanda c'è");
+  const m2 = (cm) => String(cm / 100).replace(".", ",");
+  for (const [tipo, nome] of [["towergs", "torre ground support"], ["delaytower", "delay tower"], ["torrefaro", "torre faro mobile"]]) {
+    const T = A.TYPES[tipo]; ok(T && !T.resizable, tipo + ": misura fissa (se un giorno diventa regolabile, la FAQ va riscritta)");
+    ok(q.acceptedAnswer.text.includes(nome + " è " + m2(T.w) + "×" + m2(T.d) + " m") || q.acceptedAnswer.text.includes(nome + " " + m2(T.w) + "×" + m2(T.d) + " m"), nome + " " + m2(T.w) + "×" + m2(T.d) + " m: la FAQ riporta la misura del catalogo");
+  }
+  ok(A.TYPES.forma && A.TYPES.forma.resizable === true && A.TYPES.forma.nome === "Forma" && /«Forma»/.test(q.acceptedAnswer.text), "la «Forma» esiste e si ridimensiona davvero");
+});
+
 await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
