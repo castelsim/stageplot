@@ -2341,6 +2341,11 @@ svg.names-hidden .orc-name{display:none}
      sopra restano leggibili (--accent-strong ora è chiaro e servirebbe testo scuro) */
   body.dark #selProps .btn.primary{background:#0b7a70;border-color:#0b7a70;color:#fff}   /* come sopra: var(--accent) col bianco = 3,74:1 */
   body.dark #selProps .btn.primary:hover{background:var(--accent-deep);border-color:var(--accent-deep)}
+  /* Bottoni del pannello col mouse sopra, in scuro (pezzetti 26/11): `#selProps .btn:hover` usa --n-100, che in scuro resta chiaro
+     (#edebe4) sotto il testo chiaro: «Specchia», «Duplica», «Attiva la patch DMX» sparivano al passaggio (1,1:1).
+     `:where` tiene la specificità a (1,2,0), quella della regola chiara che sostituisce: così «Elimina» (`#props .btn.danger:hover`),
+     il primario e i bottoni teal qui sotto (`#pDivide:hover`…) continuano a vincere, come in chiaro. */
+  :where(body.dark) #selProps .btn:hover{background:var(--surface-3)}
   body.dark .adv-btn.on:hover,body.dark .wl-cta:hover,body.dark #viewBar #viewCopy:hover,
   body.dark #conflictBar #cbLoad:hover,body.dark #updToast #updGo:hover,
   body.dark #pDivide:hover,body.dark #pGtrSplit:hover,body.dark #pCompSplit:hover,body.dark #pSplit:hover,

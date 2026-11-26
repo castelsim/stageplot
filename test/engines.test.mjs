@@ -43381,6 +43381,45 @@ t("Pezzetti · e) «N canali su 512» conta i canali davvero occupati (unione de
   dxReset();
 });
 
+console.log("\nPezzetti (Cosa manca?, tema scuro):");
+t("Pezzetti · «Cosa manca?»: lo stesso doppione di nome è una voce sola (quella dell'audit, col «Mostra»), non due", () => {
+  const doc = (labels) => Object.assign(docVuoto(), { items: labels.map((l, i) => ({ id: "m" + i, type: "astamic", x: 100 + i * 90, y: 300, label: l })) });
+  const delNome = (M, re) => M.voci.filter((v) => re.test(v.msg));
+  reset(); A.loadDoc(doc(["Vox 4", "Vox 5", "Vox 4"]));
+  ok(A.auditEngine().findings.some((x) => /^2 canali si chiamano «vox 4»/.test(x.msg)), "scena: l'audit lo dice");
+  eq(cpe("etichetta-duplicata").length, 1, "scena: e lo dice anche il controllo prima dell'export (i due motori non cambiano)");
+  let M = A.cosaManca(), V = delNome(M, /vox 4/i);
+  eq(V.map((v) => v.fonte), ["audit"], "in lista una voce sola, quella dell'audit: " + V.map((v) => v.msg).join(" | "));
+  ok(!M.voci.some((v) => v.rule === "etichetta-duplicata"), "il controllo sullo stesso nome non si ripete");
+  ok(/Se è uno spare/.test(V[0].perche), "col rimedio dell'audit");
+  eq(V[0].azioni.map((a) => a.label), ["Mostra"], "e il «Mostra» che aveva l'altra");
+  V[0].azioni[0].run(); eq(Object.keys(A.selSet).sort(), ["m0", "m2"], "«Mostra» seleziona tutti gli omonimi");
+  eq(new Set(M.voci.map((v) => v.id)).size, M.voci.length, "id unici");
+  /* più nomi doppi: l'audit li riassume in una frase; quelli che cita non si ripetono */
+  A.loadDoc(doc(["Vox 4", "Vox 4", "Vox 5", "Vox 5"])); M = A.cosaManca();
+  ok(M.voci.some((v) => v.fonte === "audit" && /^2 nomi di canale compaiono più volte \(vox 4, vox 5…\)/.test(v.msg)), "scena: due nomi doppi");
+  eq(M.voci.filter((v) => v.rule === "etichetta-duplicata").length, 0, "nessuna ripetizione");
+  M.voci.find((v) => /nomi di canale compaiono/.test(v.msg)).azioni[0].run(); eq(Object.keys(A.selSet).sort(), ["m0", "m1", "m2", "m3"], "«Mostra» li seleziona tutti");
+  /* un nome che l'audit NON cita resta una voce sua: qui i canali doppi sono quelli della batteria, non «Batteria 1» */
+  A.loadDoc(Object.assign(docVuoto(), { items: [{ id: "b0", type: "batteria", x: 300, y: 300, label: "Batteria 1" }, { id: "b1", type: "batteria", x: 700, y: 300, label: "Batteria 1" }] })); M = A.cosaManca();
+  const ex = M.voci.filter((v) => v.rule === "etichetta-duplicata");
+  eq(ex.length, 1, "il controllo dell'export resta: " + M.voci.map((v) => v.msg).join(" | ")); ok(/«Batteria 1» è scritto su 2 canali/.test(ex[0].msg), ex[0].msg);
+  /* senza doppioni nell'audit non si tocca niente */
+  A.loadDoc(doc(["Vox 4", "Vox 5"])); M = A.cosaManca(); ok(!M.voci.some((v) => /si chiamano|è scritto su/.test(v.msg)), "nessun doppione, nessuna voce");
+  eq(A.cosaMancaDoppiAudit([{ msg: "3 canali si chiamano «Coro  1»: patch ambiguo per il service." }]), { i: 0, nomi: { "coro 1": 1 } }, "il nome si confronta senza maiuscole e con gli spazi normalizzati");
+  eq(A.cosaMancaDoppiAudit([{ msg: "altro" }]), null);
+  reset();
+});
+t("Pezzetti · tema scuro: il bottone del pannello col mouse sopra non diventa chiaro sotto il testo chiaro", () => {
+  ok(/#selProps \.btn:hover\{background:var\(--n-100\)\}/.test(stylesCss), "scena: in chiaro l'hover usa --n-100");
+  const scuro = stylesCss.slice(stylesCss.indexOf("body.dark{"), stylesCss.indexOf("body.dark{") + 3000);
+  ok(!/--n-100:/.test(scuro), "scena: --n-100 in scuro resta quello chiaro (per questo serve la regola)");
+  ok(/:where\(body\.dark\) #selProps \.btn:hover\{background:var\(--surface-3\)\}/.test(stylesCss), "in scuro l'hover passa a una superficie scura");
+  ok(/--surface-3:#253036/.test(scuro), "--surface-3 in scuro è scura (testo #e5e7eb sopra: oltre 10:1)");
+  ok(stylesCss.indexOf(":where(body.dark) #selProps .btn:hover") > stylesCss.indexOf("#selProps .btn:hover{background:var(--n-100)}"), "sta DOPO la regola chiara: stessa specificità (1,2,0), vince l'ultima");
+  ok(!/body\.dark #selProps \.btn:hover\{/.test(stylesCss), "non con `body.dark` nudo: (1,3,1) batterebbe «Elimina» (#props .btn.danger:hover) e i bottoni teal (#pDivide:hover)");
+});
+
 await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
