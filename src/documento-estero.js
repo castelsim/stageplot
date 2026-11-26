@@ -190,9 +190,29 @@ function _docEnSemplice(s){
     return DOC_EN[k].replace(/#/g, function(){ var n=nums[i++]; return n==null ? "#" : n.replace(/(\d),(\d)/,"$1.$2"); })
       .replace(/@([a-z])@ m\b/g, function(_, c){ return mis[c.charCodeAt(0)-97]; }); }
   var e=docEnEtichetta(s); if(e!=null) return e;
+  if(!_docEnStereoDentro){ var st=_docEnStereo(s); if(st!=null) return st; }
   var c=/^(\d+\s?×\s?)(\D.*)$/.exec(s);   /* «3× asta giraffa»: il numero davanti e il resto dal dizionario */
   if(c){ var r=DOC_EN.hasOwnProperty(c[2]) ? DOC_EN[c[2]] : docEnEtichetta(c[2]); if(r!=null) return c[1]+r; }
   return null;
+}
+/* NOMI STEREO SENZA TRATTINO (rilettura #234, 25/11/2026): «Batteria 1 - Overhead L» si traduceva a pezzi sul « - »
+   («Drums 1» + «Overhead L»); dal 25/11 il nome arriva intero, «Batteria 1 Overhead L», e restava in italiano nei PDF inglesi.
+   Si cerca da destra il punto fra il nome dello strumento e la sorgente e si traducono i due pezzi come prima:
+   «Drums 1 Overhead L», «Vibraphone 1 Vibraphone L», «Hammond organ Hammond L». I testi scritti dall'utente restano com'erano. */
+var _docEnStereoDentro=false;
+function _docEnStereo(s){
+  var w=String(s).split(" "); if(w.length<3 || !/^(?:L|R)$/.test(w[w.length-1])) return null;
+  var U=__docUtente||{};
+  /* ogni pezzo come il «a pezzi» di _docEnTrad: testo dell'utente intatto, poi dizionario (anche coi numeri), poi regole */
+  var tr=function(x){ if(U[x]) return x; var t=_docEnSemplice(x); if(t==null) t=_docEnRegola(x); return t==null ? x : t; };
+  _docEnStereoDentro=true;
+  try{
+    for(var k=w.length-2;k>=1;k--){
+      var a=w.slice(0,k).join(" "), b=w.slice(k).join(" "), ta=tr(a), tb=tr(b);
+      if(ta!==a || tb!==b) return ta+" "+tb;
+    }
+    return null;
+  } finally { _docEnStereoDentro=false; }
 }
 /* pezzi con dentro una misura già in piedi («12 da 6' 7" × 3' 3"»), che il modello italiano non può prevedere */
 var _docEnNome=function(x){ var e=docEnEtichetta(x); return e==null ? x : e; };

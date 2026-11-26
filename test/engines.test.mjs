@@ -18188,7 +18188,7 @@ t("il multipolare entra su porte consecutive dalla porta scelta", () => {
   const { bat } = batteriaEVoce();
   A.cabSetPort(bat.id + "#2", 3);
   const p = porte();
-  eq([p["Batteria 1 - Kick"], p["Batteria 1 - Overhead R"]], ["A·3", "A·11"], "il blocco non è consecutivo");   /* 9 canali di batteria dal 25/09 */
+  eq([p["Batteria 1 - Kick"], p["Batteria 1 Overhead R"]], ["A·3", "A·11"], "il blocco non è consecutivo");   /* 9 canali di batteria dal 25/09 */
   eq(p["Cantante 1"], "A·1", "la voce non ha preso la prima porta rimasta libera");
   eq(duplicate().length, 0, JSON.stringify(duplicate()));
 });
@@ -27048,7 +27048,7 @@ t("il progetto sa se è una conferenza, e il PDF parla da conferenza", () => {
   eq(A.normalizeState({ items: [], stage: { w: 1000, d: 600 } }).tipoEvento, "concerto", "i progetti di prima restano concerti");
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/id="evTipo"[^>]*>.*value="conferenza">Conferenza o convegno/.test(html) && /id="evTipoM"/.test(html), "si sceglie da Data e ora, e dal pannello Evento sul telefono");
-  ok(/doc\.text\(eventoConferenza\(\) \? "SCHEDA TECNICA EVENTO" : "STAGE PLOT — Rider tecnico"/.test(appjs), "l'intestazione del PDF");
+  ok(/pdfTestata\(doc, "#4338ca", eventoConferenza\(\) \? "SCHEDA TECNICA EVENTO" : "STAGE PLOT — Rider tecnico"/.test(appjs), "l'intestazione del PDF");
   eq((appjs.match(/key:"rider", (title|label):nomeDocumento\(\)/g) || []).length, 2, "il nome della pagina, nell'export e nel link");
   ok(/body\.ev-conferenza #bRichiedi, body\.ev-conferenza #mactRichiedi\{display:none\}/.test(stylesCss), "niente «Richiedi musicisti»");
   ok(/monitors===0 && !_personali && !eventoConferenza\(\)\) add\("warn","Nessun monitor sul palco/.test(appjs), "niente «i musicisti non si sentono»");
@@ -27163,7 +27163,7 @@ t("il kit di batteria si compone dal pannello, e i microfoni seguono i pezzi", (
   /* 25/09 — segnalazione di un utente: «Mancano kit componibili di batteria». I pezzi c'erano, nascosti. */
   reset();
   const b = add("batteria", 400, 400);
-  const mics = () => A.cabItemInputs(b).map((c) => c.name.replace(/^.* - /, ""));
+  const mics = () => A.cabItemInputs(b).map((c) => c.name.replace(/^.* - /, "").replace(/^Batteria 1 (?=Overhead)/, ""));
   b.parts = Object.assign({}, b.parts, { toms: 3, kick2: true, hihat: false, floor: false });
   const m = mics();
   ok(m.includes("Kick 1") && m.includes("Kick 2"), "doppia cassa: due microfoni di cassa");
@@ -27182,8 +27182,9 @@ t("il kit di batteria si compone dal pannello, e i microfoni seguono i pezzi", (
 t("batteria: cassa con due microfoni (In + Out) e secondo floor tom", () => {
   reset();
   const b = add("batteria", 400, 400);
-  const nomi = () => A.cabItemInputs(b).map((c) => c.name.replace(/^.* - /, ""));
-  const mic = (n) => (A.cabItemInputs(b).find((c) => c.name.replace(/^.* - /, "") === n) || {}).mic;
+  const _senza = (n) => n.replace(/^.* - /, "").replace(/^Batteria 1 (?=Overhead)/, "");
+  const nomi = () => A.cabItemInputs(b).map((c) => _senza(c.name));
+  const mic = (n) => (A.cabItemInputs(b).find((c) => _senza(c.name) === n) || {}).mic;
   eq(nomi().join(","), "Kick,Rullante top,Rullante btm,Hi-Hat,Tom 1,Tom 2,Tom floor,Overhead L,Overhead R", "premessa: il kit di serie non cambia");
   const keys = A.COMP.batteria.controls.map((c) => c.key);
   ok(keys.indexOf("kickio") > -1 && keys.indexOf("floor2") > -1, "le due scelte sono nel pannello: " + keys.join(","));
@@ -27522,12 +27523,12 @@ t("PDF: «titolo — luogo» va a capo invece di uscire dal foglio", () => {
 
 t("PDF: le tabelle ripetono l'intestazione delle colonne sulle pagine di seguito", () => {
   /* revisione 28/09: i canali 48-63 di un'orchestra vera finivano su un foglio senza «# SORGENTE MIC/DI…» */
-  const defs = appjs.match(/function trow\([^)]*\)\{ if\(y>274\)\{ doc\.addPage\(\); y=18;[^}]*\}/g) || [];
+  const defs = appjs.match(/function trow\([^)]*\)\{ if\(y>274\)\{ doc\.addPage\(\); y=(?:18|PDF_TOP\+5);[^}]*\}/g) || [];
   /* 8 tabelle hanno una riga di intestazione; due (quadri elettrici, patch delle stage box) sono elenchi a
      blocchi con i titoli dentro il blocco: lì non c'è una riga di colonne da ripetere */
   const conRipresa = defs.filter((d) => /if\(_testaTab\)\{ var _t=_testaTab; _testaTab=null; _t\(\); _testaTab=_t; \}/.test(d));
   /* la backline list misura la riga a capo INTERA prima di decidere la pagina (rilettura 17/11/2026): ha una forma sua */
-  const backline = /if\(y\+\(bl\.length-1\)\*3\.9>274\)\{ doc\.addPage\(\); y=18; if\(_testaTab\)\{ var _t=_testaTab;/.test(appjs) ? 1 : 0;
+  const backline = /if\(y\+\(bl\.length-1\)\*3\.9>274\)\{ doc\.addPage\(\); y=PDF_TOP\+5; if\(_testaTab\)\{ var _t=_testaTab;/.test(appjs) ? 1 : 0;
   ok(backline === 1, "backline list: la riga a capo si misura intera prima del cambio pagina");
   ok(conRipresa.length + backline >= 8, "tabelle che ridisegnano l'intestazione dopo addPage: " + (conRipresa.length + backline) + " su " + (defs.length + backline));
   eq((appjs.match(/_testa\(\); _testaTab=_testa;/g) || []).length, conRipresa.length + backline, "e ognuna l'ha registrata");
@@ -28593,7 +28594,7 @@ t("fornito da: la colonna «forn.» della channel list arriva alla Channel list 
   A.state.inputs.filter((r) => String(r.linked_item_id) === "d1").forEach((r) => { r.by = "Band"; });
   const pl = () => Object.fromEntries(A.patchList().rows.map((r) => [r.name, r.by || ""]));
   let p = pl();
-  eq([p["Gtr amp"], p["Drums - Kick"], p["Drums - Overhead R"], p["Voce"]], ["Band", "Band", "Band", ""], "ogni canale prende il suo «fornito da»; senza, vuoto");
+  eq([p["Gtr amp"], p["Drums - Kick"], p["Drums Overhead R"], p["Voce"]], ["Band", "Band", "Band", ""], "ogni canale prende il suo «fornito da»; senza, vuoto");
   let bl = Object.fromEntries(A.backlineList().rows.map((r) => [r.name, r.by]));
   eq([bl["Gtr amp"], bl["Drums"]], ["Band", "Band"], "backline: dall'elemento collegato alle righe");
   /* canali della stessa batteria in disaccordo: nella backline non si sceglie */
@@ -28678,7 +28679,7 @@ t("fornito da nel PDF della channel list: segni, legende e il riquadro «Chi for
   ok(tx.indexOf(A.FORNITO_BAND_LEGENDA) > -1 && tx.indexOf(A.FORNITO_TEATRO_LEGENDA) > -1, "le due legende");
   ok(tx.indexOf("Chi fornisce cosa") > -1, "il riquadro ha il titolo");
   const tutto = tx.join(" ");
-  ok(/Band \(1\)[^|]*Gtr amp/.test(tutto) && /Teatro \(1\)[^|]*Voce/.test(tutto) && /Service \(\d+\)[^|]*Drums - Overhead R/.test(tutto), "una riga per fornitore con i nomi: " + tutto.slice(-500));
+  ok(/Band \(1\)[^|]*Gtr amp/.test(tutto) && /Teatro \(1\)[^|]*Voce/.test(tutto) && /Service \(\d+\)[^|]*Drums Overhead R/.test(tutto), "una riga per fornitore con i nomi: " + tutto.slice(-500));
   ok(/Non indicato \(1\)/.test(tutto), "e quanti canali restano senza indicazione");
   /* niente da dire → né legende né riquadro */
   A.state.inputs.forEach((x) => { x.by = ""; }); A.__cabRes = null;
@@ -30781,6 +30782,90 @@ ta("service worker: il precache dell'installazione scarica dal server, non dalla
   ok(B.cache.precache && B.cache.precache.length >= 3, "precache fatto");
   ok(B.cache.precache.every((r) => r.cache === "reload"), "ogni file con cache:reload");
   ok(B.cache.precache.some((r) => r.url === "/app.js"), "fra cui app.js");
+});
+
+/* ===== Rifiniture 25/11: nomi stereo senza trattino, margini dei PDF a 15 mm, note C1 =====
+   (rilettura #234: erano finiti DENTRO il test del service worker, fra install() e la sua attesa) */
+taPdf("Rifiniture · nomi stereo SENZA trattino, tutti uguali (laptop, overhead, tastiere, timpani…)", async () => {
+  reset();
+  const lp = add("laptop", 300, 300); lp.label = "Laptop 1"; A.__cabRes = null;
+  eq(chans(lp).map((c) => c.name), ["Laptop 1 Playback L", "Laptop 1 Playback R"], "laptop con nome proprio");
+  const lp2 = add("laptop", 340, 300); A.__cabRes = null;
+  ok(chans(lp2).every((c) => !/ - /.test(c.name)), "laptop senza nome: nessun trattino (" + chans(lp2).map((c) => c.name).join(" | ") + ")");
+  const bt = add("batteria", 400, 300); bt.label = "Batteria 1"; A.__cabRes = null;
+  ok(chans(bt).filter((c) => /Overhead [LR]$/.test(c.name)).length === 2 && chans(bt).every((c) => !/[LR]$/.test(c.name) || !/ - /.test(c.name)), "batteria: Overhead L/R senza trattino (" + chans(bt).map((c) => c.name).filter((n) => /Overhead/.test(n)).join(" | ") + ")");
+  eq(A.labelPrefix({ type: "laptop", label: "Laptop 1" }, "Playback L"), "Laptop 1 Playback L", "labelPrefix «Playback L»");
+  eq(A.labelPrefix({ type: "laptop", label: "Laptop 1" }, "DI L"), "Laptop 1 DI L", "labelPrefix «DI L» (come prima)");
+  eq(A.labelPrefix({ type: "laptop", label: "Chitarra acustica 1" }, "L"), "Chitarra acustica 1 L", "labelPrefix «L» (come prima)");
+  eq(A.labelPrefix({ type: "laptop", label: "Laptop 1" }, "Play 1"), "Laptop 1 - Play 1", "i canali NON stereo restano «nome - sorgente»");
+});
+taPdf("Rifiniture · PDF: testata dentro i 15 mm (nessun testo né fascia a filo carta)", async () => {
+  const calls = [];
+  const doc = { setFillColor() {}, setTextColor() {}, setFont() {}, setFontSize() {}, rect: (x, y, w, h) => calls.push({ k: "rect", x, y, w, h }), text: (t, x, y) => calls.push({ k: "text", t, x, y }) };
+  A.pdfTestata(doc, "#0d9488", "STAGE PLOT — Channel list", "25/11/2026", 16, 210);
+  const r = calls.find((c) => c.k === "rect");
+  ok(r.x >= 15 && r.y >= 15 && r.x + r.w <= 195, "fascia da 15 mm, ≥ 15 mm dai lati: " + JSON.stringify(r));
+  ok(calls.filter((c) => c.k === "text").every((c) => c.y >= 18 && c.x >= 15 && c.x <= 195), "testo e data sotto i 18 mm di baseline");
+  ok(A.PDF_Y0 >= r.y + r.h + 4, "il contenuto parte sotto la fascia (PDF_Y0 " + A.PDF_Y0 + ")");
+  const calls2 = []; const doc2 = Object.assign({}, doc, { rect: (x, y, w, h) => calls2.push({ x, y, w, h }) });
+  A.pdfTestata(doc2, "#000", "T", "D", 16, 297);
+  ok(calls2[0].x >= 15 && calls2[0].x + calls2[0].w <= 282, "A4 orizzontale: fascia dentro i 15 mm laterali");
+  const a = appjs.slice(appjs.indexOf("function cabReportPdf"), appjs.indexOf("function exportPdf("));
+  ok(!/doc\.rect\(0,0,(?:210|W),1[24],"F"\)/.test(a), "nessuna fascia a filo carta (0-14 mm) rimasta nei fogli");
+  ok(!/doc\.text\([^;]*, (?:M|W-M|194|R), (?:8|9)(?:, \{align:"right"\})?\);/.test(a), "nessuna testata a 8-9 mm dal bordo alto rimasta");
+  ok(!/y=18;/.test(a) && !/M=12, W=297/.test(a), "pagine di continuazione sotto i 15 mm; fogli orizzontali con margine 16 (non 12)");
+  const pe = appjs.slice(appjs.indexOf("function palcoEsterniFascia"), appjs.indexOf("function palcoEsterniPiano"));
+  ok(/var h=4\.9\+/.test(pe) && /y=M\+5\.1/.test(appjs), "palco per esterni: titolo a ≥ 15 mm dal bordo (fascia 4,9; baseline M+5,1)");
+});
+taPdf("Rifiniture · note C1: «fino al quadro X» nomina il quadro; † (sezione stimata) ≠ * (linea scelta a mano)", async () => {
+  const T = [{ d: { pct: 1, completo: false, fino: "A" } }, { d: { pct: 2, completo: false, fino: "B" } }, { d: { pct: 1, completo: true, fino: "A" } }];
+  eq(A.elecDropQuadriTesta([T[0]], false), "al quadro A", "un quadro (IT)");
+  eq(A.elecDropQuadriTesta(T, false), "ai quadri A, B", "più quadri (IT): «fino ai quadri», mai «fino al quadri» (rilettura #234)");
+  eq(A.elecDropQuadriTesta([{ d: { pct: 1, completo: false, fino: "" } }], false), "al quadro di testa", "senza nome: «fino al quadro di testa», mai «fino al il…»");
+  ok(!/fino al "\+elecDropQuadriTesta/.test(appjs) && (appjs.match(/fino "\+elecDropQuadriTesta\(T,false\)/g) || []).length === 2, "i due fogli scrivono «fino » + la frase con la sua preposizione");
+  eq(A.elecDropQuadriTesta([T[0]], true), "board A", "un quadro (EN)");
+  eq(A.elecDropQuadriTesta(T, true), "boards A, B", "più quadri (EN)");
+  ok(!/quadro indicato|board shown/.test(appjs.replace(/\/\*[^]*?\*\//g, "")), "mai più «quadro indicato» / «board shown»");
+  ok(/d\.stim\?"\\u2020":""/.test(appjs) || /d\.stim\?"†":""/.test(appjs), "nella tabella la sezione stimata ha il segno †");
+  ok(/(?:\\u2020|†) = sezione stimata/.test(appjs) && /(?:\\u2020|†) = size estimated/.test(appjs), "legenda del † in italiano e inglese");
+  ok(/\* = line number chosen by hand/.test(appjs) && /\* = numero linea scelto a mano/.test(appjs), "legenda del * (linea scelta a mano) in italiano e inglese");
+  ok(!/\* = sezione stimata|\* = size estimated/.test(appjs), "l'asterisco non significa più «sezione stimata»");
+});
+t("Rifiniture · PDF in inglese: i nomi stereo senza trattino si traducono come prima («Drums 1 Overhead L»)", () => {
+  /* rilettura #234: senza « - » il traduttore non spezzava più il nome e la channel list inglese restava in italiano */
+  reset(); A.state.docLang = "en";
+  const casi = { "Batteria 1 Overhead L": "Drums 1 Overhead L", "Vibrafono 1 Vibrafono R": "Vibraphone 1 Vibraphone R", "Organo Hammond Hammond L": "Hammond organ Hammond L",
+    "Piano verticale 88 Piano vert. R": "Upright piano 88 Upright R", "Stage piano 1 Tastiere L": "Stage piano 1 Keyboards L", "Mac portatile Playback L": "Mac laptop Playback L",
+    "Tastiera 1 L": "Keyboard 1 L", "Batteria 1 - Kick": "Drums 1 - Kick", "Laptop 1 Playback R": "Laptop 1 Playback R" };
+  try {
+    Object.keys(casi).forEach((k) => eq(A.docTesto(k), casi[k], k));
+    const ph = add("stagepiano", 300, 300); ph.label = "Phantom"; A.__cabRes = null;
+    eq(A.docTesto("Phantom Tastiere L"), "Phantom Keyboards L", "il nome scritto dall'utente resta, la sorgente si traduce");
+    A.state.docLang = "it"; eq(A.docTesto("Batteria 1 Overhead L"), "Batteria 1 Overhead L", "in italiano nulla cambia");
+  } finally { A.state.docLang = undefined; }
+});
+t("Rifiniture · Channel list Service in inglese: la colonna FOH si traduce prima di tagliare («Vibraphone 1 Vib…», mai «Vibrafono 1 Vibrafon…»)", () => {
+  s4Fix(0, [{ id: "vb", type: "vibrafono", x: 400, y: 300, label: "Vibrafono 1" }, { id: "hm", type: "organohammond", x: 700, y: 300, label: "Organo Hammond" }]);
+  A.state.docLang = "en"; A.__cabRes = null;
+  try {
+    const d = s4Pdf(32), tx = s4Testi(d)[0];
+    ok(tx.includes("Vibraphone 1 Vibraphone L") && tx.includes("Hammond organ Hammond R"), "colonna STRUMENTO in inglese: " + tx.filter((x) => /Vib|Hamm|Organ/.test(x)).join(" | "));
+    ok(!tx.some((x) => /Vibrafon|Organo/.test(x)), "nessun pezzo italiano, neppure tagliato: " + tx.filter((x) => /Vib|Hamm|Organ/.test(x)).join(" | "));
+  } finally { A.state.docLang = undefined; reset(); }
+});
+t("Rifiniture · CSV A&H: senza trattino il banco legge ancora la sorgente («Overhead», «Playback»), non lo strumento", () => {
+  /* rilettura #234: lo split(" - ") non toglieva più il nome dello strumento → «Batteri2», «Laptop 2», «Piano 12», «Organo 2» */
+  reset();
+  const lp = add("laptop", 200, 300); lp.label = "Laptop 1";
+  const bt = add("batteria", 400, 300); bt.label = "Batteria 1";
+  const pf = add("grancoda", 600, 300); pf.label = "Piano 1";
+  const hm = add("organohammond", 800, 300); hm.label = "Organo Hammond";
+  const tk = add("tastiera", 200, 500); tk.label = "Tastiera 1"; A.__cabRes = null;
+  ok(A.patchList().rows.some((r) => r.name === "Batteria 1 Overhead L") && A.patchList().rows.some((r) => r.name === "Laptop 1 Playback R"), "premessa: nomi stereo senza trattino");
+  const nomi = A.channelListCsv({ format: "ah" }).csv.split(/\r?\n/).slice(1).map((l) => l.split(",")[1]).filter(Boolean);
+  ["Playback", "Playbac2", "Overhead", "Overhea2", "Pianofor", "Pianofo2", "Kick"].forEach((n) => ok(nomi.includes(n), "manca «" + n + "»: " + nomi.join("|")));
+  ok(nomi.some((n) => /^Hammond/.test(n)) && nomi.some((n) => /^Tastier/.test(n)), "Hammond e la tastiera stereo (nome intero, come prima): " + nomi.join("|"));
+  ok(!nomi.some((n) => /^(Laptop 2|Batteri2|Piano 12|Organo 2|Organo H)$/.test(n)), "nessun nome che dice lo strumento al posto della sorgente: " + nomi.join("|"));
 });
 
 // ── PDF: SCRITTE NERE PER LA STAMPA (14/10/2026) ───────────────────────────────────────────────
@@ -35144,11 +35229,11 @@ t("Palco per esterni: titolo lungo va a capo (mai «…») e la fascia si alza; 
   ok(lunga.tit.length >= 2 && lunga.h > corta.h, "titolo a capo e fascia più alta: " + lunga.tit.length + " righe, " + lunga.h + " vs " + corta.h);
   ok(lunga.tit.every((r) => r.indexOf("…") < 0), "mai puntini");
   if (process.env.PEDBG) console.log("      DBG", corta.tit.length, corta.sub.length, corta.h, lunga.tit.length, lunga.sub.length, lunga.h);
-  eq([corta.tit.length, corta.sub.length, corta.h], [1, 1, 17.5], "fascia a due righe: 4 + 6,2 + 4,8 + 2,5 mm");
+  eq([corta.tit.length, corta.sub.length, corta.h], [1, 1, 18.4], "fascia a due righe: 4,9 + 6,2 + 4,8 + 2,5 mm");
   eq(lunga.tit.length, 2, "il titolo lungo, in grassetto 14 pt, va su due righe");
   const stretta = A.palcoEsterniFascia(_peDoc, 60, 10, new Date()); ok(stretta.sub.length >= 2, "riga della versione a capo su un foglio stretto: " + stretta.sub.length);
-  eq(stretta.h, Math.round((4 + stretta.tit.length * 6.2 + stretta.sub.length * 4.8 + 2.5) * 100) / 100, "ogni riga di sotto conta 4,8 mm");
-  eq(lunga.h, Math.round((4 + lunga.tit.length * 6.2 + lunga.sub.length * 4.8 + 2.5) * 100) / 100, "altezza = 4 + 6,2 per riga di titolo + 4,8 per riga di sotto + 2,5, a due decimali");
+  eq(stretta.h, Math.round((4.9 + stretta.tit.length * 6.2 + stretta.sub.length * 4.8 + 2.5) * 100) / 100, "ogni riga di sotto conta 4,8 mm");
+  eq(lunga.h, Math.round((4.9 + lunga.tit.length * 6.2 + lunga.sub.length * 4.8 + 2.5) * 100) / 100, "altezza = 4,9 + 6,2 per riga di titolo + 4,8 per riga di sotto + 2,5, a due decimali");
   ok(Math.round(lunga.h * 100) === lunga.h * 100 || Math.abs(Math.round(lunga.h * 100) - lunga.h * 100) < 1e-6, "arrotondata al centesimo");
   A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
   const P = A.palcoEsterniPiano(_peDoc, "a4", "auto", "auto", new Date());
@@ -35226,9 +35311,9 @@ await (async () => {
     /* la fascia: titolo in grassetto 14 pt riga per riga, poi «Stage plot vN · data», poi la linea */
     const T = A.palcoEsterniTesti(new Date()), M = L.M;
     const tit = d.testi.filter((x) => x.font === "bold" && x.pt === 14); eq(tit.map((x) => x.tx), P.F.tit, "titolo in grassetto 14 pt, riga per riga");
-    near(tit[0].x, M, 1e-9, "x del titolo"); near(tit[0].y, M + 4.2, 1e-9, "y della prima riga del titolo"); if (tit.length > 1) near(tit[1].y - tit[0].y, 6.2, 1e-9, "passo del titolo");
+    near(tit[0].x, M, 1e-9, "x del titolo"); near(tit[0].y, M + 5.1, 1e-9, "y della prima riga del titolo"); if (tit.length > 1) near(tit[1].y - tit[0].y, 6.2, 1e-9, "passo del titolo");
     const sub = d.testi.filter((x) => x.font === "normal" && x.pt === 10); eq(sub.map((x) => x.tx), P.F.sub, "riga della versione, 10 pt");
-    near(sub[0].y, M + 4.2 + 6.2 * P.F.tit.length - 0.6, 1e-9, "la riga della versione subito sotto il titolo");
+    near(sub[0].y, M + 5.1 + 6.2 * P.F.tit.length - 0.6, 1e-9, "la riga della versione subito sotto il titolo");
     eq(P.F.sub.join(" "), T.sub, "dice «Stage plot v3 · data · evento»"); ok(/Stage plot v3 · \d\d\/\d\d\/\d{4} · evento 01\/01\/2027/.test(T.sub), "formato: " + T.sub);
     const lin = d.linee.filter((l) => Math.abs(l[1] - (M + sh - 0.5)) < 1e-9 && l[1] === l[3]); eq(lin.length, 1, "la linea sotto la fascia"); near(lin[0][0], M, 1e-9, "dal margine sinistro"); near(lin[0][2], L.pw - M, 1e-9, "al destro");
     /* le quote del palco, spostate con il disegno */
