@@ -21687,7 +21687,8 @@ function cosaMancaCaduta(R){
   function voce(key, dove, d){
     var v={id:"caduta:"+(key||dove), fonte:"caduta", grav:d.lvl==="err"?"rosso":"giallo", lvl:d.lvl, fam:"Elettrico",
            msg:"Caduta di tensione "+elecPctTxt(tot(d))+" "+dove+".", perche:perche(d), azioni:[], pct:tot(d)};
-    if(key && state.elec && state.elec.on && state.elec.visible!==false) v.azioni.push({label:"Mostra la linea", run:function(){ cosaMancaMostraLinea(key); }});
+    /* sul telefono le linee non si lavorano (connessioni e liste tecniche sono del computer): lì la voce dice cosa fare, senza un pulsante che non porta a niente */
+    if(key && state.elec && state.elec.on && state.elec.visible!==false && !(typeof isMobile==="function" && isMobile())) v.azioni.push({label:"Mostra la linea", run:function(){ cosaMancaMostraLinea(key); }});
     out.push(v);
   }
   /* di chi è la colpa: stessa regola (e stesso margine) della frase «Cosa fare» di C1. Un carico oltre soglia per colpa di una tratta a monte

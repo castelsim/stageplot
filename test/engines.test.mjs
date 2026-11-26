@@ -42698,6 +42698,10 @@ t("Cosa manca · i rimedi a un clic dell'audit ci sono tutti (act, act2, act3) e
   au.findings.forEach((x) => { const n = [x.act, x.act2, x.act3].filter((a) => a && typeof a.run === "function").length;
     eq(M.voci.find((v) => v.msg === x.msg).azioni.length, n, "rimedi di «" + x.msg.slice(0, 40) + "»"); });
   ok(M.voci.some((v) => v.azioni.some((a) => a.label === "Scrivi il titolo")), "il rimedio ha la sua etichetta");
+  /* una voce con DUE rimedi (il doppione sovrapposto: «Mostra» + «Togli il doppione») li porta tutti e due, nello stesso ordine */
+  const c0 = A.state.items[3]; A.state.items.push(Object.assign({}, c0, { id: A.uid() }));
+  const d = A.auditEngine().findings.find((x) => x.rule === "doppioni"); ok(d && d.act && d.act2, "scena: il doppione ha due rimedi");
+  eq(A.cosaManca().voci.find((v) => v.rule === "doppioni").azioni.map((a) => a.label), [d.act.label, d.act2.label]);
   reset();
 });
 t("Cosa manca · non calcola niente di nuovo: voto, errori e avvisi dell'audit sono identici, e il progetto non viene toccato", () => {
@@ -42726,6 +42730,9 @@ t("Cosa manca · caduta di tensione: la tratta oltre il 4 % entra in rosso, col 
   ok(/stima/.test(v.perche), "e dice che è una stima");
   eq(v.azioni.map((a) => a.label), ["Mostra la linea"]);
   A.selElec = null; v.azioni[0].run(); eq(A.selElec, u.key, "«Mostra la linea» seleziona quella linea"); A.selElec = null;
+  const im = A.isMobile; A.isMobile = () => true; let tel; try { tel = A.cosaManca().voci.find((k) => k.id === v.id); } finally { A.isMobile = im; }
+  eq(tel.azioni.length, 0, "sul telefono le linee non si lavorano: niente pulsante che non porta a niente"); eq(tel.perche, v.perche, "ma la voce dice lo stesso cosa fare");
+  A.state.elec.visible = false; eq(A.cosaManca().voci.find((k) => k.id === v.id).azioni.length, 0, "con l'elettrico nascosto non c'è niente da mostrare"); A.state.elec.visible = true;
   ok(!A.auditEngine().findings.some((x) => /[Cc]aduta di tensione/.test(x.msg)), "nell'audit non c'è (resta com'era): la raccoglie solo «Cosa manca?»");
   reset();
 });
