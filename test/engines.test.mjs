@@ -42848,6 +42848,8 @@ t("Cosa manca · sul telefono si apre davvero: voce nel menu, cassetto con la so
   const mob = stylesCss.slice(stylesCss.indexOf("@media (max-width:880px){"));
   ok(/body\.tech-open #props,body\.cm-open #props,/.test(mob) && /body\.tech-open main,body\.cm-open main,/.test(mob), "«cm-open» è nell'elenco che apre il cassetto e alza il palco");
   ok(/body\.cm-open #noSel>\*:not\(#auditSec\)[^{]*\{display:none !important\}/.test(mob), "nel cassetto resta solo «Cosa manca?»");
+  /* rilettura #235: dopo «Mostra» il cassetto è dell'elemento; la voce del menu deve riportare alla lista, non restare muta */
+  ok(/if\(a==="manca"\)\{ if\(!auditActive\) toggleAuditView\(\); else \{ clearSelection\(\); render\(\); \} return; \}/.test(appjs), "la voce del menu riapre la lista anche quando il pannello è già acceso sotto un elemento selezionato");
   ok(/body\.cm-open #auditTrash\{min-width:44px;min-height:44px/.test(mob), "la ✕ è grande quanto un dito");
 });
 t("Cosa manca · se un motore esplode il pannello resta in piedi con gli altri rilievi", () => {

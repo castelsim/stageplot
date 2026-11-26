@@ -28498,7 +28498,8 @@ function renderMobileList(){
       if(a==="evento"){ toggleEvento(); return; }
       if(a==="scaletta"){ toggleScaletta(); return; }
       if(a==="cambi"){ toggleCambi(); return; }
-      if(a==="manca"){ if(!auditActive) toggleAuditView(); return; }   /* C2: «Cosa manca?» dal telefono */
+      /* C2: «Cosa manca?» dal telefono. Già acceso ma coperto dal cassetto di un elemento (si è premuto «Mostra»): la voce riporta alla lista, togliendo la selezione (rilettura #235) */
+      if(a==="manca"){ if(!auditActive) toggleAuditView(); else { clearSelection(); render(); } return; }
       if(a==="chan"){ toggleChan(); return; }
       if(a==="venue"){ toggleVenueEdit(); return; }
       if(a==="frame"){ toggleFrameEdit(); return; }
