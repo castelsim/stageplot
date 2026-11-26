@@ -1106,7 +1106,7 @@
         <div id="pDxIndWrap" style="display:none;margin-top:7px">
           <div class="row">
             <span><label for="pDxU">Universo</label><input type="number" id="pDxU" min="1" max="999" step="1" inputmode="numeric"></span>
-            <span><label for="pDxA">Indirizzo <small class="lbl-note">— di partenza</small></label><input type="number" id="pDxA" min="1" max="512" step="1" inputmode="numeric"></span>
+            <span><label for="pDxA">Indirizzo <small class="lbl-note">— di partenza</small></label><input type="text" id="pDxA" inputmode="decimal" autocomplete="off" maxlength="8" title="Da 1 a 512. Puoi scrivere anche universo.indirizzo, per esempio 1.041"></span>
           </div>
           <div id="pDxStato" class="prop-hint" style="margin-top:5px"></div>
           <div id="pDxAvviso" class="prop-hint" style="display:none;margin-top:4px;color:var(--warning, #b45309)"></div>
@@ -9117,7 +9117,9 @@ function save(){
   custTogliFormeOrfane();   /* rete di sicurezza: fuori dall'editor nessuna forma «custshape» resta sul palco vero */
   dropOrphanRows(state);   /* qualunque strada abbia tolto un elemento, la sua riga non sopravvive al salvataggio */
   dropOrphanLinks(state);  /* … e nemmeno i suoi collegamenti: un id riusato non deve ereditarli */
-  if(dmxAttiva()) dmxFissa();   /* Patch DMX (C3): gli indirizzi appena assegnati si scrivono, così un faro aggiunto dopo non sposta gli altri */
+  /* Patch DMX (C3): gli indirizzi appena assegnati si scrivono, così un faro aggiunto dopo non sposta gli altri.
+     In try/catch come in `cosaManca`: un'eccezione nella patch non deve far saltare il salvataggio e la cronologia di tutto il resto. */
+  if(dmxAttiva()){ try{ dmxFissa(); }catch(_e){} }
   if(window.scheduleCloudAutosave) scheduleCloudAutosave();   /* arma il pending durevole prima del commit locale */
   var localOk=persistLocalState();
   if(window.__consultDirty) window.__consultDirty();   /* indipendente dal debounce history e dal base64 escluso dagli snapshot undo */
@@ -10152,6 +10154,30 @@ function dmxDopoCanali(it){
 /* la copia di un apparecchio tiene modalità e canali ma non l'indirizzo: prende il primo libero (due fari uguali non nascono sovrapposti) */
 function dmxCopiaPulita(c){ var d=dmxDati(c); if(!d) return c; delete d.u; delete d.a; delete d.fix; if(!Object.keys(d).length) delete c.dmx; return c; }
 function dmxInd(u, a){ return u+"."+("00"+a).slice(-3); }   /* «1.041»: universo.indirizzo, come lo scrivono le console */
+/* CIÒ CHE SI SCRIVE NEI CAMPI DEL PANNELLO (lotto «pezzetti», 26/11/2026). Si legge il TESTO, non il numero arrotondato: «1.041» nel campo
+   Indirizzo è universo 1, indirizzo 41 (come lo mostra l'app), non «1»; un valore fuori dai limiti si RIFIUTA dicendolo, non si corregge in
+   silenzio e non cancella ciò che c'era. Funzioni pure: → {vuoto:true} | {err:"…"} | {ch}  ·  {vuoto:true, due?} | {err:"…"} | {u, a}. */
+function dmxLeggiCanali(t){
+  t=String(t==null?"":t).trim(); if(t==="") return {vuoto:true};
+  if(!/^\d{1,4}$/.test(t) || +t<1 || +t>DMX_CH) return {err:"I canali vanno da 1 a "+DMX_CH+" (numero intero): il valore scritto non è stato salvato."};
+  return {ch:+t};
+}
+/* `cur` = {u, a} che l'apparecchio ha adesso (o null). Scritto solo l'indirizzo: l'universo resta il suo. Scritto solo un universo diverso:
+   l'indirizzo resta il suo. Niente di nuovo scritto (campi vuoti, o l'universo di prima e l'indirizzo vuoto) = «vuoto»: NON si fissa niente
+   a mano; `due` dice che sono vuoti tutti e due (chi aveva un indirizzo a mano lo rilascia). */
+function dmxLeggiIndirizzo(tu, ta, cur){
+  tu=String(tu==null?"":tu).trim(); ta=String(ta==null?"":ta).trim();
+  var u=null, a=null, m;
+  if((m=/^(\d{1,3})[.,](\d{1,3})$/.exec(ta))){ u=+m[1]; a=+m[2]; }   /* «1.041» (o «1,041» dalla tastiera italiana): universo.indirizzo */
+  else if(ta!==""){ if(!/^\d{1,4}$/.test(ta)) return {err:"Scrivi l'indirizzo da 1 a "+DMX_CH+", oppure universo.indirizzo (es. 1.041): il valore scritto non è stato salvato."}; a=+ta; }
+  if(u==null && tu!==""){ if(!/^\d{1,4}$/.test(tu)) return {err:"L'universo va da 1 a "+DMX_U_MAX+" (numero intero): il valore scritto non è stato salvato."}; u=+tu; }
+  if(a==null && (u==null || !cur || u===cur.u)) return (tu==="" && ta==="") ? {vuoto:true, due:true} : {vuoto:true};
+  if(u==null) u=cur ? cur.u : 1;
+  if(a==null) a=cur.a;
+  if(u<1 || u>DMX_U_MAX) return {err:"L'universo va da 1 a "+DMX_U_MAX+": il valore scritto non è stato salvato."};
+  if(a<1 || a>DMX_CH) return {err:"L'indirizzo va da 1 a "+DMX_CH+": il valore scritto non è stato salvato."};
+  return {u:u, a:a};
+}
 function dmxNome(it){ return (it.label||"").trim() || (TYPES[it.type] && TYPES[it.type].nome) || it.type; }
 /* gli apparecchi nell'ordine della patch: prima i dimmer (in teatro stanno a 1…N), da sinistra a destra; poi i fari con i
    numeri di luciNumeri (gli stessi del foglio «pianta luci») */
@@ -10201,7 +10227,14 @@ function dmxPatch(){
   });
   out.senzaCanali=out.righe.filter(function(r){ return r.ch==null; });
   var U={};
-  out.righe.forEach(function(r){ if(r.u==null || r.ch==null) return; var o=U[r.u]||(U[r.u]={u:r.u, canali:0, n:0, fine:0}); o.canali+=r.ch; o.n++; o.fine=Math.max(o.fine, Math.min(r.fine, DMX_CH)); });
+  out.righe.forEach(function(r){ if(r.u==null || r.ch==null) return; var o=U[r.u]||(U[r.u]={u:r.u, canali:0, n:0, fine:0}); o.n++; o.fine=Math.max(o.fine, Math.min(r.fine, DMX_CH)); });
+  /* «N canali su 512» = i canali DAVVERO occupati: l'unione degli intervalli posati. Due apparecchi sovrapposti non contano doppio e chi
+     esce dall'universo conta fino al 512: la somma dei dichiarati poteva dire «520 canali su 512». */
+  Object.keys(U).forEach(function(k){
+    var fin=0, tot=0;
+    (occ[k]||[]).slice().sort(function(x,y){ return x[0]-y[0]; }).forEach(function(s){ var da=Math.max(s[0], fin+1); if(s[1]>=da){ tot+=s[1]-da+1; fin=s[1]; } });
+    U[k].canali=tot;
+  });
   out.universi=Object.keys(U).map(function(k){ return U[k]; }).sort(function(a,b){ return a.u-b.u; });
   return out;
 }
@@ -10309,7 +10342,8 @@ function patchLuciPdf(doc){
       doc.setFont("helvetica","bold"); doc.text(r.code, cN, y); doc.setFont("helvetica","normal");
       doc.text(al, cA, y); doc.text(ml, cM, y);
       doc.text(r.ch==null ? "—" : String(r.ch), cC, y, {align:"right"});
-      if(r.u!=null){ doc.setFont("helvetica","bold"); doc.text(dmxInd(r.u, r.a)+(r.fix ? (croce=true, " †") : ""), cI, y); doc.setFont("helvetica","normal"); }
+      /* senza canali non ha un indirizzo (lo dice la nota in fondo): anche se ne era stato scritto uno a mano, sul foglio va il trattino, senza † */
+      if(r.u!=null && r.ch!=null){ doc.setFont("helvetica","bold"); doc.text(dmxInd(r.u, r.a)+(r.fix ? (croce=true, " †") : ""), cI, y); doc.setFont("helvetica","normal"); }
       else doc.text("—", cI, y);
       doc.text(r.fine==null ? "—" : dmxInd(r.u, Math.min(r.fine, DMX_CH)), cF, y, {align:"right"});
       y+=5.2+(nr-1)*4.2;
@@ -25621,6 +25655,7 @@ document.getElementById("pMountSafety").addEventListener("change", function(){
 /* PATCH DMX (C3, 26/11/2026): il gruppo «DMX» del pannello. A patch spenta un solo pulsante; accesa: modalità (dal catalogo) o canali
    (a mano), «Senza DMX», universo e indirizzo (scriverli = fissarli a mano), e i due gesti sull'intera patch. Ogni gesto è un passo di Annulla. */
 var dmxAltroSel=null;   /* «Altro» scelto su questo elemento e canali non ancora scritti: stato della pagina, non del progetto */
+var dmxCampiForza=false;   /* dopo un gesto sui campi (accettato o rifiutato) si riscrive anche il campo col cursore dentro: deve mostrare ciò che è salvato */
 function dmxRenderPannello(it){
   var g=function(id){ return document.getElementById(id); }, on=dmxAttiva();
   g("pDxOff").style.display=on?"none":"block"; g("pDxOn").style.display=on?"block":"none";
@@ -25639,7 +25674,7 @@ function dmxRenderPannello(it){
     ms.value=m ? m[0] : (altro ? "__altro" : "");
   }
   g("pDxChWrap").style.display=(!dim && !senza && (!L.length || (scelta && altro)))?"block":"none";
-  var ci=g("pDxCh"); if(document.activeElement!==ci) ci.value=(d.ch!=null && !m) ? d.ch : "";
+  var ci=g("pDxCh"); if(dmxCampiForza || document.activeElement!==ci) ci.value=(d.ch!=null && !m) ? d.ch : "";
   var info=g("pDxInfo"), it1=dim ? "Canali: "+ch+", quelli del dimmer." : (!senza && L.length===1 ? "Canali: "+L[0][2]+" ("+L[0][1]+", dal manuale)." : "");
   info.style.display=it1?"block":"none"; info.textContent=it1;
   g("pDxNoWrap").style.display=dim?"none":""; g("pDxNo").checked=senza;
@@ -25647,8 +25682,8 @@ function dmxRenderPannello(it){
   if(!senza){
     var haInd=!!(r && r.u!=null), iu=g("pDxU"), ia=g("pDxA");
     iu.disabled=ia.disabled=(ch==null);
-    if(document.activeElement!==iu) iu.value=haInd ? r.u : "";
-    if(document.activeElement!==ia) ia.value=haInd ? r.a : "";
+    if(dmxCampiForza || document.activeElement!==iu) iu.value=haInd ? r.u : "";
+    if(dmxCampiForza || document.activeElement!==ia) ia.value=haInd ? r.a : "";
     g("pDxStato").textContent = ch==null ? "Senza i canali non ha un indirizzo: "+(scelta ? "scegli la modalità." : "scrivi quanti ne occupa.")
       : (haInd ? "Occupa "+dmxInd(r.u, r.a)+(r.fine!==r.a ? "–"+dmxInd(r.u, Math.min(r.fine, DMX_CH)) : "")+(r.fix ? " · scritto a mano." : " · assegnato in automatico.") : "Non c'è più posto in nessun universo.");
     var av=[];
@@ -25670,6 +25705,11 @@ function dmxGesto(fn){
   render(); save(); renderProps();
   if(msg && typeof showToast==="function") showToast(msg, "ok");
 }
+/* i campi tornano a mostrare ciò che è salvato, anche quello col cursore dentro (renderProps da solo non lo tocca) */
+function dmxCampiRiscrivi(){ dmxCampiForza=true; try{ renderProps(); } finally { dmxCampiForza=false; } }
+/* un valore che non si può scrivere: niente passo di cronologia, niente salvataggio; il campo torna com'era e si dice perché */
+function dmxRifiuta(msg){ dmxCampiRiscrivi(); if(msg && typeof showToast==="function") showToast(msg, "err"); }
+function dmxCampoRotto(el){ return !!(el && el.validity && el.validity.badInput); }   /* type=number con testo non numerico: `value` è vuoto, ma NON è un campo svuotato */
 document.getElementById("pDxAttiva").addEventListener("click", function(){
   dmxGesto(function(){ dmxAccendi(true); var P=dmxPatch(), n=P.righe.filter(function(r){ return r.u!=null && r.ch!=null; }).length, m=P.senzaCanali.length;
     return "Patch DMX attiva: "+n+(n===1?" apparecchio ha":" apparecchi hanno")+" un indirizzo"+(m ? ", "+m+(m===1?" aspetta":" aspettano")+" i canali" : "")+"."; });
@@ -25682,8 +25722,10 @@ document.getElementById("pDxModo").addEventListener("change", function(){
     dmxDopoCanali(it); });
 });
 document.getElementById("pDxCh").addEventListener("change", function(){
-  var n=Math.round(+document.getElementById("pDxCh").value);
-  dmxGesto(function(it){ if(!it) return; dmxImposta(it, {ch:(isFinite(n) && n>=1 && n<=DMX_CH) ? n : null, m:null}); dmxDopoCanali(it); });
+  var el=document.getElementById("pDxCh"), L=dmxCampoRotto(el) ? dmxLeggiCanali("x") : dmxLeggiCanali(el.value);
+  if(L.err){ dmxRifiuta(L.err); return; }   /* es. 600: si rifiuta; canali e indirizzo di prima restano */
+  dmxGesto(function(it){ if(!it) return; dmxImposta(it, {ch:L.vuoto ? null : L.ch, m:null}); dmxDopoCanali(it); });
+  dmxCampiRiscrivi();
 });
 document.getElementById("pDxNo").addEventListener("change", function(){
   var si=document.getElementById("pDxNo").checked;
@@ -25691,17 +25733,23 @@ document.getElementById("pDxNo").addEventListener("change", function(){
 });
 ["pDxU","pDxA"].forEach(function(id){
   document.getElementById(id).addEventListener("change", function(){
-    var u=Math.round(+document.getElementById("pDxU").value), a=Math.round(+document.getElementById("pDxA").value);
+    var eu=document.getElementById("pDxU"), ea=document.getElementById("pDxA"), it0=getSel();
+    var r0=it0 ? dmxPatch().righe.filter(function(x){ return x.it===it0; })[0] : null;
+    var L=dmxCampoRotto(eu) ? dmxLeggiIndirizzo("x", ea.value, null) : dmxLeggiIndirizzo(eu.value, ea.value, (r0 && r0.u!=null) ? {u:r0.u, a:r0.a} : null);
+    if(L.err){ dmxRifiuta(L.err); return; }   /* fuori dai limiti o non un numero: non si scrive, il campo torna com'era e si dice perché */
+    if(L.vuoto){
+      /* campi svuotati: non si fissa niente a mano. Vuoti tutti e due su un indirizzo scritto a mano = lo si rilascia, come «Primo libero» */
+      if(L.due && r0 && r0.fix) dmxGesto(function(it){ if(!it) return; dmxImposta(it, {u:null, a:null, fix:null}); return "Indirizzo di nuovo automatico."; });
+      dmxCampiRiscrivi(); return;
+    }
+    var u=L.u, a=L.a;
     dmxGesto(function(it){ if(!it) return;
-      var r=dmxPatch().righe.filter(function(x){ return x.it===it; })[0];
-      if(!(u>=1) && r && r.u!=null) u=r.u; if(!(u>=1)) u=1;   /* scritto solo l'indirizzo: l'universo resta il suo */
-      if(!(a>=1) && r && r.a!=null) a=r.a;
-      if(!(u>=1 && u<=DMX_U_MAX && a>=1 && a<=DMX_CH)) return;   /* fuori dai limiti: non si scrive, il campo torna com'era */
       var prima={}; dmxPatch().righe.forEach(function(x){ if(x.it!==it && x.u!=null) prima[x.it.id]=dmxInd(x.u, x.a); });
       dmxImposta(it, {u:u, a:a, fix:true});
       /* chi era stato assegnato in automatico su quei canali lascia il posto: si dice, perché il suo indirizzo è cambiato */
       var mossi=dmxPatch().righe.filter(function(x){ return x.it!==it && x.u!=null && prima[x.it.id] && prima[x.it.id]!==dmxInd(x.u, x.a); });
       return mossi.length ? "Per fare posto "+(mossi.length===1 ? "ha cambiato indirizzo «"+mossi[0].nome+"» ("+mossi[0].code+"): ora "+dmxInd(mossi[0].u, mossi[0].a) : "hanno cambiato indirizzo "+mossi.length+" apparecchi: "+mossi.map(function(x){ return x.code+" → "+dmxInd(x.u, x.a); }).join(", "))+"." : ""; });
+    dmxCampiRiscrivi();
   });
 });
 document.getElementById("pDxLibero").addEventListener("click", function(){

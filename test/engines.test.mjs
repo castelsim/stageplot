@@ -43106,7 +43106,7 @@ t("Patch DMX · il salvataggio scrive gli indirizzi assegnati (solo a patch acce
   eq(A.dmxFissa(), 0, "una seconda volta non cambia niente");
   A.dmxImposta(fari[0], { ch: null }); A.save();
   eq(fari[0].dmx, undefined, "senza canali non resta un indirizzo fantasma"); eq(dxInd(fari[0]), null);
-  ok(/if\(dmxAttiva\(\)\) dmxFissa\(\);/.test(appjs.slice(appjs.indexOf("function save(){"), appjs.indexOf("function save(){") + 700)), "save() chiama dmxFissa solo a patch accesa");
+  ok(/if\(dmxAttiva\(\)\)\{ try\{ dmxFissa\(\); \}catch\(_e\)\{\} \}/.test(appjs.slice(appjs.indexOf("function save(){"), appjs.indexOf("function save(){") + 1100)), "save() chiama dmxFissa solo a patch accesa");
   A.dmxAccendi(false); eq(A.state.dmx, undefined, "«Spegni la patch» toglie la chiave"); eq(fari[1].dmx, { ch: 8, u: 1, a: 9 }, "ma non i dati");
   A.dmxAccendi(true); eq(dxInd(fari[1]), "1.009", "riaccesa: gli indirizzi sono quelli di prima");
   dxReset();
@@ -43273,6 +43273,112 @@ t("Patch DMX · pannello: il gruppo «DMX» sta dietro «Opzioni complete», a p
   ok(/<div id="pDxPatchRow" style="display:flex;/.test(html) && !/class="btns" id="pDxPatchRow"/.test(html), "«Riassegna» e «Spegni» restano dentro il gruppo DMX: una riga .btns verrebbe portata in fondo al pannello di ogni elemento");
   ok(/if\(ms\.__dxElenco!==h\)\{ ms\.innerHTML=h; ms\.__dxElenco=h; \}\s*ms\.value=m \? m\[0\] : \(altro \? "__altro" : ""\);/.test(rp), "l'elenco delle modalità non si riscrive a ogni disegno (la tendina appena aperta resterebbe chiusa)");
   ok(/custCopiaPulita\(c, false\); dmxCopiaPulita\(c\);/.test(appjs) && /custCopiaPulita\(c, true\); dmxCopiaPulita\(c\);/.test(appjs), "Duplica e Incolla puliscono l'indirizzo della copia");
+});
+
+/* ════ PEZZETTI (26/11/2026): rifiniture della patch DMX dalla rilettura di #236 ════
+   a) la patch non può far saltare il salvataggio · b) «1.041» nel campo Indirizzo è universo.indirizzo, e svuotare i campi non fissa niente
+   · c) canali fuori limite: si rifiuta, non si cancella · d) senza canali il foglio non stampa un indirizzo · e) «N canali su 512» = occupati. */
+console.log("\nPezzetti (rifiniture della patch DMX):");
+t("Pezzetti · a) se la patch esplode dentro save(), il salvataggio e la cronologia vanno avanti lo stesso", () => {
+  const fari = dxScena(2, 8); A.save(); A.resetHistory();   /* la pila di Annulla ha un tetto: si parte da vuota */
+  const vero = A.dmxFissa, id = fari[0].id, x0 = fari[0].x; let ret, lanciata = null, chiamata = 0;
+  A.dmxFissa = () => { chiamata++; throw new Error("patch rotta"); };
+  try { fari[0].x += 40; try { ret = A.save(); } catch (e) { lanciata = e; } } finally { A.dmxFissa = vero; }
+  eq(chiamata, 1, "scena: a patch accesa save() passa dalla patch");
+  eq(lanciata, null, "save() non lancia");
+  ok(ret !== false, "il salvataggio locale è andato a buon fine");
+  eq(A.undoStack.length, 1, "e il passo di cronologia c'è");
+  A.undo(); eq(A.state.items.find((x) => x.id === id).x, x0, "Annulla riporta il faro dov'era");
+  A.resetHistory(); dxReset();
+});
+t("Pezzetti · b) campo «Indirizzo»: «1.041» è universo 1 indirizzo 41, mai «1» arrotondato; fuori dai limiti si rifiuta con un messaggio", () => {
+  const L = A.dmxLeggiIndirizzo;
+  eq(L("1", "1.041", { u: 1, a: 1 }), { u: 1, a: 41 }, "il formato che l'app mostra");
+  eq(L("3", "2.041", { u: 1, a: 1 }), { u: 2, a: 41 }, "l'indirizzo completo vince sul campo Universo");
+  eq(L("", "1,041", null), { u: 1, a: 41 }, "la virgola della tastiera italiana");
+  eq(L("", "2.5", null), { u: 2, a: 5 }, "universo.indirizzo senza zeri");
+  eq(L("1", "41", { u: 1, a: 9 }), { u: 1, a: 41 }, "un numero solo = l'indirizzo");
+  eq(L("", "41", { u: 2, a: 9 }), { u: 2, a: 41 }, "scritto solo l'indirizzo: l'universo resta il suo");
+  eq(L("", "41", null), { u: 1, a: 41 }, "senza un universo suo: il primo");
+  eq(L("3", "", { u: 1, a: 9 }), { u: 3, a: 9 }, "scritto solo un universo diverso: l'indirizzo resta il suo");
+  eq(L(" 2 ", " 512 ", null), { u: 2, a: 512 }, "spazi tollerati, limiti compresi"); eq(L("999", "1", null), { u: 999, a: 1 });
+  for (const [tu, ta] of [["1", "600"], ["1", "0"], ["1", "1.600"], ["1", "1.0"], ["1", "0.5"], ["1", "1000.1"], ["1", "abc"], ["1", "1.2.3"], ["1", "-3"], ["1", "1e2"], ["1", "1."], ["1000", "5"], ["0", "5"], ["1.5", "5"], ["x", "5"]]) {
+    const r = L(tu, ta, { u: 1, a: 9 });
+    ok(r && typeof r.err === "string" && r.err.length > 20 && r.u === undefined, "«" + tu + "» / «" + ta + "» si rifiuta con un messaggio: " + JSON.stringify(r));
+  }
+  ok(/da 1 a 512/.test(L("1", "600", null).err) && /universo\.indirizzo \(es\. 1\.041\)/.test(L("1", "abc", null).err) && /da 1 a 999/.test(L("1000", "5", null).err), "il messaggio dice i limiti");
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/<input type="text" id="pDxA" inputmode="decimal"/.test(html), "il campo è testo: il browser non arrotonda né riscrive «1.041»");
+  const h = appjs.slice(appjs.indexOf('["pDxU","pDxA"].forEach'), appjs.indexOf('document.getElementById("pDxLibero")'));
+  ok(/dmxLeggiIndirizzo\(eu\.value, ea\.value, /.test(h) && !/Math\.round\(\+document/.test(h), "il pannello legge il testo con dmxLeggiIndirizzo, non un numero arrotondato");
+  ok(h.indexOf("if(L.err){ dmxRifiuta(L.err); return; }") > 0 && h.indexOf("if(L.err){ dmxRifiuta(L.err); return; }") < h.indexOf("dmxGesto("), "un valore rifiutato non arriva a dmxGesto (niente cronologia, niente salvataggio)");
+  ok(/dmxCampoRotto\(eu\) \? dmxLeggiIndirizzo\("x"/.test(h), "testo non numerico nel campo Universo (value vuoto, badInput) = rifiuto, non «campo svuotato»");
+  const rf = appjs.slice(appjs.indexOf("function dmxRifiuta"), appjs.indexOf("function dmxCampoRotto"));
+  ok(/dmxCampiRiscrivi\(\);/.test(rf) && /showToast\(msg, "err"\)/.test(rf) && !/save\(|primaDiAgire|dmxImposta/.test(rf), "rifiuto = campo com'era + messaggio, senza toccare il progetto");
+});
+t("Pezzetti · b) svuotare i campi non fissa l'indirizzo «a mano»: resta (o torna) automatico", () => {
+  const L = A.dmxLeggiIndirizzo;
+  eq(L("", "", { u: 1, a: 9 }), { vuoto: true, due: true }, "tutti e due vuoti");
+  eq(L("1", "", { u: 1, a: 9 }), { vuoto: true }, "indirizzo svuotato e universo di prima: niente di nuovo scritto");
+  eq(L("3", "", null), { vuoto: true }, "nessun indirizzo da tenere: niente");
+  eq(L("", "", null), { vuoto: true, due: true });
+  const h = appjs.slice(appjs.indexOf('["pDxU","pDxA"].forEach'), appjs.indexOf('document.getElementById("pDxLibero")'));
+  const vu = h.slice(h.indexOf("if(L.vuoto){"), h.indexOf("var u=L.u, a=L.a;"));
+  ok(vu.length > 50 && /return;\s*\}\s*$/.test(vu), "il ramo «vuoto» esce prima di scrivere");
+  ok(!/fix:true/.test(vu), "e non fissa niente");
+  ok(/if\(L\.due && r0 && r0\.fix\) dmxGesto\(function\(it\)\{ if\(!it\) return; dmxImposta\(it, \{u:null, a:null, fix:null\}\);/.test(vu), "vuoti tutti e due su un indirizzo a mano: lo rilascia, come «Primo libero»");
+  /* ciò che fa quel ramo, sul motore: da «a mano» torna automatico e prende il primo libero; chi era automatico non cambia */
+  const fari = dxScena(3, 8); A.save();
+  A.dmxImposta(fari[2], { u: 2, a: 101, fix: true }); A.save(); eq(dxRiga(fari[2]).fix, true, "scena: scritto a mano");
+  A.dmxImposta(fari[2], { u: null, a: null, fix: null }); A.save();
+  eq([dxInd(fari[2]), dxRiga(fari[2]).fix, fari[2].dmx.fix], ["1.017", false, undefined], "rilasciato: automatico, al primo libero");
+  eq([dxInd(fari[0]), dxInd(fari[1])], ["1.001", "1.009"], "gli altri fermi");
+  dxReset();
+});
+t("Pezzetti · c) canali fuori limite (600, 0, 8.5, testo): si rifiutano con un messaggio, canali e indirizzo di prima restano", () => {
+  const C = A.dmxLeggiCanali;
+  eq(C("8"), { ch: 8 }); eq(C(" 512 "), { ch: 512 }); eq(C("1"), { ch: 1 }); eq(C(""), { vuoto: true }, "campo svuotato = canali tolti, come prima"); eq(C(null), { vuoto: true });
+  for (const v of ["600", "513", "0", "-1", "8.5", "8,5", "abc", "1e2", "00600"]) { const r = C(v); ok(r && typeof r.err === "string" && /da 1 a 512/.test(r.err) && r.ch === undefined, "«" + v + "» si rifiuta: " + JSON.stringify(r)); }
+  const h = appjs.slice(appjs.indexOf('document.getElementById("pDxCh").addEventListener'), appjs.indexOf('document.getElementById("pDxNo").addEventListener'));
+  ok(h.indexOf("if(L.err){ dmxRifiuta(L.err); return; }") > 0 && h.indexOf("if(L.err){ dmxRifiuta(L.err); return; }") < h.indexOf("dmxGesto("), "il rifiuto esce prima di dmxGesto: dmxImposta non viene chiamata");
+  ok(/dmxCampoRotto\(el\) \? dmxLeggiCanali\("x"\) : dmxLeggiCanali\(el\.value\)/.test(h), "testo non numerico (value vuoto, badInput) = rifiuto, non «svuotato»");
+  ok(/dmxImposta\(it, \{ch:L\.vuoto \? null : L\.ch, m:null\}\)/.test(h) && !/isFinite\(n\)/.test(h), "si scrive solo un valore letto bene; niente più «fuori limite = null»");
+  /* il difetto: con 600 il vecchio gestore scriveva ch:null, e il salvataggio toglieva anche l'indirizzo */
+  const fari = dxScena(2, 8); A.save(); const prima = JSON.stringify(fari[0].dmx);
+  const r = C("600"); if (!r.err) { A.dmxImposta(fari[0], { ch: r.ch == null ? null : r.ch, m: null }); A.save(); }
+  eq(JSON.stringify(fari[0].dmx), prima, "dopo «600» canali e indirizzo sono quelli di prima"); eq(dxInd(fari[0]), "1.001");
+  dxReset();
+});
+t("Pezzetti · d) apparecchio con indirizzo a mano ma senza canali: sul foglio trattino e niente †, coerente con la nota «non ha un indirizzo»", () => {
+  const fari = dxScena(3, 8); A.save();
+  A.dmxImposta(fari[0], { u: 2, a: 101, fix: true }); A.save(); A.dmxImposta(fari[0], { ch: null }); A.save();
+  eq([fari[0].dmx.u, fari[0].dmx.a, fari[0].dmx.fix, A.dmxCanali(fari[0])], [2, 101, true, null], "scena: indirizzo a mano tenuto da parte, canali tolti");
+  const doc = docFintoPL(); eq(A.patchLuciPdf(doc), true);
+  const tx = doc.testi.map((r) => r.t), riga = (code) => { const r = doc.testi.find((x) => x.t === code); return doc.testi.filter((x) => x.p === r.p && x.y === r.y).map((x) => x.t); };
+  eq(riga("T1.1"), ["T1.1", "PAR / Wash", "—", "—", "—", "—"], "nessun indirizzo stampato");
+  ok(tx.some((x) => /^1 apparecchio senza canali: non ha un indirizzo \(T1\.1\)\.$/.test(x)), "la nota lo dice");
+  ok(!tx.some((x) => /†/.test(x)), "nessuna croce e nessuna nota della croce: " + tx.filter((x) => /†/.test(x)).join(" | "));
+  ok(!tx.some((x) => /^Universo 2/.test(x)), "e non conta in un universo");
+  A.dmxImposta(fari[0], { ch: 8 }); A.save();
+  const d2 = docFintoPL(); A.patchLuciPdf(d2); const r2 = d2.testi.find((x) => x.t === "T1.1");
+  eq(d2.testi.filter((x) => x.p === r2.p && x.y === r2.y).map((x) => x.t), ["T1.1", "PAR / Wash", "—", "8", "2.101 †", "2.108"], "rimessi i canali, l'indirizzo a mano torna, con la croce");
+  dxReset();
+});
+t("Pezzetti · e) «N canali su 512» conta i canali davvero occupati (unione degli intervalli), non la somma dei dichiarati", () => {
+  const fari = dxScena(3, 8); A.save();
+  eq(A.dmxPatch().universi.map((o) => [o.u, o.canali, o.n]), [[1, 24, 3]], "senza sovrapposizioni: la somma");
+  A.dmxImposta(fari[0], { u: 1, a: 300, fix: true }); A.dmxImposta(fari[1], { u: 1, a: 304, fix: true });
+  eq(A.dmxPatch().universi.map((o) => [o.u, o.canali, o.n]), [[1, 20, 3]], "300–307 e 304–311 sono 12 canali, non 16 (più gli 8 del terzo)");
+  A.dmxImposta(fari[1], { u: 1, a: 300, fix: true });
+  eq(A.dmxPatch().universi[0].canali, 16, "due gemelli sullo stesso indirizzo occupano 8 canali");
+  A.dmxImposta(fari[1], { u: 1, a: 509, fix: true });
+  eq(A.dmxPatch().universi[0].canali, 20, "chi esce dall'universo conta fino al 512: 509–512 sono 4");
+  ok(A.dmxPatch().universi.every((o) => o.canali <= A.DMX_CH), "mai più di 512");
+  const doc = docFintoPL(); A.patchLuciPdf(doc);
+  ok(doc.testi.some((r) => r.t === "Universo 1 · 20 canali su 512 · 3 apparecchi"), "il foglio stampa gli occupati: " + doc.testi.map((r) => r.t).filter((x) => /^Universo/.test(x)).join(" | "));
+  dxReset(); const tanti = dxScena(0, 0); for (let i = 0; i < 70; i++) A.dmxImposta(piazza("parluci", 20 + i * 15, 400), { u: 1, a: 1 + ((i * 8) % 505), ch: 8, fix: true });
+  ok(A.dmxPatch().universi[0].canali <= 512, "70 × 8 = 560 dichiarati sullo stesso universo: gli occupati restano entro 512 (" + A.dmxPatch().universi[0].canali + ")");
+  dxReset();
 });
 
 await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
