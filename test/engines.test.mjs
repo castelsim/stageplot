@@ -24897,9 +24897,10 @@ t("lo stato del rider si legge senza distinguere i colori", () => {
      dal verde legge «2 cose da guardare» e capisce lo stesso. È la regola che vale per ogni segnale
      di stato — il colore aggiunge, non sostituisce. */
   const fn = appjs.slice(appjs.indexOf("function renderStatoRider"), appjs.indexOf("function renderStatoRider") + 1800);
-  ok(/cose da sistemare/.test(fn) && /cose da guardare/.test(fn) && /Rider pronto/.test(fn),
+  const frase = appjs.slice(appjs.indexOf("function cosaMancaFrase"), appjs.indexOf("function cosaMancaBreve"));   /* C2 (26/11/2026): la frase è una sola, per la riga e per il menu del telefono */
+  ok(/cosaMancaFrase\(M\)/.test(fn) && /cose da sistemare/.test(frase) && /cose da guardare/.test(frase) && /Rider pronto/.test(frase),
      "i tre stati hanno tre testi diversi");
-  ok(/M\.rossi===1 \? "1 cosa da sistemare"/.test(fn), "e il singolare è al singolare");
+  ok(/M\.rossi===1 \? "1 cosa da sistemare"/.test(frase) && /quante===1 \? "1 cosa da guardare"/.test(frase), "e il singolare è al singolare");
   ok(/\.sr-ok \.sr-pallino\{background/.test(stylesCss) && /\.sr-warn \.sr-pallino\{background/.test(stylesCss),
      "il colore c'è, ma è in aggiunta al testo");
   /* Ed è un bottone vero, raggiungibile da tastiera come tutto il resto. */
@@ -34367,7 +34368,7 @@ t("orientamento: «È giusto così» sopravvive a salvataggio e ricarica del pro
 t("orientamento: il pannello Audit e la pillola «cose da guardare» lo mostrano (act3 e conteggio)", () => {
   const js = readFileSync(join(root, "app.js"), "utf8");
   ok(/azioni:\[x\.act, x\.act2, x\.act3\]\.filter/.test(js), "il pannello disegna anche la terza azione (dal 26/11 passano da cosaManca)");
-  ok(/x\.rule==="orientamento"; \}\)\.length;/.test(js), "la pillola conta la domanda");
+  ok(/x\.rule==="orientamento"; \}\)\.length;/.test(js.slice(js.indexOf("function cosaMancaFrase"), js.indexOf("function cosaMancaBreve"))), "la pillola conta la domanda");
 });
 
 /* ---- STATO DEL DOCUMENTO: «Provvisorio» / «Definitivo» (15/11/2026, S22 parte 1) ---- */
@@ -42809,6 +42810,36 @@ t("Cosa manca · il verdetto a parole: famiglie da sistemare e da guardare, mai 
   scenaCaduta("auto"); ok(/Elettrico[^·]* da sistemare/.test(A.cosaManca().verdetto), "sul progetto: " + A.cosaManca().verdetto);
   reset();
 });
+t("Cosa manca · la frase breve (riga di stato e menu del telefono): tre stati, singolare e plurale", () => {
+  const F = (rossi, gialli, orient) => A.cosaMancaFrase({ rossi, gialli, voci: orient ? [{ rule: "orientamento" }] : [] });
+  eq([F(1, 5), F(3, 0), F(0, 1), F(0, 4), F(0, 0), F(0, 0, true)], ["1 cosa da sistemare", "3 cose da sistemare", "1 cosa da guardare", "4 cose da guardare", "Rider pronto", "1 cosa da guardare"]);
+  reset(); eq(A.cosaMancaBreve(), "", "sul palco vuoto il menu non dice niente");
+  scenaCaduta("auto"); const M = A.cosaManca();
+  eq(M.audit.errs, 0, "scena: per l'audit nessun errore"); eq(A.cosaMancaBreve(), M.rossi + " da sistemare", "ma con la caduta di tensione oltre il 4 % il menu dice che c'è da sistemare");
+  eq(A.cosaMancaFrase(M), M.rossi === 1 ? "1 cosa da sistemare" : M.rossi + " cose da sistemare", "e la riga di stato pure");
+  reset();
+});
+t("Cosa manca · caduta di tensione: alimentazione e dorsale non dicono due volte lo stesso guasto (ha la riga solo la tratta da sistemare)", () => {
+  const R = scenaCaduta("auto"), f = R.feeds[0], u = R.uplinks[0], cad = A.cosaManca().voci.filter((v) => v.fonte === "caduta");
+  ok(f.drop.lvl === "err" && f.drop.colpa && !f.drop.colpa.self && f.drop.colpa.pct > f.drop.pct + 0.05, "scena: l'alimentazione è rossa solo perché a valle c'è la dorsale lunga");
+  eq(cad.length, 1, "una riga sola: " + cad.map((k) => k.msg).join(" | ")); ok(/dalla dorsale/.test(cad[0].msg), "quella della dorsale: " + cad[0].msg);
+  eq(R.loadLinks[0].drop.colpa.n, "la dorsale " + u.from.letter + "-" + u.to.letter, "il nome della tratta colpevole è quello che il raccoglitore si aspetta da elecDropAnnota");
+  /* se il nome non combaciasse più, niente va perso: il carico torna ad avere la sua riga */
+  const giro = A.elecResult(); giro.loadLinks[0].drop.colpa.n = "una tratta con un altro nome";
+  const cad2 = A.cosaMancaCaduta(giro); ok(cad2.some((v) => /sulla linea di/.test(v.msg)), "rete di sicurezza: " + cad2.map((k) => k.msg).join(" | "));
+  A.elecResult(true); reset();
+});
+t("Cosa manca · sul telefono si apre davvero: voce nel menu, cassetto con la sola lista, chiusura dalla maniglia", () => {
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/data-act="manca"><span class="mrow-t">Cosa manca nel progetto<\/span><span class="mrow-v" id="mMenuManca">/.test(html), "la voce del menu, col conteggio accanto");
+  ok(/if\(a==="manca"\)\{ if\(!auditActive\) toggleAuditView\(\); return; \}/.test(appjs) && /txt\("mMenuManca", cosaMancaBreve\(\)\);/.test(appjs), "apre il pannello e dice a che punto è");
+  ok(/classList\.toggle\("cm-open", isMobile\(\) && typeof auditActive!=="undefined" && !!auditActive && n===0\)/.test(appjs), "il cassetto si apre col pannello (e lascia il posto all'elemento selezionato)");
+  ok(/contains\("cm-open"\)\)\{ auditActive=false; render\(\); \}/.test(appjs), "la maniglia del cassetto lo chiude");
+  const mob = stylesCss.slice(stylesCss.indexOf("@media (max-width:880px){"));
+  ok(/body\.tech-open #props,body\.cm-open #props,/.test(mob) && /body\.tech-open main,body\.cm-open main,/.test(mob), "«cm-open» è nell'elenco che apre il cassetto e alza il palco");
+  ok(/body\.cm-open #noSel>\*:not\(#auditSec\)[^{]*\{display:none !important\}/.test(mob), "nel cassetto resta solo «Cosa manca?»");
+  ok(/body\.cm-open #auditTrash\{min-width:44px;min-height:44px/.test(mob), "la ✕ è grande quanto un dito");
+});
 t("Cosa manca · se un motore esplode il pannello resta in piedi con gli altri rilievi", () => {
   cmScena(); const pe = A.controlliPrimaDelExport, er = A.elecResult;
   A.controlliPrimaDelExport = () => { throw new Error("x"); };
@@ -42832,7 +42863,7 @@ t("Cosa manca · il pannello: un nome solo, la lista unica, le informazioni chiu
 t("Cosa manca · la riga di stato conta ciò che il pannello mostra (anche la caduta di tensione), e l'Esporta ci rimanda col suo nome", () => {
   const fn = appjs.slice(appjs.indexOf("function renderStatoRider"), appjs.indexOf("function renderStatoRider") + 1900);
   ok(/var stato = M\.rossi>0 \? "err" : \(quante>0 \? "warn" : "ok"\);/.test(fn), "rosso se c'è qualcosa da sistemare, giallo se c'è da guardare");
-  ok(/var quante=M\.gialli\+/.test(fn), "il giallo conta tutte le voci gialle, da qualunque fonte");
+  ok(/var quante=M\.gialli\+/.test(fn) && /var quante=M\.gialli\+/.test(appjs.slice(appjs.indexOf("function cosaMancaFrase"), appjs.indexOf("function cosaMancaBreve"))), "il giallo conta tutte le voci gialle, da qualunque fonte");
   ok(/cancelText:"Apri «Cosa manca\?»"/.test(appjs) && !/Vai all'Audit/.test(appjs), "la finestra degli errori critici usa il nome nuovo");
   ok(/_A\.errs>0/.test(appjs.slice(appjs.indexOf('title:(_A.errs>1 ? "Ci sono "') - 400, appjs.indexOf('title:(_A.errs>1 ? "Ci sono "'))), "e si ferma ancora solo sugli errori dell'audit: la caduta di tensione non blocca l'export");
 });

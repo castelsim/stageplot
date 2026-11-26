@@ -7193,6 +7193,7 @@ window.setPeekName=setPeekName;
     document.body.classList.remove("props-expanded");
     /* drawer aperto da una lista tecnica (tech-open): chiudere = spegnere le viste, la classe si risincronizza al render */
     try{ if(document.body.classList.contains("tech-open")){ patchActive=false; monActive=false; loadActive=false; render(); } }catch(_e){}
+    try{ if(document.body.classList.contains("cm-open")){ auditActive=false; render(); } }catch(_e){}   /* «Cosa manca?» (C2): stessa porta */
   });
 })();
 (function(){
@@ -20556,17 +20557,23 @@ function cosaMancaCaduta(R){
     if(key && state.elec && state.elec.on && state.elec.visible!==false) v.azioni.push({label:"Mostra la linea", run:function(){ cosaMancaMostraLinea(key); }});
     out.push(v);
   }
-  var monte=0;
-  (R.feeds||[]).forEach(function(f){ if(!fuori(f.drop)) return; monte++;
-    var q="l'alimentazione del quadro "+(f.distro.letter||"?");
-    voce(f.key, Math.abs(tot(f.drop)-f.drop.pct)>0.05 ? "sui carichi che passano dal"+q : "sul"+q, f.drop); });
-  (R.uplinks||[]).forEach(function(u){ if(!fuori(u.drop)) return; monte++;
-    var q="la dorsale "+(u.from.letter||"?")+" → "+((u.to&&u.to.letter)||"?");
-    voce(u.key, Math.abs(tot(u.drop)-u.drop.pct)>0.05 ? "sui carichi che passano dal"+q : "sul"+q, u.drop); });
+  /* di chi è la colpa: stessa regola (e stesso margine) della frase «Cosa fare» di C1. Un carico oltre soglia per colpa di una tratta a monte
+     nomina quella tratta; la tratta a monte ha la sua riga se è la colpevole di qualche carico, o se è lei la peggiore del suo percorso. */
+  function altrui(d){ var c=d.colpa; return !!(c && !c.self && c.pct>d.pct+0.05); }
+  var colpevoli={};
+  (R.loadLinks||[]).forEach(function(l){ if(fuori(l.drop) && altrui(l.drop)) colpevoli[l.drop.colpa.n]=1; });
+  var detti={};
+  function monte(key, nomeColpa, q, d){
+    if(!fuori(d) || !(colpevoli[nomeColpa] || !altrui(d))) return;
+    detti[nomeColpa]=1;
+    voce(key, Math.abs(tot(d)-d.pct)>0.05 ? "sui carichi che passano dal"+q : "sul"+q, d);
+  }
+  /* i nomi sono quelli che `elecDropAnnota` scrive in `colpa.n` */
+  (R.feeds||[]).forEach(function(f){ var L=f.distro.letter||"?"; monte(f.key, "l'alimentazione del quadro "+L, "l'alimentazione del quadro "+L, f.drop); });
+  (R.uplinks||[]).forEach(function(u){ var a=u.from.letter||"?", b=(u.to&&u.to.letter)||"?"; monte(u.key, "la dorsale "+a+"-"+b, "la dorsale "+a+" → "+b, u.drop); });
   var carichi=(R.loadLinks||[]).filter(function(l){
     if(!fuori(l.drop)) return false;
-    var c=l.drop.colpa;   /* la tratta da sistemare è a monte, e ha già la sua riga */
-    return !(monte && c && !c.self && c.pct>l.drop.pct+0.05);
+    return !(altrui(l.drop) && detti[l.drop.colpa.n]);   /* la tratta da sistemare è a monte, e ha già la sua riga; se non l'avesse, il carico si dice comunque */
   }).sort(function(a,b){ return tot(b.drop)-tot(a.drop); });
   carichi.slice(0, COSA_MANCA_MAX_LINEE).forEach(function(l){ voce(l.key, "sulla linea di «"+loadName(l.load.it)+"»", l.drop); });
   var resto=carichi.slice(COSA_MANCA_MAX_LINEE);
@@ -20583,6 +20590,19 @@ function cosaMancaMostraLinea(key){
   selElec=key; selCab=null; selCabSet={}; selMond=null;
   if(typeof clearSelection==="function") clearSelection();
   render(); if(typeof renderProps==="function") renderProps();
+}
+/* la frase breve della riga di stato e del menu del telefono: tre stati, tre testi (si capisce anche senza il colore del pallino) */
+function cosaMancaFrase(M){
+  var quante=M.gialli+M.voci.filter(function(x){ return x.rule==="orientamento"; }).length;
+  return M.rossi>0 ? (M.rossi===1 ? "1 cosa da sistemare" : M.rossi+" cose da sistemare")
+    : (quante>0 ? (quante===1 ? "1 cosa da guardare" : quante+" cose da guardare")
+    : (eventoConferenza() ? "Scheda pronta" : "Rider pronto"));   /* revisione 25/09: in conferenza il documento è la scheda tecnica */
+}
+/* la stessa cosa in due parole, per la riga del menu del telefono (che è stretta) */
+function cosaMancaBreve(){
+  if(!(state.items||[]).length) return "";
+  try{ var M=cosaManca(), quante=M.gialli+M.voci.filter(function(x){ return x.rule==="orientamento"; }).length;
+    return M.rossi>0 ? M.rossi+" da sistemare" : (quante>0 ? quante+" da guardare" : "a posto"); }catch(_e){ return ""; }
 }
 function cosaMancaFamiglia(fam){ return (fam==="Rider" && eventoConferenza()) ? "Scheda" : (fam||"Generale"); }
 /* «Elettrico e Luci da sistemare · Audio da guardare»: mai «tutto ok» se manca qualcosa; una famiglia col rosso non si ripete nel giallo */
@@ -22005,6 +22025,9 @@ function renderProps(){
   /* mobile: le liste tecniche (ingressi/monitor/carichi) vivono nel drawer — visibile via body.tech-open,
      sincronizzata qui a ogni render (ciclo 4: prima le viste si attivavano ma il drawer restava chiuso) */
   try{ document.body.classList.toggle("tech-open", isMobile() && !!(patchActive||monActive||loadActive)); }catch(_e){}
+  /* «Cosa manca?» sul telefono (C2, 26/11/2026): prima si accendeva ma il cassetto restava chiuso, quindi non si vedeva mai. Con un elemento
+     selezionato il cassetto torna suo (si è appena premuto «Mostra»); tolta la selezione, la lista ricompare. */
+  try{ document.body.classList.toggle("cm-open", isMobile() && typeof auditActive!=="undefined" && !!auditActive && n===0); }catch(_e){}
   if(n>1){
     grp.hidden=false; document.getElementById("selProps").hidden=true; document.getElementById("noSel").hidden=true;
     var its=selItems();
@@ -27310,6 +27333,7 @@ function renderMobileList(){
     txt("mMenuData", dataEventoBreve() || "da scrivere");
     txt("mMenuScaletta", scalettaRigaBreve() || "da scrivere");
     txt("mMenuCambi", cambiRigaBreve() || "nessuno");
+    txt("mMenuManca", cosaMancaBreve());
     txt("mMenuStage", uTxt(misurePalco()));
     var nf=FUNZIONI.filter(function(f){ return funzOn(f.id); }).length;
     txt("mMenuFunz", nf===0 ? "spente" : nf===FUNZIONI.length ? "tutte accese" : (nf+" di "+FUNZIONI.length));
@@ -27340,6 +27364,7 @@ function renderMobileList(){
       if(a==="evento"){ toggleEvento(); return; }
       if(a==="scaletta"){ toggleScaletta(); return; }
       if(a==="cambi"){ toggleCambi(); return; }
+      if(a==="manca"){ if(!auditActive) toggleAuditView(); return; }   /* C2: «Cosa manca?» dal telefono */
       if(a==="chan"){ toggleChan(); return; }
       if(a==="venue"){ toggleVenueEdit(); return; }
       if(a==="frame"){ toggleFrameEdit(); return; }
@@ -33551,9 +33576,7 @@ function renderStatoRider(rows){
   var quante=M.gialli+M.voci.filter(function(x){ return x.rule==="orientamento"; }).length;   /* la domanda sull'orientamento (15/11) si vede anche qui, senza aprire niente */
   var stato = M.rossi>0 ? "err" : (quante>0 ? "warn" : "ok");
   b.classList.add("sr-"+stato);
-  var testo = M.rossi>0 ? (M.rossi===1 ? "1 cosa da sistemare" : M.rossi+" cose da sistemare")
-    : (quante>0 ? (quante===1 ? "1 cosa da guardare" : quante+" cose da guardare")
-    : (eventoConferenza() ? "Scheda pronta" : "Rider pronto"));   /* revisione 25/09: in conferenza il documento è la scheda tecnica */
+  var testo = cosaMancaFrase(M);
   b.innerHTML='<span class="sr-pallino" aria-hidden="true"></span><span class="sr-txt">'+esc(testo)+'</span>'+
               '<span class="sr-score">'+A.score+'</span>';
   b.title = "Apri «Cosa manca?»: ogni voce dice perché, e molte si sistemano con un clic";
@@ -36934,9 +36957,11 @@ function renderAuditPanel(){
   var q=document.getElementById("auditQuante"); if(q) q.textContent=(M.rossi+M.gialli) ? " · "+(M.rossi+M.gialli) : "";
   var conta=[]; if(M.rossi) conta.push(M.rossi+" da sistemare"); if(M.gialli) conta.push(M.gialli+" da guardare");
   if(M.note) conta.push(M.note+(M.note===1?" nota":" note"));
-  var colV = M.rossi ? "var(--danger)" : (M.gialli ? "var(--warning)" : "var(--accent-strong)");
+  /* ogni metà del verdetto ha il suo colore: «da sistemare» rosso, «da guardare» ambra (e lo dicono anche le parole) */
+  var verd=M.verdetto ? M.verdetto.split(" · ").map(function(t){ return '<span style="color:'+(/da sistemare$/.test(t)?"var(--danger)":"var(--warning)")+'">'+esc(t)+'</span>'; }).join(" · ")
+                      : '<span style="color:var(--accent-strong)">Niente da sistemare</span>';
   document.getElementById("auditScore").innerHTML = (M.verdetto || conta.length)
-    ? '<div class="cm-verdetto" style="color:'+colV+'">'+esc(M.verdetto || "Niente da sistemare")+'</div>'+(conta.length?'<div class="cm-conta">'+esc(conta.join(" · "))+'</div>':'')
+    ? '<div class="cm-verdetto">'+verd+'</div>'+(conta.length?'<div class="cm-conta">'+esc(conta.join(" · "))+'</div>':'')
     : '';
   document.getElementById("auditMetrics").innerHTML = '<span title="Il voto di prontezza del documento: scende con gli errori e gli avvisi dell\'audit">Voto '+A.score+'/100</span> · '+A.audioSrc+' ingressi · '+A.monitors+' mix monitor · '+(A.totW/1000).toFixed(1).replace(".",",")+' kW · cavo ~'+A.totCableM.toFixed(0)+' m'
     +(A.weightKg>0?' · ⚖ '+fmtKg(A.weightKg):'')+(A.rackU>0?' · ▭ '+A.rackU+' U':'');
@@ -36955,8 +36980,8 @@ function renderAuditPanel(){
     row.innerHTML='<div class="audit-find-txt"><span class="audit-lv" style="color:'+c+'">● '+lv+'</span> <span class="cm-fam">'+esc(cosaMancaFamiglia(x.fam))+'</span> '+esc(x.msg)+(x.perche?'<div class="audit-hint">↳ '+esc(x.perche)+'</div>':'')+'</div>';
     var azioni=x.azioni||[];
     if(azioni.length){
-      var hostB=row;
-      if(azioni.length>1){ hostB=document.createElement("div"); hostB.className="audit-acts"; row.appendChild(hostB); }
+      /* i rimedi stanno SOTTO il testo, in riga: nella colonna stretta (e sul telefono) accanto al testo lo riducevano a tre parole per riga */
+      var hostB=document.createElement("div"); hostB.className="audit-acts"; row.appendChild(hostB);
       azioni.forEach(function(a){
         var b=document.createElement("button"); b.type="button"; b.className="audit-fix"; b.textContent=a.label;
         b.addEventListener("click", function(){ a.run(); });   /* la fix persiste e ridisegna da sé */

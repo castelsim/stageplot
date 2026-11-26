@@ -1193,7 +1193,10 @@
     font:inherit;font-size:12px;color:var(--text-2);cursor:pointer}
   .cm-altre:hover{color:var(--text)}
   .cm-altre:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
-  @media (pointer:coarse){ .cm-altre{min-height:44px} .audit-fix{min-height:32px;padding:6px 12px} }
+  #auditFindings .audit-find{flex-direction:column;gap:5px;margin-bottom:10px}   /* i rimedi sotto il testo: nella colonna stretta accanto lo strozzavano */
+  #auditFindings .audit-acts{flex-direction:row;flex-wrap:wrap;gap:6px;align-self:flex-start;margin-left:14px}
+  #auditFindings .audit-acts .audit-fix{align-self:center}
+  @media (pointer:coarse){ .cm-altre{min-height:44px} #auditFindings .audit-fix{min-height:36px;padding:6px 14px;font-size:13px} }
   .cabfld{display:block;font-size:11px;color:var(--text-2);margin-top:8px}
   .cabfld select,.cabfld input{width:100%;margin-top:2px;padding:5px 7px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--n-800)}
   body.dark .cabfld select,body.dark .cabfld input{background:#141a1d;border-color:#314046;color:#e5e7eb}
@@ -2130,8 +2133,14 @@ svg.names-hidden .orc-name{display:none}
        da sempre, ma i loro stati non erano nell'elenco: si premeva la voce, il palco sbiadiva
        (`body.area-edit .item{opacity:.4}`) e non compariva NIENTE. Due funzioni raggiungibili e
        morte. Chi ne aggiunge una terza deve passare da qui. */
-    body.stage-edit #props,body.evento-edit #props,body.scaletta-edit #props,body.cambi-edit #props,body.chan-edit #props,body.tech-open #props,body.area-edit #props,body.vers-edit #props,body.m-has-sel.props-expanded #props{display:block}
-    body.stage-edit main,body.evento-edit main,body.scaletta-edit main,body.cambi-edit main,body.chan-edit main,body.tech-open main,body.area-edit main,body.vers-edit main,body.m-has-sel.props-expanded main{bottom:calc(46vh + 53px + env(safe-area-inset-bottom,0px))}
+    body.stage-edit #props,body.evento-edit #props,body.scaletta-edit #props,body.cambi-edit #props,body.chan-edit #props,body.tech-open #props,body.cm-open #props,body.area-edit #props,body.vers-edit #props,body.m-has-sel.props-expanded #props{display:block}
+    body.stage-edit main,body.evento-edit main,body.scaletta-edit main,body.cambi-edit main,body.chan-edit main,body.tech-open main,body.cm-open main,body.area-edit main,body.vers-edit main,body.m-has-sel.props-expanded main{bottom:calc(46vh + 53px + env(safe-area-inset-bottom,0px))}
+    /* «Cosa manca?» (C2, 26/11/2026): nel cassetto resta solo la sua lista, con la ✕ grande quanto un dito; testo a 14 px, da leggere senza zoom */
+    body.cm-open #noSel>*:not(#auditSec),body.cm-open #selProps,body.cm-open #groupProps,body.cm-open #eventoSec{display:none !important}
+    body.cm-open #auditSec{margin-top:0 !important;border-top:0 !important;padding-top:0 !important}
+    body.cm-open #auditTrash{min-width:44px;min-height:44px;justify-content:center}
+    body.cm-open #auditFindings .audit-find{font-size:14px}
+    body.cm-open #auditPdf,body.cm-open #auditMetrics{display:none}   /* nel cassetto resta la lista: voto, misure e report sono sul computer */
     /* In «Punti di ripristino» resta solo la lista delle versioni, come fa già «Area stampa». */
     body.vers-edit #selProps,body.vers-edit #noSel,body.vers-edit #groupProps,body.vers-edit #eventoSec{display:none !important}
     /* LA TESTA DEL FOGLIO DELL'ELEMENTO (13/09): nome e misure, sotto quattro azioni scritte da 52 px.
