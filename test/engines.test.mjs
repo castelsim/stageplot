@@ -23695,14 +23695,17 @@ t("quello che parte è ridotto e compresso, e l'utente vede quanto pesa", () => 
   ok(/count\.textContent="0";\s*\n\s*shotVuoto\(\)/.test(appjs), "dopo l'invio la schermata si svuota");
 });
 
-/* ===== «COSA MANCA?» VIVE NELLA COLONNA (17/08) =========================================== */
+/* ===== IL BOX DELLE SEGNALAZIONI VIVE NELLA COLONNA (17/08; dal 26/11/2026 si chiama «Scrivici: bug, idee») =========================================== */
 t("il box del feedback sta dentro la colonna, e la testata è il suo interruttore", () => {
   /* Prima galleggiava sopra il contenuto: 326 px di larghezza contro i 310 della colonna, cioè per
      forza fuori. Ora è una card in fondo alle Liste (variante scelta da Simone). */
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   const props = html.slice(html.indexOf('<aside id="props"'), html.indexOf("</aside>", html.indexOf('<aside id="props"')));
   ok(/id="fbBox"/.test(props), "il box è dentro la colonna di destra");
-  ok(/Cosa manca\? Bug\? Idea\?/.test(props), "e la testata fa le tre domande");
+  ok(/<strong>Scrivici: bug, idee<\/strong>/.test(props), "e la testata dice a cosa serve");
+  /* decisione di Simone del 26/11/2026: «Cosa manca?» è SOLO il pannello dei controlli (#auditSec); il box delle segnalazioni non lo usa più, da nessuna parte */
+  eq(/Cosa manca\? (Bug|Scrivici)/.test(html), false, "il box delle segnalazioni non si chiama più «Cosa manca?»");
+  ok(/data-act="feedback"><span class="mrow-t">Scrivici: bug, idee<\/span>/.test(html) && /aria-label="Scrivici: bug, idee"/.test(html), "stesso nome nel menu del telefono e per chi usa lo screen reader");
   ok(/id="fbHead"/.test(props) && /aria-expanded/.test(props), "la testata è un comando dichiarato");
   eq(/id="fbTrigger"/.test(html), false, "il pulsante galleggiante non serve più");
   ok(/testa\.addEventListener\("click"/.test(appjs), "e apre e chiude");

@@ -6145,7 +6145,7 @@ function rigaProgettoDopoPdf(){
   var x=document.getElementById("pdfRigaProgettoX");
   if(x) x.addEventListener("click", function(){ rigaProgettoNascondi(); var go=document.getElementById("pdfGo"); if(go) go.focus(); });
 })();
-/* DOMANDA DI PARERE NEL BOX «COSA MANCA?» (15/11/2026, P5). Dopo il primo PDF esportato su questo dispositivo
+/* DOMANDA DI PARERE NEL BOX DELLE SEGNALAZIONI («Scrivici: bug, idee» dal 26/11/2026; prima «Cosa manca?») (15/11/2026, P5). Dopo il primo PDF esportato su questo dispositivo
    il box, quando l'utente lo apre da sé, ha in cima una domanda facoltativa: a che lavoro è servito (concerto,
    evento, prova, altro). Un tocco; il tipo va in testa al messaggio, senza campi nuovi sul server. Mai un popup,
    mai su documenti altrui. Stato in localStorage PARERE_KEY: «attivo» (dopo il primo PDF), «fatto» (risposto o

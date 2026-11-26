@@ -1,4 +1,4 @@
-/* Biglietteria — «Un problema? Scrivici» / «Cosa manca? Bug? Idea?» (07/10/2026, richiesta approvata da Simone).
+/* Biglietteria — «Un problema? Scrivici» / «Scrivici: bug, idee» (07/10/2026, richiesta approvata da Simone).
    La stessa casella delle segnalazioni dell'editor, su TUTTE le pagine della biglietteria: area dell'organizzatore
    (gestione/), pagina dell'organizzatore e scheda dello spettacolo (index.html, anche ?e= e la disdetta ?c=),
    «Le mie prenotazioni» (mie/). Manda alla stessa Edge Function dell'editor (submit-feedback), senza toccare il server.
@@ -77,7 +77,7 @@
   function testi(pagina) {
     var area = pagina === "gestione";
     return {
-      titolo: area ? "Cosa manca? Bug? Idea?" : "Un problema? Scrivici",
+      titolo: area ? "Scrivici: bug, idee" : "Un problema? Scrivici",
       segnaposto: area ? "Scrivi cosa manca, cosa non funziona o cosa vorresti migliorare…"
         : "Scrivi cosa non funziona o cosa non si capisce…",
       tipi: [["bug", "Bug"], ["missing", "Manca qualcosa"], ["idea", "Idea"]],

@@ -247,7 +247,7 @@
 </div>
 <div class="hdrmenu" id="helpMenu" hidden role="menu">
   <button class="mi" data-help="learn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>Cos'è uno stage plot — guida</button>
-  <button class="mi" data-help="feedback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></svg>Cosa manca? Scrivici</button>
+  <button class="mi" data-help="feedback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></svg>Scrivici: bug, idee</button>
   <div id="helpGuide" class="help-guide" role="group" aria-label="Guide per questo punto"></div>
   <button class="mi mi-tema" data-help="theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>Tema chiaro / scuro</button>
   <div style="border-top:1px solid var(--border);margin-top:4px;padding:9px 14px 5px;font-size:11px;color:var(--text-3)">Progettato e realizzato da <a href="https://simonecastellan.com" target="_blank" rel="noopener" style="color:var(--text-2);text-decoration:none">Simone Castellan</a></div>
@@ -1747,12 +1747,12 @@
   <datalist id="outSrcList"></datalist>
     <datalist id="standList"></datalist>
 
-<div id="fbBox" role="dialog" aria-label="Cosa manca?">
+<div id="fbBox" role="dialog" aria-label="Scrivici: bug, idee">
   <!-- La testata È il comando: un clic apre e chiude. Nella colonna il box non ha bisogno di un
        pulsante che lo evochi — sta lì, e si vede sempre dov'è. -->
   <div class="fb-testata">
     <button type="button" class="fb-head" id="fbHead" aria-expanded="false" aria-controls="fbBody">
-      <strong>Cosa manca? Bug? Idea?</strong><span class="fb-freccia" aria-hidden="true">▾</span>
+      <strong>Scrivici: bug, idee</strong><span class="fb-freccia" aria-hidden="true">▾</span>
     </button>
     <!-- La ✕ è per il telefono, dove il box NON è una fisarmonica nella colonna ma il pannello
          ancorato in basso di sempre: là si apre dal menu «?» e si chiude da qui, com'era. -->
@@ -1902,7 +1902,7 @@
     <button class="mrow" data-act="funzioni"><span class="mrow-t">Funzioni avanzate<small class="mrow-s">Connessioni e liste tecniche (input, cavi, corrente): solo sul computer</small></span><span class="mrow-v" id="mMenuFunz"></span></button>
     <button class="mrow" data-act="theme" role="switch" aria-checked="false" id="mThemeRow"><span class="mrow-t">Tema scuro</span><span class="mswitch" aria-hidden="true"></span></button>
     <button class="mrow" data-act="guida"><span class="mrow-t">Guida: cos'è uno stage plot</span></button>
-    <button class="mrow" data-act="feedback"><span class="mrow-t">Cosa manca? Scrivici</span></button>
+    <button class="mrow" data-act="feedback"><span class="mrow-t">Scrivici: bug, idee</span></button>
     <button class="mrow" data-act="account" id="accountBtnM"><span class="mrow-t">Accedi</span><span class="mrow-v">per salvare online</span></button>
   </div>
   <!-- «Consulenza tecnica →» tolta col tasto in header (10/09): stessa decisione, stesso ritorno. -->
@@ -8316,7 +8316,7 @@ function rigaProgettoDopoPdf(){
   var x=document.getElementById("pdfRigaProgettoX");
   if(x) x.addEventListener("click", function(){ rigaProgettoNascondi(); var go=document.getElementById("pdfGo"); if(go) go.focus(); });
 })();
-/* DOMANDA DI PARERE NEL BOX «COSA MANCA?» (15/11/2026, P5). Dopo il primo PDF esportato su questo dispositivo
+/* DOMANDA DI PARERE NEL BOX DELLE SEGNALAZIONI («Scrivici: bug, idee» dal 26/11/2026; prima «Cosa manca?») (15/11/2026, P5). Dopo il primo PDF esportato su questo dispositivo
    il box, quando l'utente lo apre da sé, ha in cima una domanda facoltativa: a che lavoro è servito (concerto,
    evento, prova, altro). Un tocco; il tipo va in testa al messaggio, senza campi nuovi sul server. Mai un popup,
    mai su documenti altrui. Stato in localStorage PARERE_KEY: «attivo» (dopo il primo PDF), «fatto» (risposto o
