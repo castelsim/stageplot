@@ -7971,7 +7971,7 @@ function dmxPatch(){
     return a+ch-1<=DMX_CH ? a : 0;
   }
   dmxApparecchi().forEach(function(x){
-    var it=x.it, m=dmxModo(it), r={it:it, code:x.code, nome:dmxNome(it), modo:m ? m[1] : "", ch:dmxCanali(it), u:null, a:null, fine:null, fix:false};
+    var it=x.it, m=dmxModo(it) || (dmxModi(it).length===1 ? dmxModi(it)[0] : null), r={it:it, code:x.code, nome:dmxNome(it), modo:m ? m[1] : "", ch:dmxCanali(it), u:null, a:null, fine:null, fix:false};
     if(dmxSenza(it)) out.senzaDmx.push(r); else out.righe.push(r);
   });
   function salvato(r){ var d=dmxDati(r.it); return (d && d.u>=1 && d.a>=1) ? d : null; }
@@ -8074,7 +8074,7 @@ function patchLuciPdf(doc){
   var P=dmxPatch(); if(!P.on || !(P.righe.length+P.senzaDmx.length)) return false;
   var en=docEn(), L=function(it,e){ return en ? e : it; };
   var M=16, R=194, FONDO=272, y, croce=false;   /* stessi margini e stesso fondo del «programma luci»: sotto stanno «1 di N · vN · data» */
-  var cN=M, cA=M+17, cM=M+78, cC=M+128, cI=M+150, cF=R;
+  var cN=M, cA=M+17, cM=M+74, cC=M+124, cI=M+134, cF=R;
   var COL="#db2777";   /* il colore della «Lista luci» */
   doc.addPage("a4","portrait");
   pdfTestata(doc, COL, "STAGE PLOT — "+L("Patch luci (DMX)","Lighting patch (DMX)"), docTesto(dataDocumento()), M, 210);
@@ -8116,7 +8116,7 @@ function patchLuciPdf(doc){
   if(P.conflitti.length) note.push(L("Attenzione: ci sono indirizzi sovrapposti o fuori dall'universo (vedi «Cosa manca?»).","Warning: some addresses overlap or exceed the universe."));
   if(P.senzaCanali.length) note.push(P.senzaCanali.length+" "+L(P.senzaCanali.length===1?"apparecchio senza canali: non ha un indirizzo":"apparecchi senza canali: non hanno un indirizzo", P.senzaCanali.length===1?"fixture without channels: no address":"fixtures without channels: no address")+" ("+P.senzaCanali.map(function(r){ return r.code; }).join(", ")+").");
   if(P.senzaDmx.length) note.push(L("Senza DMX","Without DMX")+": "+P.senzaDmx.length+" ("+P.senzaDmx.map(function(r){ return r.code; }).join(", ")+").");
-  note.push(L("Promemoria: una linea DMX regge "+DMX_LINEA_MAX+" apparecchi; terminatore da 120 Ω sull'ultimo; cavo DMX da 110-120 Ω, non microfonico.","Reminder: one DMX line carries "+DMX_LINEA_MAX+" fixtures; 120 Ω terminator on the last one; 110-120 Ω DMX cable, not microphone cable."));
+  note.push(L("Promemoria: una linea DMX regge "+DMX_LINEA_MAX+" apparecchi; terminatore da 120 ohm sull'ultimo; cavo DMX da 110-120 ohm, non microfonico.","Reminder: one DMX line carries "+DMX_LINEA_MAX+" fixtures; 120 ohm terminator on the last one; 110-120 ohm DMX cable, not microphone cable."));   /* «ohm» per esteso: il carattere Ω non è nel font standard del PDF (usciva «?») */
   y+=3; doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#555555");
   note.forEach(function(t){ doc.splitTextToSize(t, R-M).forEach(function(riga){ if(y>FONDO){ nuova(); doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#555555"); } doc.text(riga, M, y); y+=4; }); });
   return true;
@@ -24463,10 +24463,13 @@ function dmxRenderPannello(it){
   var altro=!m && (d.ch!=null || dmxAltroSel===it.id), scelta=!dim && !senza && L.length>1;
   g("pDxModoWrap").style.display=scelta?"block":"none";
   if(scelta){
-    var h='<option value="">Scegli la modalità…</option>';
-    L.forEach(function(x){ h+='<option value="'+esc(x[0])+'"'+(m && m[0]===x[0] ? " selected" : "")+'>'+esc(x[1])+" — "+x[2]+(x[2]===1?" canale":" canali")+'</option>'; });
-    h+='<option value="__altro"'+(altro?" selected":"")+'>Altro: scrivo i canali</option>';
-    g("pDxModo").innerHTML=h;
+    var h='<option value="">Scegli la modalità…</option>', ms=g("pDxModo");
+    L.forEach(function(x){ h+='<option value="'+esc(x[0])+'">'+esc(x[1])+" — "+x[2]+(x[2]===1?" canale":" canali")+'</option>'; });
+    h+='<option value="__altro">Altro: scrivo i canali</option>';
+    /* l'elenco si riscrive solo se cambia (un altro modello): riscriverlo a ogni disegno chiuderebbe la tendina a chi l'ha appena aperta
+       uscendo dal campo «Canali» (visto nel browser: la scelta fatta subito dopo andava persa) */
+    if(ms.__dxElenco!==h){ ms.innerHTML=h; ms.__dxElenco=h; }
+    ms.value=m ? m[0] : (altro ? "__altro" : "");
   }
   g("pDxChWrap").style.display=(!dim && !senza && (!L.length || (scelta && altro)))?"block":"none";
   var ci=g("pDxCh"); if(document.activeElement!==ci) ci.value=(d.ch!=null && !m) ? d.ch : "";

@@ -42966,6 +42966,7 @@ t("Patch DMX · assegnazione: dimmer per primi, poi i fari nell'ordine dei numer
   const P = A.dmxPatch();
   eq(P.righe.map((r) => [r.code, r.ch, A.dmxInd(r.u, r.a), r.fine]), [["D1", 6, "1.001", 6], ["T1.1", 8, "1.007", 14], ["T1.2", 8, "1.015", 22], ["T1.3", 8, "1.023", 30], ["F.2", 1, "1.031", 31]], "in fila, uno dopo l'altro");
   ok(!P.righe.some((r) => r.it === pc), "il faro PC alogeno non è nella patch (ma tiene il suo numero F.1 sulla pianta)");
+  eq(P.righe.find((r) => r.it === fz).modo, "1 Channel Mode", "il modello con una sola modalità la porta scritta, anche senza averla scelta"); eq(P.righe.find((r) => r.it === fari[0]).modo, "", "il generico non ha un nome di modalità");
   eq(P.universi, [{ u: 1, canali: 31, n: 5, fine: 31 }], "un universo, 31 canali, 5 apparecchi");
   const N = A.luciNumeri(); P.righe.filter((r) => r.code !== "D1").forEach((r) => eq(N.mappa[r.it.id], r.code, "numero uguale al foglio «pianta luci»"));
   for (const a of P.righe) for (const b of P.righe) if (a !== b) ok(a.fine < b.a || b.fine < a.a, a.code + " e " + b.code + " non si toccano");
@@ -43198,7 +43199,8 @@ t("Patch DMX · foglio «Patch luci»: universi in alto, una riga per apparecchi
   eq(riga("F.1"), ["F.1", "PAR LED Chauvet SlimPAR Pro H USB", "12CH", "12", "1.023", "1.034"], "la modalità col nome del manuale");
   eq(riga("F.2"), ["F.2", "Testa mobile", "—", "—", "—", "—"], "senza canali: trattini, mai zero");
   ok(tx.includes("† indirizzo scritto a mano."), "nota della croce"); ok(tx.some((x) => /^1 apparecchio senza canali: non ha un indirizzo \(F\.2\)\.$/.test(x)), "nota dei senza canali");
-  ok(tx.includes("Senza DMX: 1 (F.3)."), "nota dei senza DMX"); ok(tx.some((x) => /^Promemoria: una linea DMX regge 32 apparecchi/.test(x)), "promemoria");
+  ok(tx.includes("Senza DMX: 1 (F.3)."), "nota dei senza DMX"); ok(tx.some((x) => /^Promemoria: una linea DMX regge 32 apparecchi; terminatore da 120 ohm/.test(x)), "promemoria");
+  ok(!/[Ω≤≥→]/.test(tutto), "solo caratteri del font standard del PDF (Ω usciva «?»: si scrive «ohm»)");
   ok(!tx.some((x) => /sovrapposti/.test(x)), "nessun conflitto = nessun avviso");
   ok(doc.testi.every((r) => r.x >= 15.9 && r.y <= 272.01 && r.y >= 15), "nessun testo oltre i margini (15 mm) né sotto il fondo (272)");
   ok(doc.testi.filter((r) => r.a !== "right").every((r) => r.x + 0 <= 194), "niente parte oltre il margine destro");
@@ -43268,6 +43270,8 @@ t("Patch DMX · pannello: il gruppo «DMX» sta dietro «Opzioni complete», a p
   ok(/soloLetturaProgetto\(\)\) return;/.test(ge) && /primaDiAgire\(\);/.test(ge) && /render\(\); save\(\); renderProps\(\);/.test(ge), "progetto bloccato: niente; altrimenti un passo di cronologia");
   ok(/if\(canDx\) dmxRenderPannello\(it\);/.test(appjs) && /var canDx=dmxCapace\(it\); dxp\.style\.display=canDx\?"block":"none";/.test(appjs), "il blocco compare solo sugli apparecchi che entrano nella patch");
   ok(/if\(dim\) dmxDopoCanali\(it\);/.test(appjs), "anche il contatore dei canali del dimmer avvisa la patch");
+  ok(/<div id="pDxPatchRow" style="display:flex;/.test(html) && !/class="btns" id="pDxPatchRow"/.test(html), "«Riassegna» e «Spegni» restano dentro il gruppo DMX: una riga .btns verrebbe portata in fondo al pannello di ogni elemento");
+  ok(/if\(ms\.__dxElenco!==h\)\{ ms\.innerHTML=h; ms\.__dxElenco=h; \}\s*ms\.value=m \? m\[0\] : \(altro \? "__altro" : ""\);/.test(rp), "l'elenco delle modalità non si riscrive a ogni disegno (la tendina appena aperta resterebbe chiusa)");
   ok(/custCopiaPulita\(c, false\); dmxCopiaPulita\(c\);/.test(appjs) && /custCopiaPulita\(c, true\); dmxCopiaPulita\(c\);/.test(appjs), "Duplica e Incolla puliscono l'indirizzo della copia");
 });
 

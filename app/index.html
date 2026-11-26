@@ -5640,17 +5640,17 @@ body.cambio-vista #catalog{pointer-events:none;opacity:.55}
         <div id="pDxInfo" class="prop-hint" style="display:none"></div>
         <label class="chk" id="pDxNoWrap" style="display:none;margin-top:6px" title="Per un apparecchio che non si comanda in DMX: alogeno su dimmer, acceso da rete"><input type="checkbox" id="pDxNo"> Senza DMX</label>
         <div id="pDxIndWrap" style="display:none;margin-top:7px">
-          <label>Universo · indirizzo</label>
           <div class="row">
-            <span><input type="number" id="pDxU" min="1" max="999" step="1" inputmode="numeric" aria-label="Universo DMX"></span>
-            <span><input type="number" id="pDxA" min="1" max="512" step="1" inputmode="numeric" aria-label="Indirizzo DMX di partenza"></span>
+            <span><label for="pDxU">Universo</label><input type="number" id="pDxU" min="1" max="999" step="1" inputmode="numeric"></span>
+            <span><label for="pDxA">Indirizzo <small class="lbl-note">— di partenza</small></label><input type="number" id="pDxA" min="1" max="512" step="1" inputmode="numeric"></span>
           </div>
           <div id="pDxStato" class="prop-hint" style="margin-top:5px"></div>
           <div id="pDxAvviso" class="prop-hint" style="display:none;margin-top:4px;color:var(--warning, #b45309)"></div>
           <button type="button" class="btn" id="pDxLibero" style="display:none;margin-top:6px">Primo libero</button>
         </div>
         <button type="button" class="btn" id="pDxTutti" style="display:none;margin-top:8px"></button>
-        <div class="btns" id="pDxPatchRow" style="margin-top:10px">
+        <!-- non «btns»: arrangePanel porta ogni .btns in fondo al pannello, e questi due gesti resterebbero in vista su qualunque elemento -->
+        <div id="pDxPatchRow" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">
           <button type="button" class="btn" id="pDxRiassegna" title="Rimette in fila gli indirizzi di tutti gli apparecchi, nell'ordine dei numeri; quelli scritti a mano restano dove sono">Riassegna in ordine</button>
           <button type="button" class="btn" id="pDxSpegni" title="Toglie la patch da questa versione: i dati sugli apparecchi restano, per riaccenderla">Spegni la patch</button>
         </div>
