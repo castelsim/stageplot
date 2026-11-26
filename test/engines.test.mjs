@@ -42880,6 +42880,401 @@ t("Cosa manca · la riga di stato conta ciò che il pannello mostra (anche la ca
   ok(/_A\.errs>0/.test(appjs.slice(appjs.indexOf('title:(_A.errs>1 ? "Ci sono "') - 400, appjs.indexOf('title:(_A.errs>1 ? "Ci sono "'))), "e si ferma ancora solo sugli errori dell'audit: la caduta di tensione non blocca l'export");
 });
 
+/* ════ PATCH DMX (26/11/2026, lotto C3 dello studio cablaggi) ════
+   Gradino 1 del DMX: canali, universo e indirizzo degli apparecchi luci. Chiusa di serie (`state.dmx.on`): senza, niente cambia.
+   Un indirizzo assegnato non si muove più da solo; i numeri vengono dai manuali dei costruttori o li scrive l'utente. */
+console.log("\nPatch DMX (C3):");
+const dxReset = () => { reset(); A.resetMetaLayersUI(); delete A.state.dmx; };
+const dxRiga = (it) => A.dmxPatch().righe.find((r) => r.it === it);
+const dxInd = (it) => { const r = dxRiga(it); return r && r.u != null ? A.dmxInd(r.u, r.a) : null; };
+/* una truss con n PAR appesi (da sinistra a destra) e la patch accesa; i PAR hanno `ch` canali */
+function dxScena(n, ch) {
+  dxReset();
+  const tr = piazza("truss", 600, 100); tr.w = 1000;
+  const fari = [];
+  for (let i = 0; i < n; i++) { const f = piazza("parluci", 150 + i * 60, 100); A.mountSet(f, { mode: "hung" }); if (ch) A.dmxImposta(f, { ch }); fari.push(f); }
+  A.dmxAccendi(true);
+  return fari;
+}
+t("Patch DMX · chiusa di serie: senza `state.dmx` niente patch, niente avvisi, niente foglio, niente chiave nel documento", () => {
+  dxReset(); piazza("truss", 600, 100); const f = piazza("parluci", 300, 100); piazza("dimmerddp610", 100, 600); piazza("fumoz1500", 900, 600);
+  const P = A.dmxPatch();
+  eq([P.on, P.righe.length, P.universi.length, P.conflitti.length], [false, 0, 0, 0], "patch spenta = vuota");
+  eq(A.cosaMancaDmx().length, 0); eq(A.cosaManca().voci.filter((v) => v.fonte === "dmx").length, 0, "nessuna voce in «Cosa manca?»");
+  eq(A.patchLuciDisponibile(), false); ok(!A.window.__pdfChiaviTecniche().includes("patchluci"), "nessuna pillola");
+  ok(!("patchluci" in A.impronteDocumenti()), "impronte dei documenti identiche a prima");
+  A.save();
+  ok(A.state.items.every((x) => x.dmx == null), "il salvataggio non scrive niente sugli apparecchi");
+  ok(!/"dmx"/.test(A.docToJSON()), "nel documento salvato la parola «dmx» non compare");
+  ok(!A.funzUsateDalProgetto(A.state).includes("opzioni"), "e il progetto non chiede «Opzioni complete»");
+  A.dmxImposta(f, { ch: 8 }); A.save();
+  eq(f.dmx, { ch: 8 }, "a patch spenta i canali si possono scrivere, ma nessun indirizzo viene assegnato");
+  dxReset();
+});
+t("Patch DMX · chi entra: apparecchi luci e dimmer; mai alogeni, catena di LED, console, strutture, modelli da studio senza DMX", () => {
+  dxReset();
+  const si = ["parluci", "testamobile", "sagomatore", "pcled", "barraled", "fumoz1500", "hazer", "strobo", "followspot", "dimmerluci", "dimmerport", "dimmerddp610", "ledcob"];
+  const no = ["farope", "fresnel", "ribaltaalogena", "catenaled", "consolaluci", "etccs40", "dmxsplit", "truss", "americana", "batteria"];
+  si.forEach((k) => ok(A.dmxCapace({ type: k }), k + " entra nella patch"));
+  no.forEach((k) => ok(!A.dmxCapace({ type: k }), k + " non entra nella patch"));
+  const conDmx = Object.keys(A.LIGHT_MODEL_DB).find((k) => (A.LIGHT_MODEL_DB[k].ctrl || []).includes("dmx"));
+  const senza = Object.keys(A.LIGHT_MODEL_DB).find((k) => Array.isArray(A.LIGHT_MODEL_DB[k].ctrl) && !A.LIGHT_MODEL_DB[k].ctrl.some((c) => ["dmx", "crmx", "artnet"].includes(c)));
+  ok(conDmx && senza, "nel catalogo da studio ci sono modelli con e senza DMX");
+  ok(A.dmxCapace({ type: "ledcob", lm: conDmx }), "modello da studio che dichiara il DMX: entra");
+  ok(!A.dmxCapace({ type: "ledcob", lm: senza }), "modello da studio la cui scheda non dichiara DMX, CRMX né Art-Net: non entra");
+  Object.keys(A.DMX_NO_TIPO).forEach((k) => ok(A.TYPES[k] && A.lightsIsGear(k), "«" + k + "» escluso è un apparecchio luci vero"));
+});
+t("Patch DMX · i canali: dimmer = i suoi, modalità del catalogo, canali a mano, modello a una sola modalità; altrimenti ignoti (mai indovinati)", () => {
+  dxReset();
+  eq(A.dmxCanali({ type: "dimmerddp610" }), 6); eq(A.dmxCanali({ type: "dimmerport" }), 4); eq(A.dmxCanali({ type: "dimmerluci" }), 12);
+  eq(A.dmxCanali({ type: "dimmerluci", prese: 24 }), 24, "i canali del dimmer sono quelli scritti nel pannello");
+  eq(A.dmxCanali({ type: "parluci" }), null, "generico senza canali: ignoti");
+  eq(A.dmxCanali({ type: "parluci", dmx: { ch: 8 } }), 8);
+  eq(A.dmxCanali({ type: "parslimpar" }), null, "modello con più modalità e nessuna scelta: ignoti, l'app non sceglie al posto dell'utente");
+  eq(A.dmxCanali({ type: "parslimpar", dmx: { m: "12ch" } }), 12); eq(A.dmxCanali({ type: "parslimpar", dmx: { m: "7ch" } }), 7);
+  eq(A.dmxCanali({ type: "parslimpar", dmx: { ch: 9 } }), 9, "«Altro»: canali a mano anche su un modello del catalogo");
+  eq(A.dmxCanali({ type: "parslimpar", dmx: { m: "non-esiste" } }), null, "una modalità sconosciuta non vale");
+  eq(A.dmxCanali({ type: "fumoz1500" }), 1, "una sola modalità sul manuale = quella"); eq(A.dmxCanali({ type: "hazerhz400" }), 1);
+  eq(A.dmxCanali({ type: "parluci", dmx: { ch: 8, no: true } }), null, "«Senza DMX» lo toglie dal conto");
+  eq(A.dmxCanali({ type: "farope", dmx: { ch: 8 } }), null, "un tipo senza DMX non ha canali");
+});
+t("Patch DMX · catalogo: ogni modalità ha tipo vero, chiave unica, canali 1-512 e i numeri dei manuali (fonti/DMX_PATCH.md)", () => {
+  const C = A.DMX_MODI, tipi = Object.keys(C);
+  ok(tipi.length >= 10, "modelli con modalità: " + tipi.length);
+  tipi.forEach((k) => {
+    ok(A.TYPES[k] && A.lightsIsGear(k) && !A.DMX_NO_TIPO[k], "«" + k + "» è un apparecchio luci del catalogo");
+    ok(C[k].fonte && C[k].modi.length >= 1, k + " ha fonte e modalità");
+    eq(new Set(C[k].modi.map((m) => m[0])).size, C[k].modi.length, k + ": chiavi uniche");
+    C[k].modi.forEach((m) => ok(typeof m[1] === "string" && m[1] && Number.isInteger(m[2]) && m[2] >= 1 && m[2] <= 512, k + " · " + m[0]));
+  });
+  const ch = (k) => C[k].modi.map((m) => m[2]);
+  eq(ch("bttheatre200"), [1, 2, 3, 4, 5], "Briteq BT-THEATRE 200TW");
+  eq(ch("stroboatomic"), [3, 4, 14], "Martin Atomic 3000 LED"); eq(ch("parslimpar"), [6, 7, 12], "Chauvet SlimPAR Pro H USB");
+  eq(ch("testaspot360x"), [8, 14], "Chauvet Intimidator Spot 360X"); eq(ch("followroxie"), [1, 4, 5, 5], "Robert Juliat Roxie");
+  eq(ch("fumoz1500"), [1]); eq(ch("hazerhz400"), [1]);
+  eq(ch("pcled"), [2, 5, 10, 9, 7, 3, 6, 6, 9, 16, 4, 7, 9, 14, 25, 24], "Spotlight Hyperion 200 W: bianco variabile, RGBW, 6C");
+  eq(ch("sagomatoreled").slice(0, 3), [1, 2, 3], "il sagomatore esiste anche a bianco fisso"); eq(ch("sagomatoreled").slice(3), ch("pcled"));
+  eq(C.ribaltaled.modi.length, 32, "Chauvet COLORado Solo Edge 3: 32 personalità");
+  eq([Math.min(...ch("ribaltaled")), Math.max(...ch("ribaltaled"))], [5, 69], "da 5 (1 cell RGB) a 69 canali (4 cell Full)");
+  ok(!C.barraled && !C.lucciola, "senza fonte certa non c'è modalità: barra Eurolite e lucciola restano a campo libero");
+  ok(!C.dimmerddp610 && !C.dimmerport, "i dimmer non hanno modalità: occupano i loro canali");
+});
+t("Patch DMX · assegnazione: dimmer per primi, poi i fari nell'ordine dei numeri; ognuno al primo spazio libero, senza sovrapposizioni", () => {
+  const fari = dxScena(3, 8); const dm = piazza("dimmerddp610", 100, 600), fz = piazza("fumoz1500", 900, 600), pc = piazza("farope", 500, 400);
+  eq(dxInd(dm), "1.025", "il dimmer arrivato a patch già accesa non sposta nessuno: primo libero");
+  A.dmxRiassegna();   /* l'ordine «da zero» è quello di una patch appena accesa o riassegnata */
+  const P = A.dmxPatch();
+  eq(P.righe.map((r) => [r.code, r.ch, A.dmxInd(r.u, r.a), r.fine]), [["D1", 6, "1.001", 6], ["T1.1", 8, "1.007", 14], ["T1.2", 8, "1.015", 22], ["T1.3", 8, "1.023", 30], ["F.2", 1, "1.031", 31]], "in fila, uno dopo l'altro");
+  ok(!P.righe.some((r) => r.it === pc), "il faro PC alogeno non è nella patch (ma tiene il suo numero F.1 sulla pianta)");
+  eq(P.righe.find((r) => r.it === fz).modo, "1 Channel Mode", "il modello con una sola modalità la porta scritta, anche senza averla scelta"); eq(P.righe.find((r) => r.it === fari[0]).modo, "", "il generico non ha un nome di modalità");
+  eq(P.universi, [{ u: 1, canali: 31, n: 5, fine: 31 }], "un universo, 31 canali, 5 apparecchi");
+  const N = A.luciNumeri(); P.righe.filter((r) => r.code !== "D1").forEach((r) => eq(N.mappa[r.it.id], r.code, "numero uguale al foglio «pianta luci»"));
+  for (const a of P.righe) for (const b of P.righe) if (a !== b) ok(a.fine < b.a || b.fine < a.a, a.code + " e " + b.code + " non si toccano");
+  eq(P.conflitti.length, 0); eq(A.cosaMancaDmx().length, 0, "niente da dire");
+  dxReset();
+});
+t("Patch DMX · mai a cavallo di due universi: chi non entra nel primo parte dall'1 del secondo (start massimo = 512 − canali + 1)", () => {
+  dxReset(); const a = piazza("parluci", 100, 300), b = piazza("testamobile", 200, 300), c = piazza("parluci", 300, 300);
+  A.dmxImposta(a, { ch: 500 }); A.dmxImposta(b, { ch: 24 }); A.dmxImposta(c, { ch: 12 }); A.dmxAccendi(true);
+  eq([dxInd(a), dxInd(b), dxInd(c)], ["1.001", "2.001", "1.501"], "24 canali non stanno in 501-512: universo 2; i 12 del terzo sì");
+  eq(dxRiga(c).fine, 512, "l'ultimo canale utile è il 512");
+  A.dmxImposta(c, { ch: 13 }); A.dmxDopoCanali(c); A.save();
+  eq(dxInd(c), "2.025", "13 canali da 501 uscirebbero: universo 2, dopo la testa mobile");
+  eq(A.dmxPatch().universi.map((o) => [o.u, o.canali, o.n]), [[1, 500, 1], [2, 37, 2]]);
+  dxReset();
+});
+t("Patch DMX · un indirizzo assegnato non si muove più da solo: aggiungere, togliere o spostare un faro non cambia gli altri", () => {
+  const fari = dxScena(4, 8); A.save();
+  const prima = fari.map(dxInd); eq(prima, ["1.001", "1.009", "1.017", "1.025"]);
+  eq(fari.map((f) => [f.dmx.u, f.dmx.a]), [[1, 1], [1, 9], [1, 17], [1, 25]], "il salvataggio li ha scritti nel progetto");
+  /* un faro nuovo in mezzo alla truss: prende il numero T1.2 sulla pianta, ma l'indirizzo è il primo libero in fondo */
+  const nuovo = piazza("parluci", 180, 100); A.mountSet(nuovo, { mode: "hung" }); A.dmxImposta(nuovo, { ch: 8 }); A.save();
+  eq(A.dmxPatch().righe.map((r) => r.it).indexOf(nuovo), 1, "scena: il nuovo è il secondo della truss");
+  eq(fari.map(dxInd), prima, "gli altri non si sono mossi"); eq(dxInd(nuovo), "1.033", "il nuovo sta in fondo");
+  /* spostarli sul palco (cambia l'ordine dei numeri) non cambia gli indirizzi */
+  fari[0].x = 900; A.save(); eq(fari.map(dxInd), prima, "spostato sul palco: stesso indirizzo");
+  /* toglierne uno lascia un buco, che il prossimo riempie */
+  A.state.items = A.state.items.filter((x) => x !== fari[1]); A.save();
+  eq([dxInd(fari[0]), dxInd(fari[2]), dxInd(fari[3])], ["1.001", "1.017", "1.025"], "tolto il secondo: gli altri fermi");
+  const altro = piazza("parluci", 400, 500); A.dmxImposta(altro, { ch: 8 }); A.save();
+  eq(dxInd(altro), "1.009", "il buco lasciato libero è il primo spazio");
+  const grande = piazza("testamobile", 500, 500); A.dmxImposta(grande, { ch: 16 }); A.save();
+  eq(dxInd(grande), "1.041", "chi non entra in un buco va oltre");
+  dxReset();
+});
+t("Patch DMX · indirizzo scritto a mano: resta dov'è, e chi era in automatico su quei canali gli fa posto", () => {
+  const fari = dxScena(3, 8); A.save();
+  A.dmxImposta(fari[2], { u: 1, a: 5, fix: true }); A.save();
+  eq(dxInd(fari[2]), "1.005"); ok(dxRiga(fari[2]).fix, "segnato come scritto a mano");
+  for (const a of A.dmxPatch().righe) for (const b of A.dmxPatch().righe) if (a.it !== b.it) ok(a.fine < b.a || b.fine < a.a, "nessuna sovrapposizione dopo lo spostamento");
+  eq(dxInd(fari[0]), "1.013", "il primo (1.001-1.008) urtava: ha preso il primo spazio da 8 dopo quello scritto a mano (1.005-1.012)");
+  eq(dxInd(fari[1]), "1.021", "anche il secondo (1.009-1.016) urtava: il primo libero dopo");
+  eq(A.dmxPatch().conflitti.length, 0, "nessun conflitto: gli automatici si sono spostati");
+  ok(fari[0].dmx.fix == null && fari[2].dmx.fix === true, "solo quello scritto a mano porta il segno");
+  A.dmxImposta(fari[2], { u: null, a: null, fix: null }); A.save();
+  eq(dxInd(fari[2]), "1.001", "«Primo libero»: torna in automatico, al primo spazio"); ok(!dxRiga(fari[2]).fix);
+  A.dmxImposta(fari[0], { u: 7, a: 100, fix: true }); A.save();
+  eq(dxInd(fari[0]), "7.100", "si può scegliere anche l'universo"); eq(A.dmxPatch().universi.map((o) => o.u), [1, 7]);
+  dxReset();
+});
+t("Patch DMX · conflitti: due indirizzi a mano sovrapposti, e un indirizzo a mano che esce dall'universo", () => {
+  const fari = dxScena(3, 8); A.save();
+  A.dmxImposta(fari[0], { u: 1, a: 100, fix: true }); A.dmxImposta(fari[1], { u: 1, a: 104, fix: true }); A.save();
+  let P = A.dmxPatch();
+  eq(P.conflitti.map((c) => [c.tipo, c.a.code, c.b.code]), [["sovrapposti", "T1.1", "T1.2"]], "100-107 e 104-111 si toccano");
+  eq([dxInd(fari[0]), dxInd(fari[1])], ["1.100", "1.104"], "quelli scritti a mano non si spostano mai da soli");
+  eq(dxInd(fari[2]), "1.017", "e il terzo, in automatico, non è stato toccato");
+  A.dmxImposta(fari[1], { u: 1, a: 510, fix: true }); A.save(); P = A.dmxPatch();
+  eq(P.conflitti.map((c) => [c.tipo, c.a.code]), [["fuori", "T1.2"]], "510 + 8 canali = 517: fuori dall'universo");
+  A.dmxImposta(fari[1], { u: 1, a: 505, fix: true }); eq(A.dmxPatch().conflitti.length, 0, "505 è l'ultimo indirizzo valido per 8 canali");
+  A.dmxImposta(fari[1], { u: 2, a: 100, fix: true }); eq(A.dmxPatch().conflitti.length, 0, "stesso indirizzo su un altro universo non è un conflitto");
+  dxReset();
+});
+t("Patch DMX · cambio di canali: se non ci sta più è lui a cercare posto, non il vicino", () => {
+  const fari = dxScena(3, 8); A.save();
+  A.dmxImposta(fari[0], { ch: 12 }); eq(A.dmxDopoCanali(fari[0]), true, "12 canali da 1.001 urtano il secondo"); A.save();
+  eq([dxInd(fari[1]), dxInd(fari[2])], ["1.009", "1.017"], "i vicini restano dove sono");
+  eq(dxInd(fari[0]), "1.025", "quello cambiato ha preso il primo spazio da 12");
+  A.dmxImposta(fari[0], { ch: 4 }); eq(A.dmxDopoCanali(fari[0]), false, "se rimpicciolisce resta dov'è"); A.save(); eq(dxInd(fari[0]), "1.025");
+  const dm = piazza("dimmerport", 100, 600); A.save(); eq(dxInd(dm), "1.001", "il dimmer (4 canali) entra nel buco da 8");
+  dm.prese = 12; eq(A.dmxDopoCanali(dm), true, "il dimmer portato a 12 canali urterebbe il vicino"); A.save();
+  eq([dxInd(fari[1]), dxInd(fari[2]), dxInd(fari[0])], ["1.009", "1.017", "1.025"], "i fari fermi"); eq(dxInd(dm), "1.029", "si è spostato il dimmer");
+  A.dmxImposta(fari[1], { u: 1, a: 9, fix: true }); A.dmxImposta(fari[1], { ch: 20 }); eq(A.dmxDopoCanali(fari[1]), false, "uno scritto a mano non si sposta nemmeno così: diventa un conflitto da dire");
+  dxReset();
+});
+t("Patch DMX · rete di sicurezza: due assegnati in automatico sullo stesso posto (file scritto a mano) → il secondo si sposta, nessun conflitto", () => {
+  const fari = dxScena(2, 8);
+  fari[0].dmx = { ch: 8, u: 1, a: 1 }; fari[1].dmx = { ch: 8, u: 1, a: 4 };
+  eq([dxInd(fari[0]), dxInd(fari[1])], ["1.001", "1.009"]); eq(A.dmxPatch().conflitti.length, 0);
+  A.save(); eq([fari[1].dmx.u, fari[1].dmx.a], [1, 9], "e il salvataggio lo scrive");
+  dxReset();
+});
+t("Patch DMX · le copie tengono modalità e canali ma non l'indirizzo: Duplica e Incolla non fanno nascere sovrapposizioni", () => {
+  const fari = dxScena(2, 8); A.dmxImposta(fari[1], { u: 1, a: 100, fix: true }); A.save();
+  eq(A.dmxCopiaPulita({ type: "parluci", dmx: { ch: 8, u: 1, a: 100, fix: true } }).dmx, { ch: 8 });
+  eq("dmx" in A.dmxCopiaPulita({ type: "dimmerport", dmx: { u: 1, a: 1 } }), false, "restato vuoto, l'oggetto se ne va");
+  A.selSet = {}; A.selSet[fari[0].id] = true; A.selSet[fari[1].id] = true; A.sel = fari[1].id;
+  const n0 = A.state.items.length; A.duplicateSel();
+  const copie = A.state.items.slice(n0); eq(copie.length, 2, "due copie");
+  eq(copie.map((c) => A.dmxCanali(c)), [8, 8], "stessi canali");
+  eq([dxInd(fari[0]), dxInd(fari[1])], ["1.001", "1.100"], "gli originali non si muovono");
+  eq(copie.map(dxInd).sort(), ["1.009", "1.017"], "le copie prendono i primi liberi"); ok(copie.every((c) => c.dmx.fix == null), "e non sono «scritte a mano»");
+  eq(A.dmxPatch().conflitti.length, 0);
+  A.copySel(); const n1 = A.state.items.length; A.pasteClip();
+  eq(A.dmxPatch().conflitti.length, 0, "anche incollando"); eq(new Set(A.dmxPatch().righe.map((r) => A.dmxInd(r.u, r.a))).size, A.state.items.filter((x) => x.type === "parluci").length, "ogni faro ha un indirizzo suo");
+  ok(A.state.items.length > n1, "scena: l'incolla ha aggiunto");
+  dxReset();
+});
+t("Patch DMX · ciò che arriva da un file: solo i campi noti, nei limiti; il resto si toglie", () => {
+  const P = (type, dmx, extra) => { const it = Object.assign({ type, dmx }, extra || {}); A.dmxPulita(it); return it.dmx; };
+  eq(P("parluci", { ch: 8, u: 2, a: 17, fix: true }), { ch: 8, u: 2, a: 17, fix: true }, "tutto valido resta");
+  eq(P("parluci", { ch: "8", u: "2", a: "17" }), { ch: 8, u: 2, a: 17 }, "numeri scritti come testo");
+  eq(P("parluci", { ch: 0 }), undefined); eq(P("parluci", { ch: 513 }), undefined); eq(P("parluci", { ch: "abc" }), undefined);
+  eq(P("parluci", { ch: 8, u: 1 }), { ch: 8 }, "universo senza indirizzo: via tutti e due"); eq(P("parluci", { ch: 8, a: 5 }), { ch: 8 });
+  eq(P("parluci", { ch: 8, u: 0, a: 5 }), { ch: 8 }); eq(P("parluci", { ch: 8, u: 1000, a: 5 }), { ch: 8 }); eq(P("parluci", { ch: 8, u: 1, a: 513 }), { ch: 8 });
+  eq(P("parluci", { ch: 8, fix: true }), { ch: 8 }, "«scritto a mano» senza indirizzo non vuol dire niente");
+  eq(P("parluci", { ch: 8, u: 1, a: 1, fix: "si" }), { ch: 8, u: 1, a: 1 }, "fix solo true");
+  eq(P("parluci", { m: "12ch" }), undefined, "modalità di un altro modello: via");
+  eq(P("parslimpar", { m: "12ch", ch: 9 }), { m: "12ch" }, "modalità e canali a mano si escludono: vale la modalità");
+  eq(P("parslimpar", { m: "<img>", ch: 9 }), { ch: 9 }, "modalità sconosciuta: restano i canali");
+  eq(P("parluci", { ch: 8, no: true, u: 1, a: 1, fix: true }), { ch: 8, no: true }, "«Senza DMX» non tiene un indirizzo");
+  eq(P("parluci", { no: 1 }), undefined, "no solo true");
+  eq(P("dimmerport", { m: "x", ch: 9, no: true, u: 1, a: 20 }), { u: 1, a: 20 }, "sul dimmer solo universo e indirizzo");
+  eq(P("farope", { ch: 8, u: 1, a: 1 }), undefined, "su un tipo senza DMX si toglie"); eq(P("batteria", { ch: 8 }), undefined);
+  eq(P("parluci", "testo"), undefined); eq(P("parluci", [1, 2]), undefined); eq(P("parluci", { __proto__: null, zzz: 1 }), undefined, "chiavi sconosciute: via");
+  dxReset();
+});
+t("Patch DMX · apertura e salvataggio: la patch si riapre uguale; `state.dmx` vale solo se è «accesa»", () => {
+  const doc = (dmx) => ({ _v: A.SCHEMA_VERSION, inputs: [], outputs: [], stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] }, dmx,
+    items: [{ id: "a", type: "parluci", x: 100, y: 300, dmx: { ch: 8, u: 1, a: 9 } }, { id: "b", type: "parslimpar", x: 300, y: 300, dmx: { m: "12ch", u: 3, a: 1, fix: true } },
+            { id: "c", type: "farope", x: 500, y: 300, dmx: { ch: 4 } }, { id: "d", type: "parluci", x: 700, y: 300, dmx: { ch: 9999, u: "x" } }] });
+  A.loadDoc(doc({ on: true, altro: 1 }));
+  eq(A.state.dmx, { on: true }, "solo «accesa»");
+  eq(A.state.items.map((x) => x.dmx), [{ ch: 8, u: 1, a: 9 }, { m: "12ch", u: 3, a: 1, fix: true }, undefined, undefined], "validi tenuti, il resto tolto");
+  eq(A.dmxPatch().righe.map((r) => [r.it.id, r.ch, r.u == null ? null : A.dmxInd(r.u, r.a)]), [["a", 8, "1.009"], ["b", 12, "3.001"], ["d", null, null]]);
+  const giro = JSON.parse(A.docToJSON()).variants[0].state;
+  eq(giro.dmx, { on: true }); eq(giro.items.map((x) => x.dmx), [{ ch: 8, u: 1, a: 9 }, { m: "12ch", u: 3, a: 1, fix: true }, undefined, undefined], "salva e riapri: identica");
+  ok(A.funzUsateDalProgetto(A.state).includes("opzioni"), "chi apre un progetto con la patch viene avvisato che usa «Opzioni complete»");
+  for (const x of [{ on: 1 }, { on: "true" }, true, "on", [], { on: false }]) { A.loadDoc(doc(x)); eq(A.state.dmx, undefined, "non accesa: " + JSON.stringify(x)); }
+  eq(A.state.items[0].dmx, { ch: 8, u: 1, a: 9 }, "a patch spenta i dati degli apparecchi restano (per riaccenderla)");
+  A.save(); eq(A.state.items[3].dmx, undefined, "e il salvataggio non assegna niente");
+  A.loadDoc({ _v: A.SCHEMA_VERSION, inputs: [], outputs: [], stage: { w: 1200, d: 800 }, items: [] }); dxReset();
+});
+t("Patch DMX · il salvataggio scrive gli indirizzi assegnati (solo a patch accesa) e li toglie a chi non ha più i canali", () => {
+  const fari = dxScena(2, 8);
+  eq(fari.map((f) => f.dmx), [{ ch: 8, u: 1, a: 1 }, { ch: 8, u: 1, a: 9 }], "«Attiva la patch» li scrive subito");
+  eq(A.dmxFissa(), 0, "una seconda volta non cambia niente");
+  A.dmxImposta(fari[0], { ch: null }); A.save();
+  eq(fari[0].dmx, undefined, "senza canali non resta un indirizzo fantasma"); eq(dxInd(fari[0]), null);
+  ok(/if\(dmxAttiva\(\)\) dmxFissa\(\);/.test(appjs.slice(appjs.indexOf("function save(){"), appjs.indexOf("function save(){") + 700)), "save() chiama dmxFissa solo a patch accesa");
+  A.dmxAccendi(false); eq(A.state.dmx, undefined, "«Spegni la patch» toglie la chiave"); eq(fari[1].dmx, { ch: 8, u: 1, a: 9 }, "ma non i dati");
+  A.dmxAccendi(true); eq(dxInd(fari[1]), "1.009", "riaccesa: gli indirizzi sono quelli di prima");
+  dxReset();
+});
+t("Patch DMX · «Riassegna in ordine»: tutti in fila secondo i numeri, tranne quelli scritti a mano", () => {
+  const fari = dxScena(4, 8); A.save();
+  A.state.items = A.state.items.filter((x) => x !== fari[0]); A.dmxImposta(fari[3], { u: 1, a: 200, fix: true }); A.save();
+  eq([dxInd(fari[1]), dxInd(fari[2]), dxInd(fari[3])], ["1.009", "1.017", "1.200"], "prima: un buco in testa");
+  eq(A.dmxRiassegna(), 2, "due riassegnati");
+  eq([dxInd(fari[1]), dxInd(fari[2]), dxInd(fari[3])], ["1.001", "1.009", "1.200"], "in fila dall'1; quello a mano resta");
+  eq([fari[1].dmx.a, fari[2].dmx.a], [1, 9], "e sono scritti nel progetto");
+  delete A.state.dmx; eq(A.dmxRiassegna(), 0, "a patch spenta non fa niente");
+  dxReset();
+});
+t("Patch DMX · «Usa anche per gli altri»: stessa modalità o canali sugli apparecchi dello stesso tipo, senza toccare chi è già uguale", () => {
+  const fari = dxScena(4, 0); const tm = piazza("testamobile", 500, 500);
+  eq(A.dmxPatch().senzaCanali.length, 5, "scena: nessuno ha i canali");
+  A.dmxImposta(fari[0], { ch: 8 }); A.dmxImposta(fari[3], { ch: 8 }); A.save();
+  eq(A.dmxStessoTipo(fari[0]).length, 3); eq(A.dmxUsaPerTutti(fari[0]), 2, "due da aggiornare (uno era già uguale)"); A.save();
+  eq(fari.map((f) => A.dmxCanali(f)), [8, 8, 8, 8]); eq(A.dmxCanali(tm), null, "la testa mobile è un altro tipo");
+  eq(new Set(fari.map(dxInd)).size, 4, "ognuno col suo indirizzo");
+  A.dmxImposta(fari[1], { no: true }); eq(A.dmxUsaPerTutti(fari[1]), 3); ok(fari.every((f) => A.dmxSenza(f)), "anche «Senza DMX» si porta agli altri");
+  eq(A.dmxPatch().senzaDmx.length, 4); eq(A.dmxPatch().righe.length, 1, "fuori dalle righe della patch");
+  dxReset();
+});
+t("Patch DMX · «Cosa manca?»: sovrapposti in rosso (in giallo se gemelli sullo stesso indirizzo), fuori universo in rosso, senza canali in giallo", () => {
+  const fari = dxScena(4, 8); const tm = piazza("testamobile", 500, 500); A.save();
+  let V = A.cosaMancaDmx();
+  eq(V.map((v) => [v.rule, v.grav]), [["dmx-senza-canali", "giallo"]], "la testa mobile senza canali");
+  ok(/Un apparecchio luci non ha i canali DMX/.test(V[0].msg) && /Senza DMX/.test(V[0].perche), V[0].msg);
+  eq(V[0].azioni.map((a) => a.label), ["Mostra"]); V[0].azioni[0].run(); eq(A.sel, tm.id, "«Mostra» seleziona l'apparecchio");
+  A.dmxImposta(tm, { ch: 16 }); A.save(); eq(A.cosaMancaDmx().length, 0, "scritti i canali, la voce se ne va");
+  A.dmxImposta(fari[0], { u: 1, a: 300, fix: true }); A.dmxImposta(fari[1], { u: 1, a: 304, fix: true });
+  V = A.cosaMancaDmx(); eq(V.map((v) => [v.rule, v.grav, v.lvl, v.fam]), [["dmx-sovrapposti", "rosso", "err", "Luci"]]);
+  ok(/1\.300–1\.307/.test(V[0].msg) && /1\.304–1\.311/.test(V[0].msg) && /T1\.1/.test(V[0].msg) && /T1\.2/.test(V[0].msg), "dice chi e dove: " + V[0].msg);
+  ok(/Primo libero/.test(V[0].perche), "e cosa fare");
+  V[0].azioni[0].run(); eq(Object.keys(A.selSet).sort(), [fari[0].id, fari[1].id].map(String).sort(), "«Mostra» seleziona i due");
+  A.dmxImposta(fari[1], { u: 1, a: 300, fix: true });
+  V = A.cosaMancaDmx(); eq(V.map((v) => [v.rule, v.grav]), [["dmx-sovrapposti", "giallo"]], "gemelli sullo stesso indirizzo: può essere voluto");
+  ok(/stesso indirizzo DMX, 1\.300/.test(V[0].msg) && /Se è voluto va bene/.test(V[0].perche), V[0].msg);
+  A.dmxImposta(fari[1], { ch: 6 }); eq(A.cosaMancaDmx()[0].grav, "rosso", "stesso indirizzo ma canali diversi: non sono gemelli");
+  A.dmxImposta(fari[1], { ch: 8, u: 1, a: 509, fix: true });
+  V = A.cosaMancaDmx(); eq(V.map((v) => [v.rule, v.grav]), [["dmx-fuori", "rosso"]]);
+  ok(/parte da 1\.509 con 8 canali/.test(V[0].msg) && /ultimo indirizzo valido per 8 canali è 505/.test(V[0].perche), V[0].msg + " // " + V[0].perche);
+  const M = A.cosaManca(), dx = M.voci.filter((v) => v.fonte === "dmx");
+  eq(dx.map((v) => v.id), V.map((v) => v.id), "le stesse voci arrivano al pannello"); ok(/Luci[^·]* da sistemare/.test(M.verdetto), "e al verdetto: " + M.verdetto);
+  eq(new Set(M.voci.map((v) => v.id)).size, M.voci.length, "id unici");
+  ok(!A.auditEngine().findings.some((x) => /DMX/.test(x.msg)), "l'audit (voto, report) non le conosce: non fermano l'export");
+  dxReset();
+});
+t("Patch DMX · «Cosa manca?»: tante sovrapposizioni non fanno tante righe; più di 32 apparecchi su un universo senza splitter", () => {
+  const fari = dxScena(8, 4); A.save();
+  fari.forEach((f, i) => A.dmxImposta(f, { u: 1, a: 100 + (i % 2), fix: true }));   /* tutti accavallati sul primo */
+  const V = A.cosaMancaDmx().filter((v) => v.rule === "dmx-sovrapposti");
+  eq(A.dmxPatch().conflitti.length, 7, "scena: sette coppie");
+  eq(V.length, A.DMX_MANCA_MAX + 1, "quattro dette una per una, poi una riga sola"); ok(/Altre 3 coppie/.test(V[V.length - 1].msg), V[V.length - 1].msg);
+  dxReset();
+  const tanti = dxScena(0, 0); for (let i = 0; i < 33; i++) A.dmxImposta(piazza("parluci", 20 + i * 30, 400), { ch: 4 }); A.save();
+  let L = A.cosaMancaDmx().filter((v) => v.rule === "dmx-linea");
+  eq(L.length, 1, "33 apparecchi sull'universo 1"); eq(L[0].grav, "giallo"); ok(/Universo 1: 33 apparecchi\. Una linea DMX ne regge 32/.test(L[0].msg) && /splitter/.test(L[0].perche), L[0].msg);
+  A.state.items.pop(); eq(A.cosaMancaDmx().filter((v) => v.rule === "dmx-linea").length, 0, "con 32 niente");
+  A.dmxImposta(piazza("parluci", 20, 500), { ch: 4 }); piazza("dmxsplit", 600, 700);
+  eq(A.cosaMancaDmx().filter((v) => v.rule === "dmx-linea").length, 0, "con uno splitter nel progetto la voce tace (le linee si disegnano nel prossimo gradino)");
+  dxReset();
+});
+t("Patch DMX · se il motore esplode «Cosa manca?» resta in piedi", () => {
+  dxScena(2, 8); const f = A.cosaMancaDmx; A.cosaMancaDmx = () => { throw new Error("x"); };
+  let M; try { M = A.cosaManca(); } finally { A.cosaMancaDmx = f; }
+  ok(M && Array.isArray(M.voci) && !M.voci.some((v) => v.fonte === "dmx"), "restano gli altri rilievi");
+  dxReset();
+});
+function dxFoglio() {
+  const fari = dxScena(3, 8); fari[0].label = "PAR blu";
+  const sp = piazza("parslimpar", 300, 400); A.dmxImposta(sp, { m: "12ch" });
+  piazza("dimmerddp610", 100, 600); const tm = piazza("testamobile", 700, 400); const sd = piazza("sagomatore", 900, 400); A.dmxImposta(sd, { no: true });
+  A.dmxImposta(fari[2], { u: 2, a: 101, fix: true }); A.dmxRiassegna();   /* in fila dall'1, come una patch appena accesa */
+  return { fari, sp, tm, sd };
+}
+t("Patch DMX · foglio «Patch luci»: universi in alto, una riga per apparecchio, note solo se servono, dentro i margini", () => {
+  dxFoglio(); A.state.titolo = "Concerto di prova";
+  const doc = docFintoPL(); eq(A.patchLuciPdf(doc), true);
+  const tx = doc.testi.map((r) => r.t), tutto = tx.join("\n");
+  ok(/STAGE PLOT — Patch luci \(DMX\)/.test(tutto), "testata"); ok(tx.includes("Concerto di prova"), "titolo del progetto");
+  ok(tx.includes("Universo 1 · 34 canali su 512 · 4 apparecchi") && tx.includes("Universo 2 · 8 canali su 512 · 1 apparecchio"), "una riga per universo: " + tx.filter((x) => /^Universo/.test(x)).join(" | "));
+  ["N.", "APPARECCHIO", "MODALITÀ", "CANALI", "INDIRIZZO", "FINO A"].forEach((h) => ok(tx.includes(h), "colonna " + h));
+  const riga = (code) => { const r = doc.testi.find((x) => x.t === code); return doc.testi.filter((x) => x.p === r.p && x.y === r.y).map((x) => x.t); };
+  eq(riga("D1"), ["D1", "Dimmer rack Showtec DDP-610 MKII", "—", "6", "1.001", "1.006"]);
+  eq(riga("T1.1"), ["T1.1", "PAR blu (PAR / Wash)", "—", "8", "1.007", "1.014"], "nome dell'utente con il tipo fra parentesi");
+  eq(riga("T1.3"), ["T1.3", "PAR / Wash", "—", "8", "2.101 †", "2.108"], "quello scritto a mano ha la croce");
+  eq(riga("F.1"), ["F.1", "PAR LED Chauvet SlimPAR Pro H USB", "12CH", "12", "1.023", "1.034"], "la modalità col nome del manuale");
+  eq(riga("F.2"), ["F.2", "Testa mobile", "—", "—", "—", "—"], "senza canali: trattini, mai zero");
+  ok(tx.includes("† indirizzo scritto a mano."), "nota della croce"); ok(tx.some((x) => /^1 apparecchio senza canali: non ha un indirizzo \(F\.2\)\.$/.test(x)), "nota dei senza canali");
+  ok(tx.includes("Senza DMX: 1 (F.3)."), "nota dei senza DMX"); ok(tx.some((x) => /^Promemoria: una linea DMX regge 32 apparecchi; terminatore da 120 ohm/.test(x)), "promemoria");
+  ok(!/[Ω≤≥→]/.test(tutto), "solo caratteri del font standard del PDF (Ω usciva «?»: si scrive «ohm»)");
+  ok(!tx.some((x) => /sovrapposti/.test(x)), "nessun conflitto = nessun avviso");
+  ok(doc.testi.every((r) => r.x >= 15.9 && r.y <= 272.01 && r.y >= 15), "nessun testo oltre i margini (15 mm) né sotto il fondo (272)");
+  ok(doc.testi.filter((r) => r.a !== "right").every((r) => r.x + 0 <= 194), "niente parte oltre il margine destro");
+  dxReset();
+});
+t("Patch DMX · foglio: senza croce niente nota; con un conflitto lo dice; a patch spenta non stampa niente", () => {
+  const fari = dxScena(2, 8); A.save();
+  let doc = docFintoPL(); A.patchLuciPdf(doc); let tx = doc.testi.map((r) => r.t);
+  ok(!tx.some((x) => /†/.test(x)), "nessun indirizzo a mano = nessuna croce e nessuna nota"); ok(!tx.some((x) => /Senza DMX|senza canali/.test(x)), "note vuote non scritte");
+  A.dmxImposta(fari[0], { u: 1, a: 50, fix: true }); A.dmxImposta(fari[1], { u: 1, a: 52, fix: true });
+  doc = docFintoPL(); A.patchLuciPdf(doc); ok(doc.testi.some((r) => /indirizzi sovrapposti o fuori dall'universo/.test(r.t)), "il foglio avvisa del conflitto");
+  delete A.state.dmx; doc = docFintoPL(); eq(A.patchLuciPdf(doc), false); eq(doc.pagine, 1, "nessuna pagina aggiunta"); eq(doc.testi.length, 0);
+  dxReset(); A.dmxAccendi(true); doc = docFintoPL(); eq(A.patchLuciPdf(doc), false, "patch accesa ma nessun apparecchio: niente foglio"); eq(A.patchLuciDisponibile(), false);
+  dxReset();
+});
+t("Patch DMX · foglio: tanti apparecchi continuano sulla pagina dopo, con «(segue)», mai sotto il fondo", () => {
+  dxScena(0, 0); for (let i = 0; i < 120; i++) A.dmxImposta(piazza("parluci", 20 + i * 9, 300 + (i % 5) * 40), { ch: 5 }); A.save();
+  const doc = docFintoPL(); A.patchLuciPdf(doc);
+  ok(doc.pagine >= 4, "più pagine (la 1 del finto è quella vuota che il flusso cancella): " + doc.pagine);
+  eq(doc.testi.filter((r) => /^F\.\d+$/.test(r.t)).length, 120, "tutte le 120 righe stampate");
+  ok(doc.testi.every((r) => r.y <= 272.01), "niente oltre 272 mm: max " + Math.max(...doc.testi.map((r) => r.y)));
+  ok(doc.testi.filter((r) => r.p > 2).every((r) => r.y >= 22), "dalla seconda pagina niente sopra 22 mm");
+  ok(doc.testi.some((r) => r.p === 3 && /APPARECCHIO \(segue\)/.test(r.t)), "la testata delle colonne si ripete");
+  ok(doc.testi.some((r) => r.t === "Universo 2 · 90 canali su 512 · 18 apparecchi"), "120 × 5 = 600 canali: due universi");
+  dxReset();
+});
+t("Patch DMX · foglio in inglese: titoli, colonne e note tradotti", () => {
+  dxFoglio(); A.state.docLang = "en";
+  try {
+    const doc = docFintoPL(); A.patchLuciPdf(doc); const tutto = doc.testi.map((r) => r.t).join("\n");
+    ok(/Lighting patch \(DMX\)/.test(tutto) && /Universe 1 · 34 channels of 512 · 4 fixtures/.test(tutto) && /FIXTURE/.test(tutto) && /ADDRESS/.test(tutto) && /UP TO/.test(tutto), tutto.slice(0, 300));
+    ok(/† address set by hand\./.test(tutto) && /Without DMX: 1/.test(tutto) && /Reminder: one DMX line carries 32 fixtures/.test(tutto), "note in inglese");
+    ok(!/Patch luci|Universo|APPARECCHIO|INDIRIZZO|Promemoria|Senza DMX/.test(tutto), "nessun testo italiano");
+  } finally { delete A.state.docLang; }
+  dxReset();
+});
+t("Patch DMX · Esporta e Pacchetto: la pillola e la voce ci sono solo a patch accesa, dopo la lista luci; gli altri documenti non cambiano", () => {
+  dxReset(); piazza("truss", 600, 100); const f = piazza("parluci", 300, 100);
+  const senza = A.window.__pdfChiaviTecniche();
+  A.dmxImposta(f, { ch: 8 }); A.dmxAccendi(true);
+  const con = A.window.__pdfChiaviTecniche();
+  ok(con.includes("patchluci"), "a patch accesa la pillola c'è"); eq(con.filter((k) => k !== "patchluci"), senza, "le altre pagine sono quelle di prima, nello stesso ordine");
+  eq(A.PDF_TECH_ORDER.indexOf("patchluci"), A.PDF_TECH_ORDER.indexOf("lightslist") + 1, "ordine unico: subito dopo la lista luci"); eq(new Set(A.PDF_TECH_ORDER).size, A.PDF_TECH_ORDER.length);
+  const nomi = (k) => A.pacchettoDocumenti(k, false, true, true).map((d) => d.chiave);
+  eq(nomi(["rider", "patchluci"]), ["stageplot", "piantapalco", "piantaluci", "programmaluci", "patchluci", "rider"], "nel pacchetto: dopo il programma luci");
+  eq(nomi(["rider"]), ["stageplot", "piantapalco", "piantaluci", "programmaluci", "rider"], "senza la pillola: identico a prima");
+  eq(A.pacchettoDocumenti(["patchluci"], false, true, true).find((d) => d.chiave === "patchluci").nome, "patch luci", "nome del file");
+  ok(/patchluci:function\(\)\{ patchLuciPdf\(doc\); \}/.test(A.pacchettoProduci.toString()), "pacchettoProduci sa produrlo");
+  ok(/patchluci:function\(\)\{ patchLuciPdf\(doc\); \}/.test(appjs.slice(appjs.indexOf("var STAMPA={"), appjs.indexOf("PDF_TECH_ORDER.forEach(function(k){ if(want(k)"))), "e il PDF completo pure");
+  eq(A.DOC_NOMI.patchluci, "patch luci");
+  const h0 = A.impronteDocumenti(); ok(h0.patchluci, "impronta del foglio, per «cambiato da vN»");
+  A.dmxImposta(f, { u: 1, a: 40, fix: true }); const h1 = A.impronteDocumenti();
+  ok(h1.patchluci !== h0.patchluci, "cambia quando cambia un indirizzo"); eq(Object.keys(h1).filter((k) => k !== "patchluci" && h1[k] !== h0[k]), [], "e solo lei");
+  dxReset();
+});
+t("Patch DMX · pannello: il gruppo «DMX» sta dietro «Opzioni complete», a patch spenta c'è un solo pulsante, ogni gesto è un passo di Annulla", () => {
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/<div id="pDmxPatchWrap" style="display:none">/.test(html) && /<button type="button" class="btn" id="pDxAttiva"[^>]*>Attiva la patch DMX<\/button>/.test(html), "il blocco e il pulsante");
+  ok(/<div id="pDxOn" style="display:none">/.test(html), "i campi partono nascosti");
+  ok(/group\("DMX", "canali, universo e indirizzo", \["pDmxPatchWrap"\]\);/.test(appjs), "un gruppo suo nel pannello");
+  ok(/body:not\(\.f-opzioni\) #selProps \.pgrp\[data-grp="dmx"\]\{display:none !important\}/.test(stylesCss), "visibile solo con «Opzioni complete»");
+  const rp = appjs.slice(appjs.indexOf("function dmxRenderPannello"), appjs.indexOf("function dmxGesto"));
+  ok(/g\("pDxOff"\)\.style\.display=on\?"none":"block"; g\("pDxOn"\)\.style\.display=on\?"block":"none";\s*if\(!on\) return;/.test(rp), "a patch spenta si vede solo «Attiva»");
+  ok(/esc\(x\[0\]\)/.test(rp) && /esc\(x\[1\]\)/.test(rp) && !/innerHTML=[^;]*o\.nome/.test(rp), "le opzioni passano da esc; i nomi scritti dall'utente vanno in textContent");
+  ok(/textContent=av\.join/.test(rp), "l'avviso di sovrapposizione (che contiene un nome dell'utente) è testo, non HTML");
+  const ge = appjs.slice(appjs.indexOf("function dmxGesto"), appjs.indexOf("function dmxGesto") + 400);
+  ok(/soloLetturaProgetto\(\)\) return;/.test(ge) && /primaDiAgire\(\);/.test(ge) && /render\(\); save\(\); renderProps\(\);/.test(ge), "progetto bloccato: niente; altrimenti un passo di cronologia");
+  ok(/if\(canDx\) dmxRenderPannello\(it\);/.test(appjs) && /var canDx=dmxCapace\(it\); dxp\.style\.display=canDx\?"block":"none";/.test(appjs), "il blocco compare solo sugli apparecchi che entrano nella patch");
+  ok(/if\(dim\) dmxDopoCanali\(it\);/.test(appjs), "anche il contatore dei canali del dimmer avvisa la patch");
+  ok(/<div id="pDxPatchRow" style="display:flex;/.test(html) && !/class="btns" id="pDxPatchRow"/.test(html), "«Riassegna» e «Spegni» restano dentro il gruppo DMX: una riga .btns verrebbe portata in fondo al pannello di ogni elemento");
+  ok(/if\(ms\.__dxElenco!==h\)\{ ms\.innerHTML=h; ms\.__dxElenco=h; \}\s*ms\.value=m \? m\[0\] : \(altro \? "__altro" : ""\);/.test(rp), "l'elenco delle modalità non si riscrive a ogni disegno (la tendina appena aperta resterebbe chiusa)");
+  ok(/custCopiaPulita\(c, false\); dmxCopiaPulita\(c\);/.test(appjs) && /custCopiaPulita\(c, true\); dmxCopiaPulita\(c\);/.test(appjs), "Duplica e Incolla puliscono l'indirizzo della copia");
+});
+
 await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
