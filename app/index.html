@@ -4695,7 +4695,7 @@ body.dark #caviLegenda{box-shadow:0 6px 20px rgba(0,0,0,.4)}
 
 /* «Ti è stato utile?» dopo il primo PDF (27/11/2026, L-B): scheda quieta in basso. Sul telefono ancorata al fondo e a tutta
    larghezza, sul computer in basso a destra; più piccola possibile (UI iPhone: bottoni piccoli, niente scroll). Sotto i modali
-   (z-index 50..340 non la coprono: compare solo a modali chiusi), sopra il box delle segnalazioni no. */
+   (z-index 50..340 non la coprono: compare solo a modali chiusi), il box delle segnalazioni resta libero: sul computer la scheda sta a sinistra del pannello di destra (utilePosiziona). */
 #utilePdf{position:fixed;right:16px;bottom:16px;width:min(340px,calc(100vw - 32px));z-index:60;background:var(--surface);
   border:1px solid var(--border);border-radius:12px;box-shadow:var(--elev-3,0 12px 32px rgba(38,33,24,.18));padding:12px 14px;font-size:13px;line-height:var(--lh-snug)}
 #utilePdf[hidden]{display:none}
@@ -4708,7 +4708,8 @@ body.dark #caviLegenda{box-shadow:0 6px 20px rgba(0,0,0,.4)}
 #utilePdf textarea{width:100%;box-sizing:border-box;font:inherit;font-size:16px;border:1px solid var(--border-strong,var(--border));border-radius:8px;padding:6px 8px;resize:none;background:var(--surface);color:var(--text)}
 #utilePdf .ut-fine{margin-top:6px;justify-content:flex-end}
 #utilePdf .ut-fine .ut-no{margin-left:0}
-@media (max-width:720px){ #utilePdf{left:0;right:0;bottom:0;width:auto;border-radius:14px 14px 0 0;border-bottom:0;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))} #utilePdf .ut-row .btn{min-height:40px} #utilePdf .ut-no{min-height:40px} }
+/* telefono: tutta larghezza, e SOPRA il dock (la posizione la mette utilePosiziona(): bottom = altezza del dock + 8) */
+@media (max-width:720px){ #utilePdf{left:8px;right:8px;bottom:8px;width:auto;border-radius:12px} #utilePdf .ut-row .btn{min-height:40px} #utilePdf .ut-no{min-height:40px} }
 @media (prefers-reduced-motion:reduce){ #utilePdf{transition:none} }
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
@@ -7454,6 +7455,10 @@ body.dark #caviLegenda{box-shadow:0 6px 20px rgba(0,0,0,.4)}
     </div>
   </div>
   <div data-ut="grazie" hidden><b class="ut-h">Ricevuto, grazie.</b></div>
+  <div data-ut="errore" hidden>
+    <b class="ut-h">Non è partito.</b>
+    <div class="ut-row"><button type="button" class="btn tint" id="utileRiprova">Riprova</button><button type="button" class="ut-no" id="utileErroreChiudi">Chiudi</button></div>
+  </div>
 </div>
 
 <!-- ORDINA COME IL SERVICE (13/11/2026, S2b): anteprima prima/dopo dei numeri FOH, poi Applica; Ripristina rimette tutto com'era. -->
