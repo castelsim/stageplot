@@ -4571,6 +4571,8 @@ body.dark .pdf-export .px-det-b{color:#6fd3c6}
   .pdf-export .px-fuori::first-letter{text-transform:uppercase}
 }
 .pdf-export.px-compatti .pdf-exp-side{gap:6px}
+/* il nome del file è una riga sola (27/11): con una versione («Stage plot - v1 del 27-11-2026 - A4 orizz 1-200.pdf») andava a capo e la finestra eccedeva di 5 px; intero nel tooltip */
+.pdf-export.px-compatti #pdfFileName{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ── CAMBI DI PALCO (Versioni L3, 25/11/2026) ───────────────────────────────────────────────────
    Pannello come «Scaletta»: con i cambi aperti la colonna (o il cassetto del telefono) mostra solo lui. */

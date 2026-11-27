@@ -23580,6 +23580,7 @@ t("Esporta rifiniture: avvisi compatti (titolo sempre, «Dettagli» da 2 avvisi 
   ok(/px-det-b/.test(appjs) && /aria-expanded/.test(appjs.slice(appjs.indexOf("function pdfAvvisoDettagli"), appjs.indexOf("function pdfAvvisoDettagli") + 700)), "il «Dettagli» è un bottone con aria-expanded");
   ok(/\.px-compatti \.px-det:not\(\.aperto\)\{display:none\}/.test(stylesCss), "in modo compatto i dettagli si nascondono, salvo aperti");
   ok(!/\.px-compatti[^{]*\{[^}]*display:none[^}]*\}/.test(stylesCss.replace(/\.px-compatti \.px-det:not\(\.aperto\)\{display:none\}/, "")), "e niente altro viene nascosto dal modo compatto (nessun avviso perso)");
+  ok(/\.px-compatti #pdfFileName\{[^}]*white-space:nowrap[^}]*text-overflow:ellipsis[^}]*\}/.test(stylesCss) && (appjs.match(/_(?:fn|nf)\.title=_(?:fn|nf)\.textContent/g) || []).length === 2, "27/11: in modo compatto il nome del file sta su una riga (con una versione andava a capo e la finestra scorreva), intero nel tooltip");
   ok(/class="px-fuori"/.test(appjs) && /\.px-fuori::before\{content:" \\00b7/.test(stylesCss), "il piè mette il «·» come stile sul solo desktop");
   eq(A.pdfInfoFuori.length >= 0, true, "pdfInfoFuori resta com'era (il separatore lo toglie il chiamante)");
 });
