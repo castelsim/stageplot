@@ -44221,6 +44221,107 @@ t("Linee DMX · 120 apparecchi: la costruzione resta veloce e deterministica", (
   lnReset();
 });
 
+/* una scena per il foglio: 2 universi (36 PAR da 16 canali + uno splitter con 4 uscite), un nome dell'utente */
+function lnFoglio(o = {}) {
+  const r = lnScena(o.n || 6, { ch: o.ch || 4, linee: false }); r.fari[0].label = "PAR blu";
+  if (o.splitter) { r.sp = add("dmxsplit", 100, 400); r.sp.dmxOut = 4; }
+  A.dmxLineeAccendi(true); return r;
+}
+t("Linee DMX · foglio «Cavi DMX»: riepilogo, una sezione per linea con tratta, lunghezza, taglio e terminatore; dentro i margini, senza caratteri fuori font", () => {
+  lnFoglio(); A.state.titolo = "Concerto di prova";
+  const doc = docFintoPL(); eq(A.schedaDmxPdf(doc), true);
+  const tx = doc.testi.map((r) => r.t), tutto = tx.join("\n");
+  ok(/STAGE PLOT — Cavi DMX/.test(tutto), "testata"); ok(tx.includes("Concerto di prova"), "titolo del progetto");
+  ok(tx.includes("1 linea · 6 apparecchi · 6 cavi · totale " + A.docNum(A.dmxLinee().tratteTutte ? 0 : A.dmxLinee().linee[0].lenM, 1) + " m") || tx.some((x) => /^1 linea · 6 apparecchi · 6 cavi · totale [\d,]+ m$/.test(x)), "riepilogo: " + tx.slice(3, 8).join(" | "));
+  ok(tx.some((x) => /^Cavo: DMX da 110-120 ohm schermato, non microfonico\.$/.test(x)), "il cavo");
+  ok(tx.some((x) => /^Terminatori da 120 ohm: 1$/.test(x)), "terminatori"); ok(tx.some((x) => /^Cavi per taglio: .*×? ?\d+× \d+ m/.test(x) || /^Cavi per taglio: \d+× \d+ m/.test(x)), "cavi per taglio: " + tx.find((x) => /Cavi per taglio/.test(x)));
+  ["N.", "DA", "A", "LUNGHEZZA", "TAGLIO"].forEach((h) => ok(tx.includes(h), "colonna " + h));
+  ok(tx.some((x) => /^Linea U1 · 6 apparecchi · [\d,]+ m$/.test(x)), "sezione della linea: " + tx.filter((x) => /^Linea/.test(x)).join("|"));
+  const riga = (n) => { const r = doc.testi.find((x) => x.t === String(n) && x.x < 20); return doc.testi.filter((x) => x.p === r.p && x.y === r.y).map((x) => x.t); };
+  const r1 = riga(1), r6 = riga(6);
+  eq([r1[1], r1[2]], ["Console luci", "T1.1 · PAR blu"], "prima tratta: dalla console al primo PAR (col nome dell'utente)");
+  ok(/^\d+,\d m$/.test(r1[3]) && /^\d+ m$/.test(r1[4]), "lunghezza e taglio: " + r1.join("|"));
+  ok(/terminatore 120 ohm$/.test(r6[2]), "il terminatore sta sull'ultima tratta: " + r6.join("|"));
+  ok(!/[Ω≤≥→“”’]/.test(tutto), "solo caratteri del font standard del PDF");
+  ok(doc.testi.every((r) => r.x >= 15.9 && r.y <= 272.01 && r.y >= 15), "nessun testo oltre i margini (15 mm) né sotto il fondo (272)");
+  ok(doc.testi.filter((r) => r.a !== "right").every((r) => r.x <= 194), "niente parte oltre il margine destro");
+  ok(tx.some((x) => /Una linea DMX regge 32 apparecchi in catena, senza Y/.test(x)), "promemoria"); ok(!tx.some((x) => /Attenzione/.test(x)), "nessun avviso = nessuna nota di attenzione");
+  lnReset();
+});
+t("Linee DMX · foglio con splitter: i tronchi in testa, i rami con l'uscita, i terminatori che servono; con «terminano da sole» non si chiedono", () => {
+  const r = lnFoglio({ n: 40, ch: 1, splitter: true }); r.sp.label = "Splitter palco";
+  let doc = docFintoPL(); A.schedaDmxPdf(doc); let tx = doc.testi.map((x) => x.t);
+  ok(tx.includes("Dalla console agli splitter"), "sezione dei tronchi"); ok(tx.some((x) => /^Ramo U1·1 · 20 apparecchi · [\d,]+ m · da Splitter palco, uscita 1$/.test(x)), "ramo 1: " + tx.filter((x) => /^Ramo/.test(x)).join("|"));
+  ok(tx.some((x) => /^Ramo U1·2 .* uscita 2$/.test(x))); ok(tx.some((x) => /^Terminatori da 120 ohm: 2 · splitter: Splitter palco \(4 uscite\)$/.test(x)), "riepilogo: " + tx.find((x) => /^Terminatori/.test(x)));
+  eq(tx.filter((x) => /terminatore 120 ohm$/.test(x)).length, 2, "uno per ramo");
+  r.sp.dmxT = true; doc = docFintoPL(); A.schedaDmxPdf(doc); tx = doc.testi.map((x) => x.t);
+  ok(tx.some((x) => /^Terminatori da 120 ohm: 0 · splitter: Splitter palco \(4 uscite, terminano da sole\)$/.test(x)), "terminano da sole: " + tx.find((x) => /^Terminatori/.test(x)));
+  eq(tx.filter((x) => /terminatore 120 ohm$/.test(x)).length, 0, "e nessuna riga lo chiede");
+  lnReset();
+});
+t("Linee DMX · foglio con molte tratte: pagina nuova con l'intestazione delle colonne ripetuta, mai sotto il fondo né sopra i margini", () => {
+  lnScena(80, { ch: 4, passo: 25 });
+  const doc = docFintoPL(); A.schedaDmxPdf(doc);
+  ok(doc.pagine >= 2, "più pagine: " + doc.pagine); ok(doc.testi.every((r) => r.y <= 272.01), "niente oltre 272 mm: max " + Math.max(...doc.testi.map((r) => r.y)));
+  ok(doc.testi.filter((r) => r.p > 2).every((r) => r.y >= 22), "dalla seconda pagina del foglio niente sopra 22 mm");
+  ok(doc.testi.some((r) => r.p === 3 && /^DA \(segue\)$/.test(r.t)), "la testata delle colonne si ripete");
+  ok(doc.testi.filter((r) => /^\d+$/.test(r.t) && r.x < 20).length === 80, "80 tratte, una riga ciascuna");
+  lnReset();
+});
+t("Linee DMX · foglio in inglese e in piedi: titoli, colonne, note tradotti; nessuna parola italiana; le lunghezze in ft", () => {
+  lnFoglio({ n: 4 }); A.state.docLang = "en";
+  try {
+    let doc = docFintoPL(); A.schedaDmxPdf(doc); let tutto = doc.testi.map((r) => r.t).join("\n");
+    ok(/DMX cables/.test(tutto) && /1 line · 4 fixtures · 4 cables · total/.test(tutto) && /FROM/.test(tutto) && /LENGTH/.test(tutto) && /CUT/.test(tutto) && /120 ohm terminator/.test(tutto) && /Line U1 · 4 fixtures/.test(tutto), tutto.slice(0, 400));
+    ok(/Cables by length: /.test(tutto) && /Cable: shielded 110-120 ohm DMX cable, not a microphone cable\./.test(tutto) && /Length = drawn path/.test(tutto), "righe in inglese");
+    ok(!/Cavi DMX|Linea U|apparecch|LUNGHEZZA|TAGLIO|terminatore|Cavo:|Promemoria|Una linea DMX regge/.test(tutto), "nessun testo italiano: " + tutto.split("\n").filter((x) => /Cavi|apparecch|terminat/.test(x)).join("|"));
+    A.state.docUnits = "ft"; doc = docFintoPL(); A.schedaDmxPdf(doc); tutto = doc.testi.map((r) => r.t).join("\n");
+    ok(/\d+' ?\d*"?/.test(tutto) && /\d+ ft/.test(tutto), "in piedi: lunghezze in ft-in e tagli in ft: " + doc.testi.filter((r) => r.x > 150).map((r) => r.t).slice(0, 8).join("|"));
+  } finally { delete A.state.docLang; delete A.state.docUnits; }
+  lnReset();
+});
+t("Linee DMX · foglio: oltre 32 apparecchi lo dice, il cavo XLR dichiarato lo dice; senza linee o senza console non stampa niente", () => {
+  lnScena(33, { ch: 1 }); let doc = docFintoPL(); A.schedaDmxPdf(doc);
+  ok(doc.testi.some((r) => /^Attenzione: oltre 32 apparecchi su una linea\.$/.test(r.t)), "avviso nella sezione"); ok(doc.testi.some((r) => /ci sono avvisi sulle linee DMX \(vedi «Cosa manca\?»\)/.test(r.t)), "nota in fondo");
+  A.state.dmx.cavo = "xlr"; doc = docFintoPL(); A.schedaDmxPdf(doc); ok(doc.testi.some((r) => /^Cavo dichiarato: XLR microfonico/.test(r.t)), "cavo dichiarato");
+  A.dmxLineeAccendi(false); doc = docFintoPL(); eq([A.schedaDmxPdf(doc), A.schedaDmxDisponibile(), doc.pagine], [false, false, 1], "linee spente: niente, nemmeno una pagina vuota");
+  A.dmxLineeAccendi(true); A.state.items = A.state.items.filter((x) => x.type !== "consolaluci"); eq([A.schedaDmxPdf(docFintoPL()), A.schedaDmxDisponibile()], [false, false], "senza console: niente");
+  lnReset();
+});
+t("Linee DMX · Esporta e Pacchetto: la pillola e la voce ci sono solo con le linee accese, dopo la patch luci; gli altri documenti non cambiano", () => {
+  lnScena(4, { linee: false });
+  const senza = A.window.__pdfChiaviTecniche(); ok(senza.includes("patchluci") && !senza.includes("cavidmx"), "a linee spente la pillola non c'è");
+  A.dmxLineeAccendi(true); const con = A.window.__pdfChiaviTecniche();
+  ok(con.includes("cavidmx"), "a linee accese c'è"); ok(con.includes("view-cavi") && !senza.includes("view-cavi"), "e con lei la pagina «Tutti i cavi» (con un solo reparto di cavi: le linee non stanno in nessun layer)"); eq(con.filter((k) => k !== "cavidmx" && k !== "view-cavi"), senza, "le altre pagine sono quelle di prima, nello stesso ordine");
+  eq(A.PDF_TECH_ORDER.indexOf("cavidmx"), A.PDF_TECH_ORDER.indexOf("patchluci") + 1, "ordine unico: subito dopo la patch luci"); eq(new Set(A.PDF_TECH_ORDER).size, A.PDF_TECH_ORDER.length);
+  const nomi = (k) => A.pacchettoDocumenti(k, false, true, true).map((d) => d.chiave);
+  eq(nomi(["patchluci", "cavidmx"]), ["stageplot", "piantapalco", "piantaluci", "programmaluci", "patchluci", "cavidmx"], "nel pacchetto: subito dopo la patch luci");
+  eq(nomi(["patchluci"]), ["stageplot", "piantapalco", "piantaluci", "programmaluci", "patchluci"], "senza la pillola: identico a prima");
+  eq(A.pacchettoDocumenti(["cavidmx"], false, true, true).find((d) => d.chiave === "cavidmx").nome, "cavi dmx", "nome del file");
+  ok(/cavidmx:function\(\)\{ schedaDmxPdf\(doc\); \}/.test(A.pacchettoProduci.toString()), "pacchettoProduci sa produrlo");
+  ok(/cavidmx:function\(\)\{ schedaDmxPdf\(doc\); \}/.test(appjs.slice(appjs.indexOf("var STAMPA={"), appjs.indexOf("PDF_TECH_ORDER.forEach(function(k){ if(want(k)"))), "e il PDF completo pure");
+  eq(A.DOC_NOMI.cavidmx, "cavi dmx");
+  const h0 = A.impronteDocumenti(); ok(h0.cavidmx, "impronta del foglio, per «cambiato da vN»");
+  { const rr = A.dmxLinee().linee[0].righe; rr[rr.length - 1].it.x += 100; } const h1 = A.impronteDocumenti();
+  ok(h1.cavidmx !== h0.cavidmx, "cambia quando cambia una lunghezza"); eq(Object.keys(h1).filter((k) => k !== "cavidmx" && k !== "stageplot" && h1[k] !== h0[k]), [], "e nessun altro documento cambia (a parte il disegno del palco, che ha le posizioni)");
+  A.dmxLineeAccendi(false); ok(!("cavidmx" in A.impronteDocumenti()), "spente: l'impronta sparisce");
+  lnReset();
+});
+t("Linee DMX · pannello: un solo pulsante a linee spente, ogni gesto è un passo di Annulla, i campi nuovi solo dove servono; lo splitter ha la sua spunta", () => {
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/<div id="pDxLineeOff">[\s\S]*?<button type="button" class="btn" id="pDxLineeAttiva"[^>]*>Disegna le linee DMX<\/button>/.test(html), "a linee spente: spiegazione e un pulsante");
+  ok(/<div id="pDxLineeOn" style="display:none">/.test(html), "i campi partono nascosti");
+  ok(/<label class="chk" id="pDxTermWrap" style="display:none[^"]*"[^>]*><input type="checkbox" id="pDxTerm"> Terminatore da 120 Ω su questo apparecchio<\/label>/.test(html), "spunta del terminatore");
+  ok(/<select id="pDxCavo"><option value="dmx">Cavo DMX 110 Ω \(schermato\)<\/option><option value="xlr">XLR microfonico<\/option><\/select>/.test(html), "il cavo: DMX di serie");
+  ok(/<label class="chk" id="pDmxTermWrap" style="display:none[^"]*"[^>]*><input type="checkbox" id="pDmxTerm"> Le uscite terminano da sole<\/label>/.test(html), "spunta dello splitter, nascosta di serie");
+  ok(/tw\.style\.display=dmxLineeAttive\(\) \? "" : "none"/.test(appjs), "e compare solo a linee accese");
+  for (const id of ["pDxLineeAttiva", "pDxLineeSpegni", "pDxTerm", "pDxCavo"]) ok(new RegExp('getElementById\\("' + id + '"\\)\\.addEventListener\\("(click|change)", function\\(\\)\\{\\s*(var [^;]*;\\s*)?dmxGesto\\(').test(appjs), id + ": passa da dmxGesto (un passo di Annulla, salva, ridisegna)");
+  ok(/getElementById\("pDmxTerm"\)\.addEventListener\("change", function\(\)\{[^}]*mutSel\(function\(it\)\{ if\(it\.type!=="dmxsplit"\) return;/.test(appjs), "la spunta dello splitter passa da mutSel (Annulla)");
+  ok(/body:not\(\.f-opzioni\) #selProps \.pgrp\[data-grp="dmx"\]\{display:none !important\}/.test(stylesCss), "tutto il blocco sta nel gruppo «DMX», dietro «Opzioni complete»");
+  ok(/\.dmx-term\{[^}]*stroke:#db2777/.test(stylesCss), "il segno del terminatore ha il suo colore");
+  ok(/dmxLineeRenderPannello\(it, senza\);/.test(appjs), "il pannello si riscrive con i dati della linea");
+});
+
 await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
