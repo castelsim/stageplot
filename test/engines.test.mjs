@@ -12997,7 +12997,7 @@ t("fuori dal palco: con l'area automatica l'elemento esce nel PDF, nel PNG e nel
   ok(A.printArea().custom === false && A.printArea().w === 800, "l'area resta «il palco» (cartiglio e misure del disegno)");
   ok(/e chi sta fuori dal palco/.test(A.frameSummaryText()), "la riga dell'area lo dice: " + A.frameSummaryText());
   /* le quote «8 m / 5 m» di jsPDF: libere (la cassa è a destra), e posate sul palco, non a metà del riquadro allargato */
-  eq(A.pdfQuoteFuoriDalDisegno(box), true, "la cassa a destra non tocca le quote di jsPDF");
+  eq(box.quoteLibere, true, "la cassa a destra non tocca le quote di jsPDF");
   const q = box.rMm, cPalco = box.ix + (400 - box.vb.x) * box.mmPerCm;
   ok(Math.abs(q.x + q.w / 2 - cPalco) < 0.01, "«8 m» non è centrato sul palco: " + (q.x + q.w / 2) + " invece di " + cPalco);
   ok(Math.abs(q.x + 80 * box.mmPerCm - (box.ix - box.vb.x * box.mmPerCm)) < 0.01, "«5 m» non sta accanto al lato sinistro del palco");
@@ -13017,7 +13017,7 @@ t("fuori dal palco: con l'area automatica l'elemento esce nel PDF, nel PNG e nel
   A.state.items = A.state.items.filter((x) => x !== sub);
   const b0 = vbStampa();
   eq([b0.rMm.x, b0.rMm.y, b0.rMm.w, b0.rMm.h].map((v) => Math.round(v * 1000)), [b0.ix, b0.iy, b0.mmW, b0.mmH].map((v) => Math.round(v * 1000)), "senza nessuno fuori, le scritte restano dov'erano");
-  eq(A.pdfQuoteFuoriDalDisegno(b0), true, "e jsPDF quota il palco come sempre");
+  eq(A.pdfQuoteFuoriDalDisegno(b0), A.pdfQuoteFuoriDalDisegno(box), "e le quote stanno dove stavano senza la cassa (27/11: su 8×5 A4 a 1:50 ora dentro il disegno, soglia 15 mm)");
   reset();
 });
 t("fuori dal palco: chi è già dentro il margine del palco non allarga niente (nessun millimetro di differenza)", () => {
@@ -13025,7 +13025,7 @@ t("fuori dal palco: chi è già dentro il margine del palco non allarga niente (
   A.state.items[A.state.items.length - 1].label = "";
   eq(A.sceneVbDefault(), { x: -80, y: -80, w: 960, h: 660 }, "il riquadro è quello di sempre");
   eq(vbStampa().vb, { x: -80, y: -80, w: 960, h: 660 }, "anche nel PDF");
-  eq(A.pdfQuoteFuoriDalDisegno(vbStampa()), true, "e il disegno è quello di sempre: le quote le scrive jsPDF come prima");
+  eq(vbStampa().quoteLibere, true, "e il disegno è quello di sempre: nessuno copre le quote");
   eq([A.printScene().dentro.length, A.pdfInfoFuori("a4", "auto", "landscape", A.cartHFor("", "a4", "landscape"))], [0, ""], "e non è «chi sta fuori nel disegno»: niente da dire");
   ok(!/fuori dal palco/.test(A.frameSummaryText()), "nemmeno nella riga dell'area");
   /* uno che esce a destra ma sopra resta dentro il margine: il riquadro cresce a destra e basta */
@@ -21043,8 +21043,9 @@ t("nel PDF ogni quota è scritta una volta sola", () => {
     "la condizione del doppione non è quella attesa");
   /* jsPDF scrive le sue quote (e il disegno spegne le sue) solo con l'area automatica, il palco intero e nessuno fuori
      dal palco nel disegno (14/10: con chi sta fuori le quote di jsPDF gli cadevano addosso) */
-  const q = (custom, cropped, coperte) => A.pdfQuoteFuoriDalDisegno({ A: { custom }, cropped, quoteLibere: !coperte });
+  const q = (custom, cropped, coperte, rMm = { x: 60, y: 60, w: 100, h: 100 }) => A.pdfQuoteFuoriDalDisegno({ A: { custom }, cropped, quoteLibere: !coperte, rMm });
   eq([q(false, false, false), q(true, false, false), q(false, true, false), q(false, false, true)], [true, false, false, false], "quando jsPDF quota il palco");
+  eq([q(false, false, false, { x: 24, y: 60, w: 100, h: 100 }), q(false, false, false, { x: 60, y: 28, w: 100, h: 100 }), q(false, false, false, { x: 25.75, y: 28.75, w: 100, h: 100 })], [false, false, true], "27/11: sotto 20,75 mm (15 + corpo) la quota passa al disegno");
   /* e l'anteprima deve dire le stesse cose del file che uscirà */
   const prev = src.slice(src.indexOf("function pdfPreviewSvg"), src.indexOf("function pdfPreviewSvg") + 2000);
   ok(/textK:pdfTextK\(Ng\)/.test(prev), "l'anteprima non compensa il testo come il PDF");
@@ -43967,6 +43968,21 @@ t("Cavi uniti · rifiniture 27/11: fuoco sulla pastiglia, legenda ridisegnata da
   A.state.docLang = "it";
   eq(A.titoloVistaPdf("INGRESSI"), "INGRESSI", "in italiano i titoli restano");
   delete A.state.docLang;
+});
+
+t("Quota 15 mm: le quote di jsPDF fuori dal palco non escono mai dall'area sicura (palco 26×6 A2 1:50, 8×5 A4 1:50); la scala resta", () => {
+  const prova = (w, d, paper, N) => { A.state.stage = { w, d, blocks: [{ x: 0, y: 0, w, d }] }; A.recalcStageBBox(); A.state.items = []; delete A.state.printFrame;
+    const box = A.pdfStageBox(N, paper, "landscape", A.cartHFor("", paper, "landscape")); return { box, fuori: A.pdfQuoteFuoriDalDisegno(box), q: box.rMm }; };
+  { const r = prova(2600, 600, "a2", 50);
+    ok(r.q.x - 5 < 20.75, "caso trovato dal Mac Studio: la quota di sinistra a " + (r.q.x - 5) + " mm sarebbe sotto l'area sicura");
+    ok(r.fuori === false, "26×6 A2 1:50: le quote non le scrive più jsPDF fuori dal disegno (le scrive il disegno, attaccate al palco)");
+    ok(r.box.cropped === false && Math.abs(r.box.mmPerCm - 0.2) < 1e-9, "la scala resta 1:50 (0,2 mm/cm) e il palco non viene ritagliato"); }
+  { const r = prova(800, 500, "a4", 50); ok(r.q.y - 8 < 20.75 && r.fuori === false, "8×5 A4 1:50: la quota in alto (a " + (r.q.y - 8) + " mm) passa al disegno"); }
+  for (const [w, d, paper, N] of [[1400, 900, "a4", 100], [1400, 900, "a3", 100], [2600, 600, "a2", 100], [2200, 600, "a2", 50], [3000, 800, "a3", 100], [1000, 1400, "a3", 100]]) {
+    const r = prova(w, d, paper, N); ok(r.fuori === true, "palco normale " + w / 100 + "×" + d / 100 + " " + paper.toUpperCase() + " 1:" + N + ": quote fuori come sempre (invariato)"); }
+  { const r = prova(2600, 600, "a2", 50); A.state.printFrame = { x: 0, y: 0, w: 2600, h: 600 }; ok(A.pdfQuoteFuoriDalDisegno(A.pdfStageBox(50, "a2", "landscape", 22)) === false, "area scelta a mano: come prima (nessuna quota fuori)"); delete A.state.printFrame; }
+  ok(/var QUOTA_BASE_MIN=20\.75;/.test(appjs) && /return !!q && q\.x-5>=QUOTA_BASE_MIN-1e-6 && q\.y-8>=QUOTA_BASE_MIN-1e-6;/.test(appjs), "la soglia è nel sorgente (15 mm + corpo e discesa misurati nel PDF)");
+  ok(/box\.quoteLibere!==false && pdfQuoteDentroMargine\(box\);/.test(appjs), "pdfQuoteFuoriDalDisegno usa la soglia");
 });
 
 await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
