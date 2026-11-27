@@ -29028,7 +29028,8 @@ t("L-C la ricerca capisce quello che gli utenti scrivono (dalle ricerche senza r
   verso("movig he", "testamobile"); verso("beam", "testamobile"); verso("moving head", "testamobile");
   verso("centralina", "consolaluci"); verso("centralina", "etccs40");
   verso("gradino", "scala"); verso("traliccio", "truss"); verso("tralicci", "trussladder"); eq(chiavi("trousse").length, 0, "«trousse» resta senza risposta (decisione del 20/11)");
-  verso("sm58", "astamic"); verso("shure sm", "astamic"); verso("beta58", "astamic");
+  verso("sm58", "astamic"); verso("shure sm58", "astamic"); verso("e935", "astamic"); verso("sm57", "astabassa"); verso("beta58", "wireless");
+  ok(!chiavi("beta58").includes("astamic") && !chiavi("sm57").includes("astamic"), "ogni modello porta all'elemento giusto, non a tutti");
   /* niente inquinamento: ciò che già funzionava resta com'era */
   eq(chiavi("scala")[0], "scala", "«scala» dà ancora Scala accesso per prima"); ok(chiavi("piano").includes("grancoda"), "«piano» dà ancora i pianoforti");
   ok(!chiavi("beam").includes("grancoda") && chiavi("beam").length <= 3, "«beam» non porta altro");

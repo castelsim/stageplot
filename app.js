@@ -2661,8 +2661,8 @@ var SEARCH_ALIAS_UX45 = {
 /* 27/11/2026, lotto L-C («la ricerca capisce quello che l'utente scrive»), dalle ricerche senza risultato dei giorni 14–27/11
    (48 eventi `search_no_results` di utenti veri, solo il testo cercato): parole e refusi che indicano un oggetto che ESISTE.
    Stessa regola di sempre: niente sigle di 2-3 lettere (la ricerca è a sottostringa), solo verso tipi presenti nel catalogo.
-   I modelli di microfono (SM58, Beta 58, E935) sono del catalogo che non c'è: portano all'asta microfono, che è dove li si posa,
-   e il nome si cambia a mano. Marche senza modello (AKG, Neumann) non si mappano: sarebbe far credere che il catalogo le abbia. */
+   I modelli di microfono (SM58, SM57, Beta 58, E935) sono del catalogo che non c'è: portano all'elemento che l'app usa per quel microfono (asta
+   microfono = voce, asta bassa, mic wireless: gli stessi predefiniti dell'elenco canali), e il modello si scrive a mano. Marche senza modello (AKG, Neumann) non si mappano: sarebbe far credere che il catalogo le abbia. */
 var SEARCH_ALIAS_LC = {
   contrabbasso:"controbasso controbass contrabasso double bass",
   parluci:"parled paraled par led faretto faro par", parslimpar:"parled paraled par led faretto",
@@ -2670,7 +2670,8 @@ var SEARCH_ALIAS_LC = {
   consolaluci:"centralina centraline luci centralina dmx controller luci", etccs40:"centralina luci centralina dmx controller luci",
   scala:"gradino gradini scalino scalini",
   truss:"traliccio tralicci", truss40:"traliccio tralicci", trusstri:"traliccio tralicci", trussladder:"traliccio tralicci",
-  astamic:"sm58 sm57 beta58 beta57 shure sm58 shure sm57 shure beta58 e935 e945 sennheiser e935",
+  astamic:"sm58 shure sm58 e935 e945 sennheiser e935",   /* «Asta microfono» È il microfono voce del catalogo: nell'elenco canali il modello predefinito è SM58 (riga «astamic:"SM58"») */
+  astabassa:"sm57 shure sm57", wireless:"beta58 beta 58 shure beta58 beta58a",   /* gli stessi predefiniti dell'elenco canali: SM57 sull'asta bassa, Beta 58A sul wireless */
 };
 [SEARCH_ALIAS, SEARCH_ALIAS_GIRI, SEARCH_ALIAS_UX45, SEARCH_ALIAS_LC].forEach(function(tab){ Object.keys(tab).forEach(function(k){   /* fuso nei tipi: le due ricerche leggono solo TYPES[k].alias */
   if(TYPES[k]) TYPES[k].alias=((TYPES[k].alias||"")+" "+tab[k]).trim();
