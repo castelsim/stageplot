@@ -7972,17 +7972,21 @@ function dmxLeggiCanali(t){
   return {ch:+t};
 }
 /* `cur` = {u, a} che l'apparecchio ha adesso (o null). Scritto solo l'indirizzo: l'universo resta il suo. Scritto solo un universo diverso:
-   l'indirizzo resta il suo. Niente di nuovo scritto (campi vuoti, o l'universo di prima e l'indirizzo vuoto) = «vuoto»: NON si fissa niente
-   a mano; `due` dice che sono vuoti tutti e due (chi aveva un indirizzo a mano lo rilascia). */
+   l'indirizzo resta il suo. NIENTE DI NUOVO SCRITTO = «vuoto»: non si fissa niente a mano. Si ragiona un campo alla volta, perché uscendo da
+   un campo l'altro viene riscritto con ciò che è salvato (visto nel browser: «vuoti tutti e due» con gesti veri non capita mai):
+   · Indirizzo svuotato (e nessun universo nuovo) → `rilascia`: chi aveva un indirizzo scritto a mano torna automatico, come «Primo libero»;
+   · Universo svuotato e indirizzo di prima → niente cambia (prima un indirizzo automatico diventava «a mano» senza che nessuno l'avesse scritto). */
 function dmxLeggiIndirizzo(tu, ta, cur){
   tu=String(tu==null?"":tu).trim(); ta=String(ta==null?"":ta).trim();
   var u=null, a=null, m;
   if((m=/^(\d{1,3})[.,](\d{1,3})$/.exec(ta))){ u=+m[1]; a=+m[2]; }   /* «1.041» (o «1,041» dalla tastiera italiana): universo.indirizzo */
   else if(ta!==""){ if(!/^\d{1,4}$/.test(ta)) return {err:"Scrivi l'indirizzo da 1 a "+DMX_CH+", oppure universo.indirizzo (es. 1.041): il valore scritto non è stato salvato."}; a=+ta; }
   if(u==null && tu!==""){ if(!/^\d{1,4}$/.test(tu)) return {err:"L'universo va da 1 a "+DMX_U_MAX+" (numero intero): il valore scritto non è stato salvato."}; u=+tu; }
-  if(a==null && (u==null || !cur || u===cur.u)) return (tu==="" && ta==="") ? {vuoto:true, due:true} : {vuoto:true};
+  if(a==null && (u==null || !cur || u===cur.u)) return {vuoto:true, rilascia:true};
+  var uScritto=(u!=null);
   if(u==null) u=cur ? cur.u : 1;
   if(a==null) a=cur.a;
+  if(!uScritto && cur && u===cur.u && a===cur.a) return {vuoto:true};
   if(u<1 || u>DMX_U_MAX) return {err:"L'universo va da 1 a "+DMX_U_MAX+": il valore scritto non è stato salvato."};
   if(a<1 || a>DMX_CH) return {err:"L'indirizzo va da 1 a "+DMX_CH+": il valore scritto non è stato salvato."};
   return {u:u, a:a};
@@ -24612,8 +24616,8 @@ document.getElementById("pDxNo").addEventListener("change", function(){
     var L=dmxCampoRotto(eu) ? dmxLeggiIndirizzo("x", ea.value, null) : dmxLeggiIndirizzo(eu.value, ea.value, (r0 && r0.u!=null) ? {u:r0.u, a:r0.a} : null);
     if(L.err){ dmxRifiuta(L.err); return; }   /* fuori dai limiti o non un numero: non si scrive, il campo torna com'era e si dice perché */
     if(L.vuoto){
-      /* campi svuotati: non si fissa niente a mano. Vuoti tutti e due su un indirizzo scritto a mano = lo si rilascia, come «Primo libero» */
-      if(L.due && r0 && r0.fix) dmxGesto(function(it){ if(!it) return; dmxImposta(it, {u:null, a:null, fix:null}); return "Indirizzo di nuovo automatico."; });
+      /* niente di nuovo scritto: non si fissa niente a mano. Indirizzo svuotato su uno scritto a mano = lo si rilascia, come «Primo libero» */
+      if(L.rilascia && r0 && r0.fix) dmxGesto(function(it){ if(!it) return; dmxImposta(it, {u:null, a:null, fix:null}); return "Indirizzo di nuovo automatico."; });
       dmxCampiRiscrivi(); return;
     }
     var u=L.u, a=L.a;

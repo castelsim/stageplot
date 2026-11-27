@@ -43318,15 +43318,19 @@ t("Pezzetti · b) campo «Indirizzo»: «1.041» è universo 1 indirizzo 41, mai
 });
 t("Pezzetti · b) svuotare i campi non fissa l'indirizzo «a mano»: resta (o torna) automatico", () => {
   const L = A.dmxLeggiIndirizzo;
-  eq(L("", "", { u: 1, a: 9 }), { vuoto: true, due: true }, "tutti e due vuoti");
-  eq(L("1", "", { u: 1, a: 9 }), { vuoto: true }, "indirizzo svuotato e universo di prima: niente di nuovo scritto");
-  eq(L("3", "", null), { vuoto: true }, "nessun indirizzo da tenere: niente");
-  eq(L("", "", null), { vuoto: true, due: true });
+  /* un campo alla volta, come succede davvero: uscendo da un campo l'altro mostra di nuovo ciò che è salvato */
+  eq(L("1", "", { u: 1, a: 9 }), { vuoto: true, rilascia: true }, "Indirizzo svuotato, universo di prima: niente di nuovo scritto; chi era a mano si rilascia");
+  eq(L("", "", { u: 1, a: 9 }), { vuoto: true, rilascia: true }, "tutti e due vuoti: lo stesso");
+  eq(L("3", "", null), { vuoto: true, rilascia: true }, "nessun indirizzo da tenere: niente"); eq(L("", "", null), { vuoto: true, rilascia: true });
+  eq(L("", "9", { u: 1, a: 9 }), { vuoto: true }, "Universo svuotato e indirizzo di prima: non si fissa niente (prima un automatico diventava «a mano»)");
+  eq(L("", "9", { u: 1, a: 9 }).rilascia, undefined, "e non rilascia: chi era a mano resta a mano");
+  eq(L("", "10", { u: 1, a: 9 }), { u: 1, a: 10 }, "ma un indirizzo NUOVO con l'universo vuoto si scrive, nel suo universo");
+  eq(L("1", "9", { u: 1, a: 9 }), { u: 1, a: 9 }, "riscritti tutti e due uguali: è un gesto esplicito, si fissa");
   const h = appjs.slice(appjs.indexOf('["pDxU","pDxA"].forEach'), appjs.indexOf('document.getElementById("pDxLibero")'));
   const vu = h.slice(h.indexOf("if(L.vuoto){"), h.indexOf("var u=L.u, a=L.a;"));
   ok(vu.length > 50 && /return;\s*\}\s*$/.test(vu), "il ramo «vuoto» esce prima di scrivere");
   ok(!/fix:true/.test(vu), "e non fissa niente");
-  ok(/if\(L\.due && r0 && r0\.fix\) dmxGesto\(function\(it\)\{ if\(!it\) return; dmxImposta\(it, \{u:null, a:null, fix:null\}\);/.test(vu), "vuoti tutti e due su un indirizzo a mano: lo rilascia, come «Primo libero»");
+  ok(/if\(L\.rilascia && r0 && r0\.fix\) dmxGesto\(function\(it\)\{ if\(!it\) return; dmxImposta\(it, \{u:null, a:null, fix:null\}\);/.test(vu), "Indirizzo svuotato su uno scritto a mano: lo rilascia, come «Primo libero»; su un automatico non fa niente");
   /* ciò che fa quel ramo, sul motore: da «a mano» torna automatico e prende il primo libero; chi era automatico non cambia */
   const fari = dxScena(3, 8); A.save();
   A.dmxImposta(fari[2], { u: 2, a: 101, fix: true }); A.save(); eq(dxRiga(fari[2]).fix, true, "scena: scritto a mano");
