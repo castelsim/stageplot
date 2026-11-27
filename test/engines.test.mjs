@@ -44123,6 +44123,9 @@ t("Linee DMX · lunghezza: giallo oltre 150 m, rosso oltre 300 m; il cavo XLR di
   A.state.dmx.cavo = "xlr"; eq(A.dmxCavoXlr(), true); v = lnVoci("dmx-xlr"); eq(v.length, 1, "XLR dichiarato e linea oltre 15 m"); eq(v[0].azioni.map((a) => a.label), ["Sistema"]);
   v[0].azioni[0].run(); eq([A.state.dmx.cavo, lnVoci("dmx-xlr").length], [undefined, 0], "«Sistema» torna al cavo DMX da 110 Ω");
   const brevi = lnScena(3, { ch: 4 }); A.state.dmx.cavo = "xlr"; eq(lnVoci("dmx-xlr").length, 0, "XLR su una linea corta (< 15 m): va bene");
+  const medie = lnScena(3, { ch: 4, passo: 1500 }); A.state.dmx.cavo = "xlr"; const Lm = A.dmxLinee().linee[0];
+  ok(Lm.lenM > 15 && Lm.lenM < 100, "linea media: " + Lm.lenM.toFixed(1) + " m"); const vm = lnVoci("dmx-xlr");
+  eq(vm.length, 1, "XLR dichiarato su una linea di " + Math.round(Lm.lenM) + " m (oltre 15, ben sotto i 150 di un cavo DMX): l'avviso c'è"); eq(lnVoci("dmx-lunga").length, 0, "e la linea non è «lunga»: è il cavo, non la lunghezza");
   lnReset();
 });
 
@@ -44245,6 +44248,7 @@ t("Linee DMX · foglio «Cavi DMX»: riepilogo, una sezione per linea con tratta
   ok(!/[Ω≤≥→“”’]/.test(tutto), "solo caratteri del font standard del PDF");
   ok(doc.testi.every((r) => r.x >= 15.9 && r.y <= 272.01 && r.y >= 15), "nessun testo oltre i margini (15 mm) né sotto il fondo (272)");
   ok(doc.testi.filter((r) => r.a !== "right").every((r) => r.x <= 194), "niente parte oltre il margine destro");
+  ok(doc.testi.filter((r) => r.a === "right").every((r) => r.x <= 195 && r.x >= 100), "e le colonne a destra (lunghezza, taglio) finiscono a 195 mm al massimo (15 mm dal bordo)");
   ok(tx.some((x) => /Una linea DMX regge 32 apparecchi in catena, senza Y/.test(x)), "promemoria"); ok(!tx.some((x) => /Attenzione/.test(x)), "nessun avviso = nessuna nota di attenzione");
   lnReset();
 });
