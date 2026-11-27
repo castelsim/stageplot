@@ -4565,6 +4565,8 @@ body.cambio-vista #catalog{pointer-events:none;opacity:.55}
 .cavi-uniti .elec-line.sel{stroke-width:4.8}
 .cu-dmx,.dmx-line{fill:none;stroke:#db2777;stroke-width:2.4;stroke-dasharray:1.5 5.5;stroke-linecap:round;stroke-linejoin:round}
 .dmx-line{pointer-events:none}
+/* C5: segno del terminatore da 120 Ω (barretta di traverso sull'ultimo apparecchio della linea) */
+.dmx-term{fill:none;stroke:#db2777;stroke-width:3.6;stroke-linecap:butt;pointer-events:none}
 .dmx-lbl{fill:#be185d;font-size:10px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px;pointer-events:none}
 /* tema scuro: le pastiglie (.cu-*) stanno sul pannello scuro e usano i colori chiari; i cavi sul PALCO, che resta bianco anche nel tema scuro, tengono quelli del tema chiaro (rilettura #238, D4: il verde acqua e il giallo chiari sul bianco hanno contrasto 1,9 e 1,7) */
 body.dark .cu-audio{stroke:#2dd4bf}
