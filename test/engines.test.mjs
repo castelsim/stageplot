@@ -44126,6 +44126,101 @@ t("Linee DMX · lunghezza: giallo oltre 150 m, rosso oltre 300 m; il cavo XLR di
   lnReset();
 });
 
+/* la scena di C4 (console luci e due PAR su una truss, più audio e corrente) con le linee DMX accese; i PAR hanno canali */
+function lnCuScena(linee = true) {
+  const o = cuScena(); A.dmxImposta(o.p1, { ch: 4 }); A.dmxImposta(o.p2, { ch: 4 }); A.dmxAccendi(true); if (linee) A.dmxLineeAccendi(true); return o;
+}
+t("Linee DMX · «Tutti i cavi»: la famiglia DMX diventa le linee vere (non più «indicativo»), a schermo e nel foglio", () => {
+  const o = lnCuScena();
+  eq(A.caviFamiglie().find((f) => f.k === "dmx").n, 2, "i cavi DMX sono le due tratte: console → p1 → p2");
+  A.caviUnitiImposta(true);
+  let m = A.caviDmxMarkup();
+  eq([cuConta(m, /class="dmx-line"/g), cuConta(m, /class="dmx-term"/g), cuConta(m, /dmx-lbl/g)], [2, 1, 0], "a schermo: 2 tratti, il segno del terminatore sull'ultimo, nessuna scritta");
+  ok(/class="dmx-layer dmx-linee"/.test(m), "gruppo suo");
+  const own = [...m.matchAll(/<g class="cabgrp" data-own="([^"]+)">/g)].map((x) => x[1]);
+  eq(own, [o.desk.id + " " + o.p1.id, o.p1.id + " " + o.p2.id], "ogni tratta sfuma insieme ai suoi due capi");
+  A.__cabStatic = true; try { m = A.caviDmxMarkup(); } finally { A.__cabStatic = false; }
+  eq([...m.matchAll(/<text class="dmx-lbl"[^>]*>([^<]*)<\/text>/g)].map((x) => x[1]), ["U1"], "nel foglio: il nome della linea, una volta sola");
+  const s = A.stageSceneSvg(null, { focus: "cavi" });
+  eq([cuConta(s, /class="dmx-line"/g), cuConta(s, /class="dmx-term"/g)], [2, 1], "nel foglio «Tutti i cavi» le stesse linee");
+  const righe = [...s.matchAll(/<line class="cu-tratto cu-(\w+)"[^>]*\/><text class="cab-legend-t"[^>]*>([^<]*)<\/text>/g)].map((x) => [x[1], x[2]]);
+  eq(righe.find((r) => r[0] === "dmx"), ["dmx", "D · DMX · 2"], "legenda: due cavi, e non più «indicativo»: " + JSON.stringify(righe));
+  ok(/Le linee dalla console|le linee dalla console/.test(A.caviLegendaHtml()) && !/indicativo/.test(A.caviLegendaHtml()), "e il suggerimento della pastiglia lo dice");
+  A.caviUnitiStato().off = { dmx: true }; ok(!/dmx-line/.test(A.caviDmxMarkup()), "la pastiglia DMX spegne le linee");
+  lnReset();
+});
+t("Linee DMX · da sole bastano a offrire «Tutti i cavi» (le linee non stanno in nessun layer); a linee spente la vista di solo DMX resta vietata", () => {
+  lnReset(); add("consolaluci", 100, 700); const f = add("parluci", 400, 80); A.dmxImposta(f, { ch: 4 }); A.dmxAccendi(true);
+  eq([A.caviFamiglieConCavi().map((x) => x.k), A.caviUnitiDisponibile()], [["dmx"], false], "linee spente: una famiglia sola, niente vista");
+  A.dmxLineeAccendi(true); eq(A.caviUnitiDisponibile(), true, "linee accese: la vista c'è anche con il solo DMX");
+  eq(A.caviUnitiImposta(true), true); ok(/dmx-line/.test(A.sceneMarkup()), "e mostra le linee"); ok(A.window.__pdfChiaviTecniche().includes("view-cavi"), "e la pillola dell'Esporta ci sta");
+  A.state.items = A.state.items.filter((x) => x.type !== "consolaluci"); A.caviUnitiSync(); eq(A.caviUnitiStato().on, false, "senza console non ci sono più linee: la vista si spegne");
+  lnReset();
+});
+t("Linee DMX · i fogli di sempre non cambiano con le linee accese: solo la pagina «Tutti i cavi» e la scheda nuova", () => {
+  lnCuScena(false);
+  const f = () => [A.stageSceneSvg(null, {}), A.stageSceneSvg(null, { focus: "cabin" }), A.stageSceneSvg(null, { focus: "elec" }), A.stageSceneSvg(null, { focus: "cabaudio" }), A.buildExportSvg().svgStr, A.sceneMarkup()];
+  const prima = f(), cavi0 = A.stageSceneSvg(null, { focus: "cavi" });
+  A.dmxLineeAccendi(true);
+  const dopo = f();
+  prima.forEach((x, i) => ok(x === dopo[i], "scena " + i + " identica a linee spente"));
+  ok(A.stageSceneSvg(null, { focus: "cavi" }) !== cavi0, "la pagina «Tutti i cavi» invece cambia: ha le linee vere");
+  eq(A.stageSceneSvg(null, { focus: "cavi" }).replace(/<g class="dmx-layer[\s\S]*?<\/g><\/g><\/g>/, "").length > 1000, true);
+  lnReset();
+});
+t("Linee DMX · «Cosa manca?»: le voci stanno nella famiglia Luci e fuori dal voto dell'audit; con le linee spente non ci sono", () => {
+  lnScena(34, { ch: 1, linee: false });
+  const v0 = A.auditEngine().score ?? A.auditEngine().punti, c0 = A.cosaManca();
+  A.dmxLineeAccendi(true); const c1 = A.cosaManca();
+  ok(c1.voci.some((x) => x.rule === "dmx-linea" && x.fam === "Luci"), "la voce delle 34 luci c'è");
+  eq((A.auditEngine().score ?? A.auditEngine().punti), v0, "il voto dell'audit non cambia: le voci DMX sono fuori dal voto");
+  eq(c1.voci.filter((x) => x.fonte !== "dmx").map((x) => x.id), c0.voci.filter((x) => x.fonte !== "dmx").map((x) => x.id), "le altre voci sono quelle di prima");
+  ok(c1.voci.every((x, i, a) => !x.id.startsWith("dmx:") || a.filter((y) => y.id === x.id).length === 1), "nessun id doppio");
+  ok(c1.voci.filter((x) => x.fonte === "dmx" && x.rule === "dmx-linea").length === 1 && c0.voci.filter((x) => x.rule === "dmx-linea").length === 1, "un avviso prima (per universo) e un avviso dopo (per linea): mai due insieme");
+  A.__projLocked = true; const t0 = A.dmxDati(A.dmxLinee().linee[0].ultimo.it); A.dmxImposta(A.dmxLinee().linee[0].ultimo.it, { t: null });
+  const vt = A.cosaMancaDmx().filter((x) => x.rule === "dmx-term"); vt[0].azioni[0].run(); eq(A.dmxDati(A.dmxLinee().linee[0].ultimo.it).t, undefined, "progetto bloccato: «Sistema» non scrive niente");
+  A.__projLocked = false; lnReset();
+});
+t("Linee DMX · salvataggio: `linee` e `cavo` stanno nel documento solo se accesi; terminatore e «terminano da sole» ci stanno solo se veri; un progetto vecchio non cambia", () => {
+  const r = lnScena(3, { linee: false });
+  A.save(); const v0 = A.docToJSON(); ok(!/linee|cavo/.test(v0), "senza linee il documento è quello di prima");
+  A.loadDoc(JSON.parse(v0)); A.save(); const vecchio = A.docToJSON(); A.loadDoc(JSON.parse(vecchio)); A.save(); eq(A.docToJSON(), vecchio, "round-trip di un progetto C3: identico, byte per byte");
+  ok(!/linee|cavo|dmxT/.test(vecchio));
+  eq(A.state.dmx, { on: true });
+  const sp = add("dmxsplit", 100, 400); A.dmxLineeAccendi(true); A.state.dmx.cavo = "xlr"; sp.dmxT = true; A.save();
+  const doc = JSON.parse(A.docToJSON()), SD = (d) => d.variants[0].state; eq(SD(doc).dmx, { on: true, linee: true, cavo: "xlr" }); ok(SD(doc).items.some((x) => x.type === "dmxsplit" && x.dmxT === true), "dmxT sullo splitter");
+  eq(SD(doc).items.filter((x) => x.dmx && x.dmx.t === true).length, 1, "un solo terminatore salvato: l'ultimo");
+  A.loadDoc(doc); A.save(); const doc2 = JSON.parse(A.docToJSON()); const doc2s = JSON.stringify(doc2); A.loadDoc(JSON.parse(doc2s)); A.save(); eq(JSON.parse(A.docToJSON()), JSON.parse(doc2s), "round-trip con le linee: identico");
+  eq([SD(doc2).dmx, SD(doc2).items.filter((x) => x.dmxT === true || (x.dmx && x.dmx.t === true)).length], [{ on: true, linee: true, cavo: "xlr" }, 2], "e dopo la lettura ci sono ancora tutte le chiavi: linee, cavo, dmxT, terminatore");
+  const sporco = JSON.parse(JSON.stringify(doc)), SS = SD(sporco);
+  SS.dmx = { on: true, linee: true, cavo: "boh" }; SS.items.forEach((x) => { if (x.type === "dmxsplit") x.dmxT = "si"; else if (x.type === "consolaluci") x.dmxT = true; else if (x.dmx) x.dmx.t = "yes"; });
+  A.loadDoc(sporco); A.save(); const pulito = SD(JSON.parse(A.docToJSON()));
+  eq(pulito.dmx, { on: true, linee: true }, "cavo sconosciuto: via; linee tiene");
+  ok(pulito.items.every((x) => x.dmxT === undefined) && pulito.items.every((x) => !x.dmx || x.dmx.t === undefined), "valori non veri o su elementi sbagliati: via");
+  SS.dmx = { on: false, linee: true, cavo: "xlr" }; A.loadDoc(sporco); A.save(); ok(!("dmx" in SD(JSON.parse(A.docToJSON()))), "patch spenta: le linee non esistono da sole");
+  SS.dmx = { linee: true }; A.loadDoc(sporco); A.save(); ok(!("dmx" in SD(JSON.parse(A.docToJSON()))), "e senza «on» nemmeno");
+  lnReset();
+});
+t("Linee DMX · copia di un apparecchio: non porta il terminatore; «Senza DMX» lo toglie; spegnere la patch spegne anche le linee", () => {
+  const r = lnScena(3); const ult = A.dmxLinee().linee[0].ultimo.it; eq(A.dmxDati(ult).t, true);
+  const c = JSON.parse(JSON.stringify(ult)); A.dmxCopiaPulita(c); eq(c.dmx && c.dmx.t, undefined, "la copia non è l'ultima: niente terminatore");
+  A.dmxImposta(ult, { no: true, u: null, a: null, fix: null, t: null }); eq(A.dmxDati(ult), { ch: 4, no: true }, "«Senza DMX»: niente t, niente indirizzo");
+  A.dmxImposta(ult, { no: null }); A.dmxImposta(r.fari[0], { t: true, no: true }); ok(!A.dmxDati(r.fari[0]).t, "una t su un «Senza DMX» non resta");
+  A.dmxAccendi(false); eq(A.state.dmx, undefined, "patch spenta: via anche `linee`"); eq(A.dmxLinee().on, false);
+  lnReset();
+});
+t("Linee DMX · 120 apparecchi: la costruzione resta veloce e deterministica", () => {
+  lnScena(120, { ch: 4, passo: 25, linee: false }); A.dmxLineeAccendi(true);
+  const t0 = Date.now(); const D = A.dmxLinee(); const ms = Date.now() - t0;
+  eq(D.linee.map((l) => [l.nome, l.n]), [["U1", 120]], "480 canali: un universo");
+  ok(ms < 800, "120 apparecchi in " + ms + " ms");
+  const sig = (D) => JSON.stringify(D.linee.map((l) => [l.nome, l.righe.map((r) => r.it.id), l.tratte.map((t) => t.lenM.toFixed(3))]));
+  eq(sig(A.dmxLinee()), sig(D), "stesso progetto, stessa catena");
+  const ordine = D.linee[0].righe.map((r) => r.code); A.state.items.reverse(); A.state.items.reverse();
+  const D2 = A.dmxLinee(); eq(D2.linee[0].righe.map((r) => r.code), ordine, "e non dipende da chi ha fatto qualcosa dopo");
+  lnReset();
+});
+
 await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

@@ -10751,8 +10751,8 @@ function schedaDmxPdf(doc){
   function riga(t, grassetto, col, passo){ doc.setFont("helvetica", grassetto ? "bold" : "normal"); doc.setFontSize(9.5); doc.setTextColor(col||"#555555");
     doc.splitTextToSize(t, R-M).forEach(function(r){ if(y>FONDO) nuova(); doc.text(r, M, y); y+=(passo||5); }); }
   riga(D.linee.length+" "+L(D.linee.length===1?"linea":"linee", D.linee.length===1?"line":"lines")+" · "+nApp+" "+L(nApp===1?"apparecchio":"apparecchi", nApp===1?"fixture":"fixtures")+" · "+tutte.length+" "+L(tutte.length===1?"cavo":"cavi", tutte.length===1?"cable":"cables")+" · "+L("totale","total")+" "+lung(totM));
-  riga(D.cavoXlr ? L("Cavo dichiarato: XLR microfonico (regge solo tratte brevi, 10-15 m).","Declared cable: XLR microphone cable (short runs only, 10-15 m).") : L("Cavo: DMX da 110-120 Ω schermato, non microfonico.","Cable: shielded 110-120 Ω DMX cable, not a microphone cable."));
-  riga(L("Terminatori da 120 Ω: ","120 Ω terminators: ")+nTerm+(D.splitter.length ? " · "+L("splitter","splitters")+": "+D.splitter.map(function(sp){ return docTesto(dmxNome(sp.it))+" ("+sp.uscite+" "+L("uscite","outputs")+(sp.termInterna ? ", "+L("terminano da sole","self-terminating") : "")+")"; }).join(", ") : ""));
+  riga(D.cavoXlr ? L("Cavo dichiarato: XLR microfonico (regge solo tratte brevi, 10-15 m).","Declared cable: XLR microphone cable (short runs only, 10-15 m).") : L("Cavo: DMX da 110-120 ohm schermato, non microfonico.","Cable: shielded 110-120 ohm DMX cable, not a microphone cable."));
+  riga(L("Terminatori da 120 ohm: ","120 ohm terminators: ")+nTerm+(D.splitter.length ? " · "+L("splitter","splitters")+": "+D.splitter.map(function(sp){ return docTesto(dmxNome(sp.it))+" ("+sp.uscite+" "+L("uscite","outputs")+(sp.termInterna ? ", "+L("terminano da sole","self-terminating") : "")+")"; }).join(", ") : ""));
   riga(L("Cavi per taglio: ","Cables by length: ")+cabTaglioTesto(_tagliConta(tutte, function(t){ return cabCutKey(t); }), oltre), true, "#111827");
   y+=3;
   var COLONNE=function(segue){
@@ -10778,14 +10778,14 @@ function schedaDmxPdf(doc){
     if(y+22>FONDO) nuova();
     doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor("#9d174d"); doc.text(doc.splitTextToSize(testa, R-M)[0], M, y); y+=5.5;
     COLONNE(false);
-    Lx.tratte.forEach(function(t, i){ tratta(i+1, t, (i===Lx.tratte.length-1 && !Lx.termInterna) ? L("terminatore 120 Ω","120 Ω terminator") : "", false); });
+    Lx.tratte.forEach(function(t, i){ tratta(i+1, t, (i===Lx.tratte.length-1 && !Lx.termInterna) ? L("terminatore 120 ohm","120 ohm terminator") : "", false); });
     if(Lx.n>DMX_LINEA_MAX){ doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor("#b45309"); doc.text(L("Attenzione: oltre "+DMX_LINEA_MAX+" apparecchi su una linea.","Warning: more than "+DMX_LINEA_MAX+" fixtures on one line."), cDa, y); y+=4.6; }
     y+=3;
   });
-  var note=[L("Lunghezza = percorso disegnato × 1,10 + 0,6 m di scorta per cavo; il taglio è il più vicino sopra (cavi XLR/DMX da 3, 5, 10, 15, 20, 30, 50 m).","Length = drawn path × 1.10 + 0.6 m slack per cable; the cut is the nearest size above (3, 5, 10, 15, 20, 30, 50 m).")];
-  note.push(L("Una linea DMX regge "+DMX_LINEA_MAX+" apparecchi in catena, senza Y; terminatore da 120 Ω sull'ultimo apparecchio di ogni linea o ramo; connettori XLR a 5 poli (3 poli solo se l'apparecchio lo prevede).","One DMX line carries "+DMX_LINEA_MAX+" fixtures in a daisy chain, no Y splits; 120 Ω terminator on the last fixture of every line or branch; 5-pin XLR connectors (3-pin only if the fixture needs it)."));
+  var note=[L("Lunghezza = percorso disegnato × 1,10 + 0,6 m di scorta per cavo; il taglio è il più vicino sopra"+(docUnita()==="ft" ? "." : " (3, 5, 10, 15, 20, 30, 50 m)."),"Length = drawn path × 1.10 + 0.6 m slack per cable; the cut is the nearest size above"+(docUnita()==="ft" ? "." : " (3, 5, 10, 15, 20, 30, 50 m)."))];
+  note.push(L("Una linea DMX regge "+DMX_LINEA_MAX+" apparecchi in catena, senza Y; terminatore da 120 ohm sull'ultimo apparecchio di ogni linea o ramo; connettori XLR a 5 poli (3 poli solo se l'apparecchio lo prevede).","One DMX line carries "+DMX_LINEA_MAX+" fixtures in a daisy chain, no Y splits; 120 ohm terminator on the last fixture of every line or branch; 5-pin XLR connectors (3-pin only if the fixture needs it)."));
   var av=0; try{ av=cosaMancaDmxLinee().length; }catch(_e){ av=0; }
-  if(av) note.push(L("Attenzione: ci sono avvisi sulle linee DMX (vedi «Cosa manca?»).","Warning: there are notes on the DMX lines (see “What’s missing?”)."));
+  if(av) note.push(L("Attenzione: ci sono avvisi sulle linee DMX (vedi «Cosa manca?»).","Warning: there are notes on the DMX lines (see the \"What is missing?\" panel)."));
   y+=1; doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#555555");
   note.forEach(function(t){ doc.splitTextToSize(t, R-M).forEach(function(r){ if(y>FONDO){ nuova(); doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#555555"); } doc.text(r, M, y); y+=4; }); });
   return true;
@@ -48612,7 +48612,7 @@ function pdfChannelPage(doc, L, paperKey){
     if(state.cab && state.cab.on && (state.items||[]).some(function(x){return OUT_SET[x.type]!=null;})){ pages.push({key:"view-cabout", label:"Vista: Monitor"}); }
     if(state.mond && state.mond.on){ pages.push({key:"view-mond", label:"Vista: Personal monitor"}); }
     if(state.elec && state.elec.on){ pages.push({key:"view-elec", label:"Vista: Elettrico"}); }
-    try{ if(caviFamiglieConCavi().length>=2) pages.push({key:"view-cavi", label:"Vista: Tutti i cavi"}); }catch(_e){}   /* C4: il foglio unico dei cavi, solo con almeno due famiglie; mai fra le suggerite */
+    try{ if(caviFamiglieConCavi().length>=2 || dmxLineeReali()) pages.push({key:"view-cavi", label:"Vista: Tutti i cavi"}); }catch(_e){}   /* C4: il foglio unico dei cavi, solo con almeno due famiglie; mai fra le suggerite */
     if((state.items||[]).some(function(x){return x.type==="miczone";})){ pages.push({key:"view-sectionmic", label:"Vista: Mic zone"}); }
     if(((state.lights&&state.lights.rows)||[]).length){ pages.push({key:"view-luci", label:"Vista: Luci"}); }
     if((state.items||[]).length){ pages.push({key:"rider", label:nomeDocumento()}); }   /* T2: rider generato dai dati */
