@@ -43467,6 +43467,363 @@ t("Pezzetti · FAQ «misura di una torre»: dice ciò che fa l'app (misure di ca
   ok(A.TYPES.forma && A.TYPES.forma.resizable === true && A.TYPES.forma.nome === "Forma" && /«Forma»/.test(q.acceptedAnswer.text), "la «Forma» esiste e si ridimensiona davvero");
 });
 
+/* ════ VISTA «TUTTI I CAVI» (27/11/2026, lotto C4 dello studio cablaggi) ════
+   Una vista sola con 4 famiglie di cavi (Audio, Rete, Corrente, DMX), dietro un pulsante: a pulsante spento niente cambia, né a
+   schermo né nei fogli né nel file. Colore E tratto per famiglia (si legge in bianco e nero); il DMX è un tratto indicativo. */
+console.log("\nCavi uniti (C4):");
+const cuConta = (mk, re) => (mk.match(re) || []).length;
+const cuN = () => Object.fromEntries(A.caviFamiglie().map((f) => [f.k, f.n]));
+const cuReset = () => {
+  reset(); A.resetMetaLayersUI(); delete A.state.dmx; delete A.state.netRed; delete A.state.rfShow;
+  ["showInputs", "showReturns", "showNet", "mixer", "digitale", "labelMode"].forEach((k) => delete A.state.cab[k]);
+  delete A.state.elec.visible; delete A.state.elec.mode; delete A.state.mond.visible;
+  A.__projLocked = false; A.__cabStatic = false;
+};
+/* tre sorgenti e una spia su una stage box, un combo su un distro, una console luci e due PAR appesi: audio 5, corrente 5, DMX 1 */
+function cuScena() {
+  cuReset();
+  const o = {};
+  o.box = add("stagebox", 900, 150); o.voce = add("cantante", 500, 500); o.asta = add("astamic", 300, 450); o.spia = add("wedge", 500, 650);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.__cabRes = null;
+  o.distro = add("distro32", 100, 100); o.combo = add("comboamp", 300, 300);
+  A.state.elec.on = true; A.state.elec.mode = "auto"; A.__elecRes = null;
+  /* con le coordinate: `piazza` (addItem senza posizione) nel sandbox nasce a x=NaN, e con l'elettrico acceso il ridisegno dentro addItem si rompe */
+  o.desk = add("consolaluci", 100, 700); o.truss = add("truss", 600, 80, { w: 800 });
+  o.p1 = add("parluci", 400, 80); o.p2 = add("parluci", 700, 80);
+  return o;
+}
+t("Cavi uniti · chiusa di serie: a pulsante spento il disegno non ha niente di nuovo, e accendere e spegnere non scrive niente nel progetto", () => {
+  cuScena();
+  eq(A.caviUnitiStato(), { on: false, off: {} }, "nasce spenta, con tutte le famiglie");
+  const mk0 = A.sceneMarkup(); A.save(); const st0 = A.stateToJSON(), doc0 = A.docToJSON();
+  ok(!/cavi-uniti|dmx-line|dmx-layer|cu-coax|cavi-legenda/.test(mk0), "spenta: nessun gruppo, nessun tratto DMX, nessuna classe nuova nel disegno");
+  eq(A.caviUnitiImposta(true), true, "si accende");
+  const mk1 = A.sceneMarkup();
+  eq([cuConta(mk1, /<g class="cavi-uniti">/g), cuConta(mk1, /class="dmx-line"/g)], [1, 1], "accesa: i cavi in un gruppo solo, col tratto DMX");
+  A.save();
+  eq(A.stateToJSON(), st0, "lo stato della scena è identico: la vista è della pagina, non del progetto");
+  eq(A.docToJSON(), doc0, "e così il documento salvato");
+  A.caviUnitiStato().off.corrente = true; A.save(); eq(A.docToJSON(), doc0, "nemmeno le famiglie spente si salvano");
+  eq(A.caviUnitiImposta(false), false);
+  ok(A.sceneMarkup() === mk0, "spenta di nuovo: il disegno torna identico, carattere per carattere");
+  A.caviUnitiImposta(true); A.resetMetaLayersUI(); eq(A.caviUnitiStato(), { on: false, off: {} }, "un progetto nuovo riparte con la vista spenta");
+  cuReset();
+});
+t("Cavi uniti · le 4 famiglie contano i cavi disegnati: fasci di canali = un cavo, ridondanza di rete = due, tratta digitale = rete e non multicore", () => {
+  const o = cuScena();
+  eq(A.caviFamiglie().map((f) => [f.k, f.sigla, f.nome]), [["audio", "A", "Audio"], ["rete", "R", "Rete"], ["corrente", "C", "Corrente"], ["dmx", "D", "DMX"]], "sempre quattro, in quest'ordine");
+  eq(cuN(), { audio: 5, rete: 0, corrente: 5, dmx: 1 }, "3 ingressi + 1 ritorno + 1 multicore · 5 linee di corrente · 1 tratto DMX");
+  A.caviUnitiStato().on = true;
+  let mk = A.sceneMarkup();
+  eq(cuConta(mk, /class="cab-line[ "]/g) + cuConta(mk, /class="cab-return[ "]/g) + cuConta(mk, /class="cab-snake"/g), 5, "audio: tanti quanti i cavi disegnati");
+  eq(cuConta(mk, /class="elec-line[ "]/g) + cuConta(mk, /class="elec-feed[ "]/g), 5, "corrente: tante quante le linee disegnate");
+  /* una batteria: più canali, UN cavo */
+  const bat = add("batteria", 700, 400); A.__cabRes = null; A.__elecRes = null;
+  ok(A.cabItemInputs(bat).length > 1, "la batteria ha più canali");
+  eq(cuN().audio, 6, "ma è un cavo solo in più");
+  /* personal mixer: i cavi Cat sono rete */
+  const hub = add("mixhub", 1000, 600); hub.pm = "p16d"; const pm = add("hearback", 800, 600); pm.pm = "p16m";
+  A.state.mond.on = true; A.state.mond.manual = {}; A.state.mond.manual[pm.id] = { to: hub.id }; A.__mondRes = null; A.__elecRes = null;
+  eq(cuN().rete, A.mondResult().links.length, "rete = i cavi dei personal mixer"); ok(cuN().rete >= 1);
+  mk = A.sceneMarkup(); eq(cuConta(mk, /class="mond-line[ "]/g), cuN().rete, "e sono quelli disegnati");
+  /* coassiale RF: è un cavo della famiglia Audio */
+  const prima = cuN().audio; add("rxrf", 500, 300); add("rfant", 200, 150); A.__cabRes = null;
+  eq(cuN().audio - prima, A.rfChain().links.length, "ogni coassiale conta nell'audio"); ok(A.rfChain().links.length >= 1);
+  /* stage box digitale: la sua tratta verso la console è rete, non un multicore; con la ridondanza i cavi sono due */
+  cuReset();
+  const sb = add("stagebox", 800, 200); sb.hw = "tio1608d"; add("cantante", 500, 500);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.mixer = "dm3"; A.state.cab.home = { kind: "foh" }; A.__cabRes = null;
+  eq(A.netEngine().runs.length, 1, "una tratta digitale"); eq((A.cabResult().snakes || []).length, 1);
+  eq([cuN().audio, cuN().rete], [1, 1], "audio = il solo cavo del microfono; la tratta della box è rete");
+  A.state.netRed = true; add("netswitch", 700, 400); A.__cabRes = null;
+  const rossi = A.netEngine().runs.filter((r) => r.red).length; ok(rossi >= 1, "con switch e ridondanza almeno una tratta è doppia");
+  eq(cuN().rete, A.netEngine().runs.length + rossi, "una tratta ridondante sono due cavi");
+  cuReset();
+});
+t("Cavi uniti · il pulsante c'è solo con almeno due famiglie di cavi, coi cavi visibili, mai in sola lettura né in «Crea elemento»", () => {
+  cuReset();
+  eq(A.caviUnitiDisponibile(), false, "palco vuoto: niente");
+  add("stagebox", 900, 150); add("cantante", 500, 500); A.state.cab.on = true; A.state.cab.mode = "auto"; A.__cabRes = null;
+  ok(cuN().audio >= 2 && A.caviFamiglieConCavi().length === 1, "solo audio");
+  eq(A.caviUnitiDisponibile(), false, "una famiglia sola: la vista sarebbe il layer che c'è già");
+  eq(A.caviUnitiImposta(true), false, "e non si accende"); ok(!/cavi-uniti/.test(A.sceneMarkup()));
+  const rend = A.render; A.render = () => {};   /* senza il ridisegno (che la spegnerebbe comunque): il rifiuto è del comando stesso */
+  try { eq([A.caviUnitiImposta(true), A.caviUnitiStato().on], [false, false], "il comando rifiuta da sé, non aspetta il ridisegno"); } finally { A.render = rend; }
+  ok(!A.window.__pdfChiaviTecniche().includes("view-cavi"), "né c'è la pillola nell'Esporta");
+  add("distro32", 100, 100); add("comboamp", 300, 300); A.state.elec.on = true; A.state.elec.mode = "auto"; A.__elecRes = null;
+  eq(A.caviUnitiDisponibile(), true, "audio + corrente: c'è");
+  A.__projLocked = true; eq(A.caviUnitiDisponibile(), false, "progetto in sola lettura: niente"); A.__projLocked = false;
+  A.__custEditor = { cambio: false }; eq(A.caviUnitiDisponibile(), false, "«Crea elemento» aperto: niente"); A.__custEditor = null;
+  const conn = A.connessioniVisibili; A.connessioniVisibili = () => false;
+  try { eq(A.caviUnitiDisponibile(), false, "«Connessioni» spenta: i cavi sul palco non si vedono, il pulsante nemmeno"); } finally { A.connessioniVisibili = conn; }
+  eq(A.caviUnitiDisponibile(), true);
+  /* la riga nelle Liste nasce solo quando serve */
+  const righe = []; const finte = { appendChild: (x) => righe.push(x) };
+  A.renderCaviUnitiRiga(finte); eq(righe.length, 1, "disponibile: una riga «Tutti i cavi»");
+  A.state.elec.on = false; A.__elecRes = null; A.renderCaviUnitiRiga(finte); eq(righe.length, 1, "non disponibile: nessuna riga in più");
+  cuReset();
+});
+t("Cavi uniti · «tutti» vuol dire tutti: gli occhi dei layer non contano (e non si toccano); le famiglie si spengono dalla legenda", () => {
+  cuScena();
+  A.state.cab.showReturns = false; A.state.elec.visible = false;
+  const opPrima = [A.state.cab.opacity, A.state.cab.retOpacity, A.state.elec.opacity]; A.state.cab.opacity = 50; A.state.cab.retOpacity = 50; A.state.elec.opacity = 50;
+  let mk = A.sceneMarkup();
+  eq([cuConta(mk, /class="cab-return[ "]/g), cuConta(mk, /class="elec-line[ "]/g)], [0, 0], "di serie gli occhi chiusi nascondono ritorni e corrente");
+  ok(/class="cab-inlayer" style="opacity:0\.5"/.test(mk), "e i cavi d'ingresso hanno l'opacità scelta (50 %)");
+  A.caviUnitiImposta(true); mk = A.sceneMarkup();
+  eq([cuConta(mk, /class="cab-return[ "]/g), cuConta(mk, /class="elec-line[ "]/g)], [1, 5], "nella vista unica ci sono lo stesso");
+  ok(/class="cab-inlayer" style="opacity:1"/.test(mk) && /class="cab-retlayer" style="opacity:1"/.test(mk) && /class="elec-layer[^"]*" style="opacity:1"/.test(mk), "a piena resa");
+  eq([A.state.cab.showReturns, A.state.elec.visible, A.state.cab.opacity, A.state.elec.opacity], [false, false, 50, 50], "occhi e opacità salvati restano com'erano");
+  [A.state.cab.opacity, A.state.cab.retOpacity, A.state.elec.opacity] = opPrima;
+  A.caviUnitiImposta(false); A.state.cab.labelMode = "always";
+  ok(/<g class="cab-legend">/.test(A.sceneMarkup()), "con le etichette «sempre» fuori dalla vista c'è la legenda dei colori per layer");
+  A.caviUnitiImposta(true); mk = A.sceneMarkup();
+  ok(!/<g class="cab-legend">/.test(mk) && /<g class="cavi-uniti">/.test(mk), "nella vista unica no: la legenda è quella a pastiglie, una sola");
+  delete A.state.cab.labelMode; mk = A.sceneMarkup();
+  const off = A.caviUnitiStato().off;
+  off.audio = true; mk = A.sceneMarkup();
+  eq([cuConta(mk, /class="cab-line[ "]/g), cuConta(mk, /class="cab-return[ "]/g), cuConta(mk, /class="cab-snake"/g), cuConta(mk, /class="elec-line[ "]/g), cuConta(mk, /class="dmx-line"/g)], [0, 0, 0, 5, 1], "Audio spento: restano corrente e DMX");
+  off.corrente = true; mk = A.sceneMarkup(); eq([cuConta(mk, /class="elec-line[ "]/g), cuConta(mk, /class="dmx-line"/g)], [0, 1], "Corrente spenta");
+  off.dmx = true; mk = A.sceneMarkup(); eq(cuConta(mk, /class="dmx-line"/g), 0, "DMX spento");
+  delete off.audio; mk = A.sceneMarkup(); eq(cuConta(mk, /class="cab-line[ "]/g), 3, "Audio riacceso");
+  A.caviUnitiImposta(false); A.caviUnitiImposta(true); eq(A.caviUnitiStato().off, {}, "riaccendere la vista riparte con tutte le famiglie");
+  /* una tratta digitale resta rete anche con la rete spenta: non torna a disegnarsi come multicore audio */
+  cuReset();
+  const sb = add("stagebox", 800, 200); sb.hw = "tio1608d"; add("cantante", 500, 500); add("distro32", 100, 100); add("comboamp", 300, 300);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.mixer = "dm3"; A.state.cab.home = { kind: "foh" }; A.state.elec.on = true; A.state.elec.mode = "auto"; A.__cabRes = null; A.__elecRes = null;
+  A.state.cab.showNet = false; mk = A.sceneMarkup();
+  eq([cuConta(mk, /class="cab-snake"/g), cuConta(mk, /class="net-line"/g)], [1, 0], "di serie, con l'occhio della rete chiuso, la tratta torna multicore (com'era)");
+  A.caviUnitiImposta(true); mk = A.sceneMarkup();
+  eq([cuConta(mk, /class="cab-snake"/g), cuConta(mk, /class="net-line"/g)], [0, 1], "nella vista unica è rete");
+  A.caviUnitiStato().off.rete = true; mk = A.sceneMarkup();
+  eq([cuConta(mk, /class="cab-snake"/g), cuConta(mk, /class="net-line"/g)], [0, 0], "Rete spenta: sparisce, non diventa un cavo audio");
+  /* il coassiale delle antenne entra nella famiglia Audio; i coni di copertura qui non si disegnano */
+  delete A.caviUnitiStato().off.rete; add("rxrf", 500, 300); add("rfant", 200, 150); A.__cabRes = null;
+  const coni = /fill="#7c3aed" opacity="0\.0[67]"/g;
+  mk = A.sceneMarkup(); eq([cuConta(mk, /<path class="cu-coax"/g), cuConta(mk, coni)], [A.rfChain().links.length, 0], "coassiali con la classe della famiglia, nessun cono");
+  const foglioRf = A.stageSceneSvg(null, { focus: "cavi" });
+  eq([cuConta(foglioRf, /<path class="cu-coax"/g), cuConta(foglioRf, coni)], [A.rfChain().links.length, 0], "anche nel foglio «Tutti i cavi»: coassiali sì, coni no");
+  A.caviUnitiImposta(false); mk = A.sceneMarkup(); ok(!/cu-coax/.test(mk) && cuConta(mk, coni) >= 1, "fuori dalla vista il disegno RF è quello di sempre");
+  cuReset();
+});
+t("Cavi uniti · DMX: un solo tratto indicativo dalla console alla prima luce; senza console o senza luci comandabili niente", () => {
+  cuReset();
+  eq(A.caviDmxTratto(), null, "palco vuoto");
+  const tr = piazza("truss", 600, 80); tr.w = 800;
+  const p1 = piazza("parluci", 300, 80); A.mountSet(p1, { mode: "hung" }); const p2 = piazza("parluci", 700, 80); A.mountSet(p2, { mode: "hung" });
+  eq(A.caviDmxTratto(), null, "luci senza console: nessun tratto"); eq(cuN().dmx, 0);
+  const desk = add("consolaluci", 100, 700);
+  let T = A.caviDmxTratto();
+  ok(T && T.da === desk && T.a === p1, "parte dalla console e arriva alla prima luce (la prima da sinistra sulla truss)");
+  eq(T.pts, [[100, 700], [300, 80]]); eq(cuN().dmx, 1);
+  eq(T.a, A.dmxApparecchi()[0].it, "è la prima dell'ordine della patch");
+  A.dmxImposta(p1, { no: true }); T = A.caviDmxTratto(); ok(T && T.a === p2, "chi è «Senza DMX» non conta: si passa alla successiva");
+  A.dmxImposta(p2, { no: true }); eq(A.caviDmxTratto(), null, "tutte senza DMX: nessun tratto");
+  A.dmxImposta(p1, { no: null }); A.dmxImposta(p2, { no: null });
+  const dim = add("dimmerddp610", 1000, 600); T = A.caviDmxTratto(); ok(T.a === dim, "il dimmer viene prima dei fari, come nella patch");
+  A.state.items = A.state.items.filter((x) => x !== dim);
+  /* a patch accesa: l'indirizzo più basso */
+  A.dmxImposta(p1, { ch: 8 }); A.dmxImposta(p2, { ch: 8 }); A.dmxAccendi(true);
+  ok(A.caviDmxTratto().a === p1, "patch accesa, indirizzi automatici: la prima resta la 1.001");
+  A.dmxImposta(p1, { u: 2, a: 1, fix: true });
+  ok(A.caviDmxTratto().a === p2, "p1 scritta a mano sull'universo 2: la prima luce diventa quella sull'universo 1");
+  A.dmxImposta(p2, { u: 2, a: 40, fix: true }); ok(A.caviDmxTratto().a === p1, "stesso universo: vince l'indirizzo più basso");
+  A.dmxImposta(p1, { u: 2, a: 100, fix: true }); ok(A.caviDmxTratto().a === p2, "stesso universo, il più basso è quello che viene dopo nell'ordine della patch: vince comunque lui (p2 su 2.040, p1 su 2.100)");
+  /* gli alogeni non hanno DMX: da soli non fanno un tratto */
+  cuReset(); add("consolaluci", 100, 700); piazza("farope", 400, 300);
+  eq(A.caviDmxTratto(), null, "solo alogeni: li comanda il dimmer, nessun tratto");
+  /* la seconda console non cambia niente: parte dalla prima */
+  const f = piazza("parluci", 500, 300); const d2 = add("etccs40", 900, 700);
+  ok(A.caviDmxTratto().da.type === "consolaluci" && A.caviDmxTratto().a === f && d2, "due console: il tratto parte dalla prima");
+  /* si disegna solo nella vista unica, e la scritta «DMX» solo nei fogli */
+  ok(!/dmx-line/.test(A.sceneMarkup()), "fuori dalla vista non c'è");
+  eq(A.caviDmxMarkup(), "", "il markup è vuoto a vista spenta");
+  A.caviUnitiStato().on = true;
+  const m = A.caviDmxMarkup(); ok(/<path class="dmx-line" d="M /.test(m) && !/dmx-lbl/.test(m), "a schermo: il tratto, senza scritta");
+  A.__cabStatic = true; try { ok(/<text class="dmx-lbl"[^>]*>DMX<\/text>/.test(A.caviDmxMarkup()), "nel foglio: con la scritta DMX"); } finally { A.__cabStatic = false; }
+  A.save(); ok(!/"dmx"/.test(A.docToJSON()), "il tratto non scrive niente nel progetto");
+  cuReset();
+});
+t("Cavi uniti · si esclude con liste e solo: aprirne uno la spegne, accenderla li chiude, Esc la spegne", () => {
+  cuScena();
+  A.caviUnitiImposta(true); ok(A.caviUnitiAttiva());
+  eq(A.vistaDiLavoro(), true, "è una vista di lavoro");
+  ok(/return !!layerAccOpen \|\| \(anySolo\(\) && !soloOn\("pedane"\)\) \|\| caviUnitiStato\(\)\.on===true;/.test(appjs), "«Solo pedane» non la scavalca da solo (nel sandbox il DOM è finto e la funzione esce prima: si guarda il sorgente)");
+  A.apriLayer("cabin");
+  eq(A.caviUnitiAttiva(), false, "con un solo acceso vince il solo, da subito");
+  A.pruneSolo(); eq(A.caviUnitiStato().on, false, "e al primo ridisegno (render chiama pruneSolo) la vista unica è spenta");
+  ok(/function render\(\)\{[\s\S]{0,400}pruneSolo\(\);/.test(appjs) && /function pruneSolo\(\)\{\s*caviUnitiSync\(\);/.test(appjs), "il controllo gira a ogni ridisegno, prima di tutto");
+  ok(!/cavi-uniti/.test(A.sceneMarkup()));
+  eq(A.caviUnitiImposta(true), true, "riaccesa");
+  eq([A.layerAccOpen, A.anySolo()], [null, false], "accenderla chiude la lista e il solo");
+  A.layerAccOpen = "luci"; A.caviUnitiSync(); eq(A.caviUnitiStato().on, false, "anche una lista senza solo (Luci) la spegne");
+  A.layerAccOpen = null; A.caviUnitiImposta(true);
+  eq(A.exitListMode(), true, "l'uscita unica (Esc) la riconosce"); eq(A.caviUnitiStato().on, false, "e la spegne");
+  eq(A.exitListMode(), false, "a vista spenta e senza liste Esc non ha niente da chiudere");
+  /* un progetto che non ha più due famiglie la perde da solo */
+  A.caviUnitiImposta(true); A.state.elec.on = false; A.state.items = A.state.items.filter((x) => x.type !== "consolaluci"); A.__elecRes = null;
+  A.caviUnitiSync(); eq(A.caviUnitiStato().on, false, "rimasta una famiglia sola: la vista si spegne");
+  cuReset();
+});
+t("Cavi uniti · i fogli di sempre non cambiano con la vista accesa: PDF, pagine-vista e PNG identici", () => {
+  cuScena();
+  const pdf0 = A.stageSceneSvg(null, {}), vIn0 = A.stageSceneSvg(null, { focus: "cabin" }), vEl0 = A.stageSceneSvg(null, { focus: "elec" }), png0 = A.buildExportSvg().svgStr;
+  ok(!/cavi-uniti|dmx-line/.test(pdf0 + vIn0 + vEl0 + png0), "di serie nei fogli non c'è niente della vista unica");
+  A.caviUnitiImposta(true); A.caviUnitiStato().off.corrente = true;
+  ok(/cavi-uniti/.test(A.sceneMarkup()), "a schermo la vista c'è");
+  ok(A.stageSceneSvg(null, {}) === pdf0, "PDF del palco identico");
+  ok(A.stageSceneSvg(null, { focus: "cabin" }) === vIn0, "«Vista: Ingressi» identica");
+  ok(A.stageSceneSvg(null, { focus: "elec" }) === vEl0, "«Vista: Elettrico» identica (anche con la Corrente spenta nella legenda)");
+  ok(A.buildExportSvg().svgStr === png0, "PNG identico");
+  eq([A.caviUnitiStato().on, A.caviUnitiStato().off], [true, { corrente: true }], "e dopo l'export la vista a schermo è ancora com'era");
+  cuReset();
+});
+t("Cavi uniti · foglio «Tutti i cavi»: le 4 famiglie con la legenda disegnata, sempre tutte, anche con occhi e pastiglie spenti; fuori dal foglio non resta niente", () => {
+  const o = cuScena();
+  A.state.cab.showReturns = false; A.state.elec.visible = false; A.caviUnitiStato().off = { audio: true, dmx: true };   /* niente di questo tocca il foglio */
+  const s = A.stageSceneSvg(null, { focus: "cavi" });
+  eq(cuConta(s, /<g class="cavi-uniti">/g), 1, "un gruppo solo");
+  eq([cuConta(s, /class="cab-line[ "]/g), cuConta(s, /class="cab-return[ "]/g), cuConta(s, /class="cab-snake"/g), cuConta(s, /class="elec-line[ "]/g), cuConta(s, /class="dmx-line"/g)], [3, 1, 1, 5, 1], "tutti i cavi del progetto");
+  ok(/<text class="dmx-lbl"[^>]*>DMX<\/text>/.test(s), "il tratto DMX è scritto");
+  const righe = [...s.matchAll(/<line class="cu-tratto cu-(\w+)"[^>]*\/><text class="cab-legend-t"[^>]*>([^<]*)<\/text>/g)].map((m) => [m[1], m[2]]);
+  eq(righe, [["audio", "A · Audio · 5"], ["corrente", "C · Corrente · 5"], ["dmx", "D · DMX · 1 · indicativo"]], "legenda: tratto, sigla, nome e numero, solo le famiglie che hanno cavi; il DMX è dichiarato indicativo");
+  const fuori = A.stageSceneSvg(null, { focus: "cavi", legendaFuori: true });
+  ok(/<g class="cavi-uniti">/.test(fuori) && !/cavi-legenda|cu-tratto/.test(fuori), "nel PDF la legenda non sta nel disegno (è la testata, a misura fissa): stessi cavi, niente riquadro");
+  ok(fuori === s.replace(/<g class="cab-legend cavi-legenda">[\s\S]*?<\/g>/, ""), "per il resto il disegno è lo stesso");
+  ok(/class="cab-legend cavi-legenda"/.test(s) && !/Audio — ingressi/.test(s), "è la legenda nuova, non quella per layer");
+  /* contesto sfumato: la truss non sta a un capo di nessun cavo; console luci e prima luce sì */
+  const sfumato = /<g style="opacity:0\.3">([\s\S]*?)<\/g><g class="item/.exec(s) || /<g style="opacity:0\.3">/.exec(s);
+  ok(sfumato, "c'è il gruppo del contesto al 30 %");
+  ok(A.caviFgItem(o.desk) && A.caviFgItem(o.p1) && A.caviFgItem(o.voce) && A.caviFgItem(o.combo) && A.caviFgItem(o.box) && A.caviFgItem(o.distro), "a piena resa chi sta a un capo di un cavo");
+  ok(!A.caviFgItem(o.truss), "la truss è contesto");
+  eq([A.wattOf({ type: "etccs40" }) > 0, A.caviFgItem({ type: "etccs40" })], [false, true], "una console luci senza watt dichiarati (non è un carico) resta a piena resa: da lì parte il DMX");
+  ok(Object.keys(A.TYPES).filter((k) => A.dmxCapace({ type: k })).every((k) => A.caviFgItem({ type: k })), "ogni apparecchio che può essere la «prima luce» è già a piena resa (è un carico, o un quadro come il dimmer)");
+  /* il testo cresce con la scala del foglio: il riquadro della legenda lo segue */
+  const larg = (x) => +/<g class="cab-legend cavi-legenda"><rect class="cab-legend-bg" x="6" y="[-\d.]+" width="([\d.]+)"/.exec(x)[1];
+  ok(larg(A.stageSceneSvg(null, { focus: "cavi", textK: 2 })) > larg(s) * 1.5, "a 1:200 il riquadro è più largo");
+  /* niente resta acceso dopo il foglio */
+  eq(A.caviUnitiAttiva() && !A.caviUnitiStato().on, false, "finito il foglio la vista non è in atto");
+  A.caviUnitiStato().on = false; ok(!/cavi-uniti/.test(A.sceneMarkup()), "e il palco a schermo è quello di sempre");
+  eq(A.caviFamAccesa("audio"), false, "le pastiglie spente restano spente (stato della pagina)");
+  /* se un motore lancia, il foglio esce senza cavi ma la vista non resta accesa */
+  const orig = A.elecMarkup; A.elecMarkup = () => { throw new Error("rotto"); };
+  try { A.stageSceneSvg(null, { focus: "cavi" }); } finally { A.elecMarkup = orig; }
+  eq(A.caviUnitiAttiva(), false, "anche dopo un errore nel disegno");
+  cuReset();
+});
+t("Cavi uniti · PDF: la testata «TUTTI I CAVI» porta la legenda a misura fissa, a 15 mm dal bordo, coi tratti nella scala del foglio; in inglese si traduce", () => {
+  cuScena();
+  const finto = (formato, orient) => { const d = jsPdfFinto()({ format: formato, orientation: orient }); let fs = 0, lw = 0, dash = [], cap = "butt";
+    const testo = d.text.bind(d), linea = d.line.bind(d);
+    d.setFontSize = (n) => { fs = n; }; d.setLineWidth = (n) => { lw = n; }; d.setLineDashPattern = (a) => { dash = a.slice(); }; d.setLineCap = (c) => { cap = c; };
+    d.text = (t, x, y) => { testo(t, x, y); d.pagine[0].testi[d.pagine[0].testi.length - 1].fs = fs; };
+    d.line = (x1, y1, x2, y2) => { linea(x1, y1, x2, y2); Object.assign(d.pagine[0].linee[d.pagine[0].linee.length - 1], { lw, dash, cap }); };
+    d.stato = () => ({ lw, dash, cap }); return d; };
+  const L = A.pdfLayout("a4", "landscape", 22);
+  let d = finto("a4", "landscape");
+  eq(A.caviTestataPdf(d, L, 100), ["A Audio · 5", "C Corrente · 5", "D DMX · 1 · indicativo"], "le voci: sigla, nome, numero; il DMX dichiarato indicativo");
+  const P = d.pagine[0], tit = P.testi[0];
+  eq([tit.t, tit.x, tit.y, tit.fs], ["TUTTI I CAVI", L.M, 18.9, 10], "il titolo, sul margine sinistro");
+  ok(P.testi.every((x) => x.y - x.fs * 0.3528 * 1.07 >= 15), "ogni scritta ha la cima ad almeno 15 mm dal bordo alto (corpo × 1,07, come misura il controllo dei margini)");
+  ok(P.testi.every((x) => x.x >= L.M), "e nessuna esce dal margine sinistro");
+  eq(P.testi.map((x) => x.t), ["TUTTI I CAVI", "A", "Audio · 5", "C", "Corrente · 5", "D", "DMX · 1 · indicativo"], "sigla in grassetto e poi nome e numero");
+  eq(P.rett.length, 1); ok(P.rett[0].fill === "255,255,255" && P.rett[0].st === "F" && P.rett[0].y <= 14.6 && P.rett[0].y + P.rett[0].h >= 20, "sotto la riga una piastra bianca: si legge anche sopra una planimetria");
+  const r3 = (a) => a.map((q) => Math.round(q * 1000) / 1000);
+  eq(P.linee.map((l) => [Math.round(l.lw * 1000) / 1000, r3(l.dash), l.cap]), [[0.24, [], "round"], [0.36, [1.4, 0.6], "butt"], [0.24, [0.15, 0.55], "round"]], "a 1:100 i campioni: pieno · spesso a tratti lunghi · puntini, grandi come i cavi disegnati (cm di palco ÷ 10)");
+  ok(P.linee.every((l) => l.y1 === l.y2 && Math.abs((l.x2 - l.x1) - 9) < 1e-9), "ogni campione è un tratto orizzontale di 9 mm");
+  eq(d.stato(), { lw: 0.2, dash: [], cap: "butt" }, "finita la testata tratteggio ed estremità tornano quelli di sempre (il cartiglio si disegna dopo)");
+  d = finto("a4", "landscape"); A.caviTestataPdf(d, L, 50);
+  eq(d.pagine[0].linee.map((l) => Math.round(l.lw * 1000) / 1000), [0.48, 0.72, 0.48], "a 1:50 i cavi sul foglio sono il doppio, e i campioni con loro");
+  /* la tabella dei tratti del PDF è quella del foglio di stile */
+  const blocco = stylesCss.slice(stylesCss.indexOf("VISTA «TUTTI I CAVI»"));
+  const hex = (c) => "#" + c.map((x) => ("0" + x.toString(16)).slice(-2)).join("");
+  for (const k of ["audio", "rete", "corrente", "dmx"]) {
+    const r = new RegExp("\\n\\.cu-" + k + ",[^{]*\\{([^}]*)\\}").exec(blocco); ok(r, "regola .cu-" + k);
+    const T = A.CAVI_TRATTO[k], pr = (p) => (new RegExp("(?:^|;)" + p + ":([^;]+)").exec(r[1]) || [])[1];
+    eq([hex(T.c), T.w, T.d ? T.d.join(" ") : "none", T.cap], [pr("stroke"), +pr("stroke-width"), pr("stroke-dasharray"), pr("stroke-linecap")], "«" + k + "»: PDF e foglio di stile dicono lo stesso tratto");
+  }
+  /* a capo quando non entra (A4 verticale): niente oltre il margine destro */
+  const Lv = A.pdfLayout("a4", "portrait", 22); d = finto("a4", "portrait");
+  const hub = add("mixhub", 1000, 600); hub.pm = "p16d"; const pm = add("hearback", 800, 600); pm.pm = "p16m";
+  A.state.mond.on = true; A.state.mond.manual = {}; A.state.mond.manual[pm.id] = { to: hub.id }; A.__mondRes = null; A.__elecRes = null;
+  eq(A.caviTestataPdf(d, Lv, 100).length, 4, "quattro famiglie");
+  const Pv = d.pagine[0];
+  ok(new Set(Pv.testi.map((x) => x.y)).size >= 2, "con quattro voci larghe la legenda va a capo");
+  ok(Pv.linee.every((l) => l.x2 <= Lv.pw - Lv.M + 1e-9) && Pv.testi.every((x) => x.x + d.getTextWidth(x.t) <= Lv.pw - Lv.M + 1e-9), "e niente supera il margine destro");
+  ok(Pv.rett[0].y + Pv.rett[0].h >= Math.max(...Pv.testi.map((x) => x.y)) + 1, "la piastra bianca copre tutte le righe");
+  /* il PDF: la pagina ha la sua testata al posto del titolo a 11 mm, e il disegno senza legenda dentro */
+  ok(/var _cavi=\(v\[0\]==="cavi"\);/.test(appjs) && /if\(!_cavi\) doc\.text\(v\[1\], L\.M, 11\);/.test(appjs), "la pagina «Tutti i cavi» non usa il titolo a 11 mm delle altre viste");
+  ok(/_cavi \? \{textK:scena\.textK, areaFoglio:scena\.areaFoglio, legendaFuori:true\}/.test(appjs) && /if\(_cavi\)\{ try\{ caviTestataPdf\(doc, L, N\); \}/.test(appjs), "disegno senza legenda dentro, e la testata sopra, dopo il palco");
+  /* documento in inglese */
+  A.state.docLang = "en";
+  try { eq(["TUTTI I CAVI", "Audio · 7", "Rete · 1", "Corrente · 10", "DMX · 1 · indicativo"].map((x) => A.docTesto(x)), ["ALL CABLES", "Audio · 7", "Network · 1", "Power · 10", "DMX · 1 · indicative"], "le voci della legenda in inglese"); }
+  finally { delete A.state.docLang; }
+  eq(A.docTesto("Rete · 1"), "Rete · 1", "in italiano niente cambia");
+  cuReset();
+});
+t("Cavi uniti · pillola «Vista: Tutti i cavi»: dopo «Vista: Elettrico», mai suggerita né preselezionata, fuori dal Pacchetto e dalle impronte", () => {
+  cuScena();
+  const pill = A.window.__pdfChiaviTecniche();
+  ok(pill.includes("view-cavi"), "con due famiglie la pillola c'è");
+  eq(pill[pill.indexOf("view-cavi") - 1], "view-elec", "subito dopo la vista dell'elettrico");
+  ok(!A.PDF_SUGGESTED.includes("view-cavi"), "non è fra le suggerite");
+  ok(!A.pdfSuggestedKeys(pill.map((k) => ({ key: k }))).includes("view-cavi"), "«Palco e scheda tecnica» non la sceglie");
+  ok(!A.pacchettoDocumenti(pill, false, true, A.luciFogliDisponibili()).some((d) => /cavi/.test(d.chiave)), "nel Pacchetto non c'è");
+  ok(!Object.keys(A.impronteDocumenti()).some((k) => /cavi/.test(k)), "nessuna impronta nuova");
+  ok(!A.pdfPaginaSoloAudio("view-cavi"), "non è una pagina del solo audio: in un concerto acustico con corrente e luci resta");
+  ok(/if\(want\("view-cavi"\)\)\s+_views\.push\(\["cavi","TUTTI I CAVI"\]\)/.test(appjs), "il PDF la disegna come pagina-vista, col suo titolo");
+  ok(/"view-cavi":\{focus:"cavi",title:"Tutti i cavi"\}/.test(appjs), "e l'anteprima la sfoglia");
+  A.state.elec.on = false; A.state.items = A.state.items.filter((x) => x.type !== "consolaluci"); A.__elecRes = null;
+  ok(!A.window.__pdfChiaviTecniche().includes("view-cavi"), "con una famiglia sola la pillola non c'è");
+  cuReset();
+});
+t("Cavi uniti · bianco e nero: quattro tratti diversi (pieno, tratteggio corto, spesso a tratti lunghi, puntini) e la legenda usa gli stessi dei cavi", () => {
+  const blocco = stylesCss.slice(stylesCss.indexOf("VISTA «TUTTI I CAVI»"));
+  ok(blocco.length > 500 && !/var\(--cu|stroke:var\(/.test(blocco.slice(0, blocco.indexOf("#caviLegenda{"))), "colori dei cavi scritti per esteso: queste regole finiscono nell'SVG dei fogli");
+  const regola = (sel) => { const m = new RegExp("(?:^|\\n)" + sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\{([^}]*)\\}").exec(blocco); ok(m, "manca la regola " + sel); return m[1]; };
+  const prop = (r, p) => { const m = new RegExp("(?:^|;)" + p + ":([^;]+)").exec(r); return m ? m[1].trim() : null; };
+  const R = {
+    audio: regola(".cu-audio,.cavi-uniti .cab-line,.cavi-uniti .cab-return,.cavi-uniti .cu-coax"),
+    rete: regola(".cu-rete,.cavi-uniti .net-line,.cavi-uniti .mond-line"),
+    corrente: regola(".cu-corrente,.cavi-uniti .elec-line,.cavi-uniti .elec-line.elec-cee,.cavi-uniti .elec-feed"),
+    dmx: regola(".cu-dmx,.dmx-line"),
+  };
+  const tratti = Object.fromEntries(Object.entries(R).map(([k, r]) => [k, [prop(r, "stroke-dasharray"), +prop(r, "stroke-width"), prop(r, "stroke-linecap")]]));
+  eq(tratti, { audio: ["none", 2.4, "round"], rete: ["8 5", 2.2, "butt"], corrente: ["14 6", 3.6, "butt"], dmx: ["1.5 5.5", 2.4, "round"] }, "i quattro tratti");
+  eq(new Set(Object.values(tratti).map((x) => x[0])).size, 4, "quattro tratteggi diversi: il colore non è mai l'unico segno");
+  ok(tratti.corrente[1] >= tratti.audio[1] * 1.4, "la corrente è anche più spessa");
+  const dash = (d) => d.split(" ").map(Number);
+  ok(dash(tratti.corrente[0])[0] >= dash(tratti.rete[0])[0] * 1.5, "tratti della corrente ben più lunghi di quelli della rete");
+  ok(dash(tratti.dmx[0])[0] <= 2 && tratti.dmx[2] === "round", "il DMX è a puntini");
+  eq(new Set(Object.values(R).map((r) => prop(r, "stroke"))).size, 4, "quattro colori diversi");
+  eq(Object.values(R).map((r) => prop(r, "stroke")), ["#0d9488", "#4f46e5", "#d97706", "#db2777"], "i colori del mock-up approvato");
+  for (const k of ["audio", "rete", "corrente", "dmx"]) ok(new RegExp("body\\.dark \\.cu-" + k + "[,{]").test(blocco), "tema scuro: " + k);
+  ok(/\.cavi-uniti \.cab-line\.sel,\.cavi-uniti \.cab-return\.sel\{[^}]*stroke-width:3\.8/.test(blocco) && /\.cavi-uniti \.elec-line\.sel\{stroke-width:4\.8\}/.test(blocco) && /\.cavi-uniti \.mond-line\.sel\{[^}]*stroke-dasharray:8 5/.test(blocco), "il cavo selezionato si vede ancora, senza perdere il tratto della famiglia");
+  /* il campione della legenda (pastiglie e foglio) è disegnato con le stesse classi */
+  cuScena(); A.caviUnitiStato().on = true;
+  const h = A.caviLegendaHtml();
+  eq([...h.matchAll(/<path class="cu-tratto cu-(\w+)" d="M1 4H29"\/>/g)].map((m) => m[1]), ["audio", "corrente", "dmx"], "una pastiglia per famiglia con cavi, col suo tratto");
+  cuReset();
+});
+t("Cavi uniti · legenda a pastiglie: sigla, nome, numero, acceso/spento, «Chiudi»; nel Menu del telefono una voce nascosta finché non serve", () => {
+  cuScena(); A.caviUnitiImposta(true);
+  let h = A.caviLegendaHtml();
+  ok(/^<span class="cu-tit">Tutti i cavi<\/span>/.test(h), "si dichiara");
+  const past = (x) => [...x.matchAll(/<button type="button" class="cu-fam" data-fam="(\w+)" aria-pressed="(true|false)" title="([^"]*)">[\s\S]*?<b>(\w)<\/b> ([^<]+) <span class="cu-n">(\d+)<\/span><\/button>/g)].map((m) => [m[1], m[2], m[4], m[5], +m[6]]);
+  eq(past(h), [["audio", "true", "A", "Audio", 5], ["corrente", "true", "C", "Corrente", 5], ["dmx", "true", "D", "DMX", 1]], "tre pastiglie (la Rete non ha cavi: non compare)");
+  ok(/title="Nascondi i cavi «DMX» \(DMX: tratto indicativo dalla console alla prima luce\)"/.test(h), "il DMX dice di essere indicativo");
+  ok(/<button type="button" class="cu-esci" id="caviEsci" aria-label="Chiudi la vista Tutti i cavi"[^>]*><span class="cu-esci-t">Chiudi<\/span><span class="cu-esci-x" aria-hidden="true">\u2715<\/span><\/button>$/.test(h), "in fondo «Chiudi» (sul telefono una ✕, col nome per chi non vede)");
+  A.caviUnitiStato().off.corrente = true; h = A.caviLegendaHtml();
+  eq(past(h).map((x) => x[1]), ["true", "false", "true"], "la famiglia spenta resta in legenda, premuta = no");
+  ok(/title="Mostra i cavi «Corrente»"/.test(h));
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/<div id="caviLegenda" role="group" aria-label="Legenda dei cavi" hidden><\/div>/.test(html), "la legenda nasce nascosta");
+  ok(/<button class="mrow" data-act="cavi" role="switch" aria-checked="false" id="mCaviRow" hidden>/.test(html), "la voce del Menu nasce nascosta");
+  ok(/cr\.hidden=!caviUnitiDisponibile\(\)/.test(appjs) && /if\(a==="cavi"\)\{ clearSelection\(\); caviUnitiImposta\(!caviUnitiStato\(\)\.on\); return; \}/.test(appjs), "si mostra solo se disponibile, e accende o spegne la vista");
+  ok(/#caviLegenda\[hidden\]\{display:none\}/.test(stylesCss), "nascosta vuol dire nascosta (il display:flex non la riaccende)");
+  cuReset();
+});
+
 await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
