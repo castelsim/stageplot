@@ -4564,15 +4564,21 @@ body.cambio-vista #catalog{pointer-events:none;opacity:.55}
 .cu-dmx,.dmx-line{fill:none;stroke:#db2777;stroke-width:2.4;stroke-dasharray:1.5 5.5;stroke-linecap:round;stroke-linejoin:round}
 .dmx-line{pointer-events:none}
 .dmx-lbl{fill:#be185d;font-size:10px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px;pointer-events:none}
-body.dark .cu-audio,body.dark .cavi-uniti .cab-line,body.dark .cavi-uniti .cab-return,body.dark .cavi-uniti .cu-coax,body.dark .cavi-uniti .cab-snake{stroke:#2dd4bf}
-body.dark .cavi-uniti .cab-line.sel,body.dark .cavi-uniti .cab-return.sel{stroke:#5eead4}
-body.dark .cavi-uniti .cab-mondot{fill:#2dd4bf}
-body.dark .cavi-uniti .cab-lbl-ret,body.dark .cavi-uniti .cu-coax-lbl{fill:#5eead4}
-body.dark .cu-rete,body.dark .cavi-uniti .net-line,body.dark .cavi-uniti .mond-line{stroke:#818cf8}
-body.dark .cavi-uniti .mond-line.sel{stroke:#c7d2fe}
-body.dark .cavi-uniti .mond-lbl{fill:#a5b4fc}
-body.dark .cu-corrente,body.dark .cavi-uniti .elec-line,body.dark .cavi-uniti .elec-line.elec-cee,body.dark .cavi-uniti .elec-feed{stroke:#fbbf24}
-body.dark .cu-dmx,body.dark .dmx-line{stroke:#f472b6}
+/* tema scuro: le pastiglie (.cu-*) stanno sul pannello scuro e usano i colori chiari; i cavi sul PALCO, che resta bianco anche nel tema scuro, tengono quelli del tema chiaro (rilettura #238, D4: il verde acqua e il giallo chiari sul bianco hanno contrasto 1,9 e 1,7) */
+body.dark .cu-audio{stroke:#2dd4bf}
+body.dark .cu-rete{stroke:#818cf8}
+body.dark .cu-corrente{stroke:#fbbf24}
+body.dark .cu-dmx{stroke:#f472b6}
+body.dark .cavi-uniti .cab-line,body.dark .cavi-uniti .cab-return,body.dark .cavi-uniti .cu-coax,body.dark .cavi-uniti .cab-snake{stroke:#0d9488}
+body.dark .cavi-uniti .cab-line.sel,body.dark .cavi-uniti .cab-return.sel{stroke:#0f766e}
+body.dark .cavi-uniti .cab-mondot{fill:#0d9488}
+body.dark .cavi-uniti .cab-lbl-ret,body.dark .cavi-uniti .cu-coax-lbl{fill:#0f766e}
+body.dark .cavi-uniti .net-line,body.dark .cavi-uniti .mond-line{stroke:#4f46e5}
+body.dark .cavi-uniti .mond-line.sel{stroke:#3730a3}
+body.dark .cavi-uniti .mond-lbl{fill:#4338ca}
+body.dark .cavi-uniti .elec-line,body.dark .cavi-uniti .elec-line.elec-cee,body.dark .cavi-uniti .elec-feed{stroke:#d97706}
+body.dark .cavi-uniti .dmx-line{stroke:#db2777}
+body.dark .cavi-uniti .dmx-lbl{fill:#be185d;stroke:#fff}
 body.dark .dmx-lbl{fill:#f9a8d4;stroke:#0e1214}
 /* la legenda a pastiglie, sopra il disegno in basso a sinistra */
 #caviLegenda{position:absolute;left:12px;bottom:12px;z-index:28;display:flex;flex-wrap:wrap;align-items:center;gap:6px;max-width:calc(100% - 24px);box-sizing:border-box;

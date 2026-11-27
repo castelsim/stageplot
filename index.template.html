@@ -9939,14 +9939,14 @@ function luciFogliDisponibili(){ return haLuciTruss(); }
 /* pagina «Elenco fari» in fondo al foglio luci: numero, apparecchio, posizione, montaggio. Più pagine se serve; margini ≥15 mm. */
 function luciElencoPdf(doc, L, paperKey){
   var R=luciNumeri().righe; if(!R.length) return;
-  var M=L.M, pw=L.pw, ph=L.ph, passo=6.2, fondo=ph-25, yIni=26, y;
+  var M=L.M, pw=L.pw, ph=L.ph, passo=6.2, fondo=ph-25, yIni=35, y;
   var col=[M, M+26, M+26+(pw-2*M-26)*0.46, M+26+(pw-2*M-26)*0.76];
   function testa(prima){
     doc.addPage(paperKey, L.orient);
     doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(17,24,39);
-    doc.text("ELENCO FARI"+(prima ? "" : " (segue)"), M, 11);
+    doc.text(titoloVistaPdf("ELENCO FARI")+(prima ? "" : (docEn() ? " (cont.)" : " (segue)")), M, PDF_TITOLO_Y);   /* 27/11: a 20,2 mm, ≥15 mm come le altre pagine (prima 11) */
     doc.setFontSize(8.5); doc.setTextColor(31,41,55);
-    ["Numero","Apparecchio","Posizione","Montaggio"].forEach(function(t,i){ doc.text(t, col[i], yIni-6); });
+    (docEn() ? ["No.","Fixture","Position","Mounting"] : ["Numero","Apparecchio","Posizione","Montaggio"]).forEach(function(t,i){ doc.text(t, col[i], yIni-6); });
     doc.setDrawColor(31,41,55); doc.setLineWidth(0.3); doc.line(M, yIni-3.5, pw-M, yIni-3.5);
     y=yIni+1;
   }
@@ -34739,6 +34739,19 @@ DOC_EN["TUTTI I CAVI"]="ALL CABLES"; DOC_EN["Rete"]="Network"; DOC_EN["indicativ
    testo sta ad almeno 15 mm dal bordo alto (la Ricoh dello studio taglia): la riga entra di 2 mm nel riquadro del disegno, su una
    piastra bianca. I campioni sono nella scala del foglio (N): il tratto in legenda è largo e lungo come quello dei cavi sotto.
    → le voci scritte, per le prove. */
+/* Titoli delle pagine-vista del PDF (27/11/2026): la Ricoh taglia sotto i 15 mm, il titolo (13 pt) sta con la linea di base a 20,2 mm
+   (riquadro del testo a ~15,3 mm, come lo misura controlla_margini.py), poi un alone bianco attorno alle lettere (D1, rilettura #239): l'area di disegno parte a 17 mm (pdfLayout drawY:10+topLbl), non a 22, e a A3 1:50 con palchi grandi il titolo (16,8-21,2 mm) cade sul disegno in 17 pagine su 340. In inglese il titolo si traduce da questa tabella (il dizionario
+   generato non li ha; qui, e non in DOC_EN, per non toccare altri testi che dicono solo «MONITOR» o «INGRESSI»). */
+var PDF_TITOLO_Y=20.2;
+var PDF_TITOLO_EN={"INGRESSI":"INPUTS","MONITOR":"MONITORS","PERSONAL MONITOR":"PERSONAL MONITORS","CABLAGGIO AUDIO":"AUDIO CABLING","ELETTRICO":"POWER",
+  "MICROFONAZIONE":"MIC PLACEMENT","LUCI":"LIGHTING","PIANTA PALCO":"STAGE PLAN","PIANTA LUCI E TRUSS":"LIGHTING AND TRUSS PLAN","ELENCO FARI":"FIXTURE LIST"};
+/* titolo di pagina in 13 pt: prima l'alone bianco (tratto 1,2 mm, ~0,6 mm attorno alle lettere), poi il testo pieno. Va chiamata DOPO il disegno della pagina, che altrimenti copre l'alone. */
+function pdfTitoloVista(doc, L, t){
+  doc.setFont("helvetica","bold"); doc.setFontSize(13);
+  try{ doc.setLineJoin && doc.setLineJoin("round"); doc.setDrawColor(255,255,255); doc.setLineWidth(1.2); doc.text(t, L.M, PDF_TITOLO_Y, {renderingMode:"stroke"}); }catch(_e){}
+  doc.setTextColor(17,24,39); doc.text(t, L.M, PDF_TITOLO_Y, {renderingMode:"fill"});
+}
+function titoloVistaPdf(t){ return (docEn() && PDF_TITOLO_EN.hasOwnProperty(t)) ? PDF_TITOLO_EN[t] : t; }
 function caviTestataPdf(doc, L, N){
   var fam=caviFamiglieConCavi(), k=10/(N>0 ? N : 100), y0=18.9, x0=L.M, xMax=L.pw-L.M, camp=9, passo=4.6;
   var voci=fam.map(function(f){ return {f:f, t:f.nome+" · "+f.n+(f.k==="dmx" ? " · indicativo" : "")}; });
@@ -34781,7 +34794,9 @@ function caviLegendaHtml(){
 function renderCaviLegenda(){
   var el=document.getElementById("caviLegenda"); if(!el) return;
   if(!caviUnitiAttiva() || _caviUnitiFoglio){ if(!el.hidden){ el.hidden=true; el.innerHTML=""; } return; }
+  var _fuoco=(document.activeElement && el.contains(document.activeElement)) ? (document.activeElement.getAttribute("data-fam") || document.activeElement.id) : null;   /* 27/11: la legenda si riscrive a ogni render(): il fuoco della tastiera resta sulla pastiglia premuta */
   el.innerHTML=caviLegendaHtml(); el.hidden=false;
+  if(_fuoco){ var _n=el.querySelector('[data-fam="'+_fuoco+'"]') || (_fuoco==="caviEsci" ? document.getElementById("caviEsci") : null); if(_n) try{ _n.focus(); }catch(_e){} }
   Array.prototype.forEach.call(el.querySelectorAll(".cu-fam"), function(b){
     b.addEventListener("click", function(e){ e.stopPropagation(); var k=b.getAttribute("data-fam"), cu=caviUnitiStato();
       if(cu.off[k]) delete cu.off[k]; else cu.off[k]=true;
@@ -46680,8 +46695,7 @@ function buildPdfDoc(paperKey, N, orient, header, foglio){   /* foglio (lotto 2)
     pdfScaleBar(doc, barra.x, barra.y, N);
     pdfCartiglio(doc, L, N, header);
     if(scena.foglio){   /* nome del foglio in alto, come nelle pagine-vista; pianta e scala sono le stesse della pagina del palco completo */
-      doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(17,24,39);
-      doc.text(scena.foglio==="luci" ? "PIANTA LUCI E TRUSS" : "PIANTA PALCO", L.M, 11);
+      pdfTitoloVista(doc, L, titoloVistaPdf(scena.foglio==="luci" ? "PIANTA LUCI E TRUSS" : "PIANTA PALCO"));   /* 27/11: a 20,2 mm, sopra i 15 mm della Ricoh (prima 11) */
     }
     pdfQrDisegna(doc, L);   /* il QR verso la versione online, se scelto: solo qui, sulla prima pagina (10/10) */
     var pg=window.__pdfPages||null;
@@ -46702,8 +46716,6 @@ function buildPdfDoc(paperKey, N, orient, header, foglio){   /* foglio (lotto 2)
       _viewChain=_viewChain.then(function(){
         doc.addPage(paperKey, L.orient);
         var _cavi=(v[0]==="cavi");   /* C4: la pagina «Tutti i cavi» ha la sua testata (titolo + legenda), disegnata DOPO il palco */
-        doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(17,24,39);
-        if(!_cavi) doc.text(v[1], L.M, 11);
         /* stesso corpo del testo di pag. 1; le quote per blocco qui RESTANO: in queste pagine
            jsPDF non ne disegna, quindi sono l'unica quotatura e non fanno doppione */
         return drawStageVector(doc, ix, iy, stMmW, stMmH, box.vb, v[0], _cavi ? {textK:scena.textK, areaFoglio:scena.areaFoglio, legendaFuori:true} : {textK:scena.textK, areaFoglio:scena.areaFoglio})
@@ -46712,6 +46724,7 @@ function buildPdfDoc(paperKey, N, orient, header, foglio){   /* foglio (lotto 2)
             _viewFails.push(v[1]);
           })
           .then(function(){
+            if(!_cavi) pdfTitoloVista(doc, L, titoloVistaPdf(v[1]));   /* DOPO il disegno: l'alone bianco sta sopra il palco */
             if(_cavi){ try{ caviTestataPdf(doc, L, N); }catch(_e){ doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(17,24,39); doc.text(v[1], L.M, 18.9); } }
             var barraV=pdfScaleBarPosa(box, N, {blockDims:true});   /* qui le quote per blocco ci sono sempre */
             pdfScaleBar(doc, barraV.x, barraV.y, N);
