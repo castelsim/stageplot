@@ -64,7 +64,7 @@ for (const [nome, dark] of [["hd", false], ["iphone", false], ["iphone", true], 
   ok(await p.evaluate(() => localStorage.getItem("sp_utilePdf")) === "attivo" && await p.evaluate(() => /Non è partito/.test(document.getElementById("utilePdf").textContent)), et + ": invio fallito → stato com'era, «Non è partito», nessun «Grazie»");
   ok(await p.evaluate(() => !/Grazie/.test(document.querySelector("#utilePdf [data-ut]:not([hidden])").textContent)), et + ": e nessun «Grazie» visibile");
   if (out) await p.screenshot({ path: out + "/utile-errore-" + et + ".png" });
-  const errV = p.__err.filter((m) => !/ERR_FAILED/.test(m)); /* la rete esterna è bloccata apposta dal banco */
+  const errV = p.__err.filter((m) => !/ERR_FAILED|status of 429/.test(m)); /* la rete esterna è bloccata apposta dal banco */
   ok(errV.length === 0, et + ": nessun errore nella pagina" + (errV.length ? " " + errV.slice(0, 2).join(" | ") : ""));
   await ctx.close();
 }

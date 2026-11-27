@@ -29034,6 +29034,7 @@ t("L-C la ricerca capisce quello che gli utenti scrivono (dalle ricerche senza r
   eq(chiavi("scala")[0], "scala", "«scala» dà ancora Scala accesso per prima"); ok(chiavi("piano").includes("grancoda"), "«piano» dà ancora i pianoforti");
   ok(!chiavi("beam").includes("grancoda") && chiavi("beam").length <= 3, "«beam» non porta altro");
   ok(!chiavi("akg").length && !chiavi("neumann").length, "le marche senza modello nel catalogo NON si mappano: resta «nessun elemento» e «Non c'è? Crealo»");
+});
 t("L-B «Ti è stato utile?»: il primo PDF la accende, risposta e «Non ora» la chiudono per sempre, mai su documenti altrui", () => {
   eq(A.UTILE_KEY, "sp_utilePdf", "chiave");
   const f = A.utileStatoDopo;
