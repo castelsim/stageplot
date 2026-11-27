@@ -2798,6 +2798,30 @@
   </div>
 </div>
 
+<!-- «TI È STATO UTILE?» DOPO IL PRIMO PDF (27/11/2026, lotto L-B del piano di crescita). Scheda quieta in basso, NON un popup:
+     compare una sola volta, quando si chiude la finestra Esporta dopo il primo PDF; mai al login, mai su documenti altrui.
+     Un tocco (Sì / Così così / No) basta e parte subito; la riga facoltativa viene dopo, ed è saltabile. «Non ora» la spegne per sempre. -->
+<div id="utilePdf" role="dialog" aria-label="Ti è stato utile?" hidden>
+  <div data-ut="chiedi">
+    <b class="ut-h">Ti è stato utile stageplot.it?</b>
+    <div class="ut-row">
+      <button type="button" class="btn tint" data-ut-voto="si">Sì</button>
+      <button type="button" class="btn" data-ut-voto="cosi">Così così</button>
+      <button type="button" class="btn" data-ut-voto="no">No</button>
+      <button type="button" class="ut-no" id="utileNonOra">Non ora</button>
+    </div>
+  </div>
+  <div data-ut="riga" hidden>
+    <b class="ut-h" id="utileTitoloRiga">Grazie.</b>
+    <textarea id="utileTesto" maxlength="400" rows="2" aria-label="Una riga, facoltativa" placeholder="Una riga, se vuoi (facoltativa)"></textarea>
+    <div class="ut-row ut-fine">
+      <button type="button" class="ut-no" id="utileChiudi">Chiudi</button>
+      <button type="button" class="btn tint" id="utileInvia">Invia la riga</button>
+    </div>
+  </div>
+  <div data-ut="grazie" hidden><b class="ut-h">Ricevuto, grazie.</b></div>
+</div>
+
 <!-- ORDINA COME IL SERVICE (13/11/2026, S2b): anteprima prima/dopo dei numeri FOH, poi Applica; Ripristina rimette tutto com'era. -->
 <div class="modal" id="svcOrdModal" hidden>
   <div class="wl-card" role="dialog" aria-modal="true" aria-labelledby="svcOrdTitle">
@@ -8419,6 +8443,101 @@ try{ parereAggiorna(); }catch(e){}
     });
   });
 })();
+/* «TI È STATO UTILE?» DOPO IL PRIMO PDF (27/11/2026, lotto L-B del piano di crescita: è il primo passo dell'ascolto, L1).
+   Una domanda, tre risposte, un tocco. Compare UNA volta per dispositivo, quando si CHIUDE la finestra Esporta dopo il
+   primo PDF (mai a metà lavoro, mai al login, mai sopra un'altra finestra); «Non ora» la spegne per sempre. Per
+   dispositivo e non per progetto: chi fa il secondo progetto ha già risposto. Stato in localStorage UTILE_KEY:
+   «attivo» (dopo il primo PDF), «fatto» (ha risposto), «no» (Non ora). Preferenza dell'interfaccia: si tiene all'uscita.
+   Niente funzione nuova sul server: parte per submit-feedback come il parere P5, col tipo in testa al messaggio
+   («[Utile dopo il primo PDF · sì]»); l'eventuale riga è un secondo messaggio col tipo «riga». Nessun dato personale. */
+var UTILE_KEY="sp_utilePdf";
+function utileDecidi(o){ return !!(o && !o.altrui && o.stato==="attivo"); }
+function utileStatoDopo(stato, azione){
+  if(stato==="fatto" || stato==="no") return stato;                 /* chiuso resta chiuso */
+  if(azione==="pdf") return (stato==null) ? "attivo" : stato;       /* il primo PDF lo accende, poi non lo tocca */
+  if(azione==="fatto" || azione==="no") return azione;
+  return stato;
+}
+function utileLeggi(){ try{ return localStorage.getItem(UTILE_KEY); }catch(e){ return null; } }
+function utileScrivi(v){ try{ localStorage.setItem("sp_utilePdf", v); }catch(e){} }   /* chiave scritta per esteso: la cerca il test dell'uscita */
+function utileSegna(azione){ var v=utileLeggi(), nuovo=utileStatoDopo(v, azione); if(nuovo!==v) utileScrivi(nuovo); }
+var UTILE_VOTI={si:"sì", cosi:"così così", no:"no"};
+/* il messaggio che parte: il tipo in testa (sempre ≥ 5 caratteri: il server scarta i più corti), poi l'eventuale riga */
+function utileMessaggio(voto, testo){
+  var v=UTILE_VOTI[voto]; if(!v) return "";
+  var t=String(testo==null?"":testo).trim();
+  return t ? "[Utile dopo il primo PDF · "+v+" · riga] "+t : "[Utile dopo il primo PDF · "+v+"]";
+}
+/* la finestra Esporta si è appena chiusa: è il momento giusto solo se non c'è altro aperto */
+function utileLibero(){
+  try{
+    if(document.querySelector(".modal:not([hidden]), .guide-ov")) return false;
+    var fb=document.getElementById("fbBox"); if(fb && fb.classList.contains("open")) return false;
+    var tt=document.getElementById("cloudToast"); if(tt && tt.hidden===false) return false;   /* il «Download completato» (3,2 s) non si copre: si aspetta che sparisca */
+    return true;
+  }catch(e){ return false; }
+}
+function utileMostra(){
+  var el=document.getElementById("utilePdf"); if(!el) return false;
+  if(!utileDecidi({ altrui:foreignDoc(), stato:utileLeggi() }) || !utileLibero()) return false;
+  utileFase("chiedi"); el.hidden=false;
+  return true;
+}
+function utileNascondi(){ var el=document.getElementById("utilePdf"); if(el) el.hidden=true; }
+function utileFase(f){
+  var el=document.getElementById("utilePdf"); if(!el) return;
+  Array.prototype.forEach.call(el.querySelectorAll("[data-ut]"), function(x){ x.hidden=(x.getAttribute("data-ut")!==f); });
+}
+var utileVotoDato=null;
+function utileInvia(voto, testo){
+  var m=utileMessaggio(voto, testo); if(!m) return Promise.resolve(false);
+  var tokP=(window.__cloud && window.__cloud.accessToken) ? window.__cloud.accessToken() : Promise.resolve(null);
+  return tokP.then(function(tok){
+    var headers={"Content-Type":"application/json"};
+    if(tok) headers["Authorization"]="Bearer "+tok;
+    var url=(window.__fbInvio && window.__fbInvio.url) || "";
+    if(!url) return false;
+    /* solo ciò che serve a leggere il numero: versione, lingua e schermo (telefono o computer). Niente progetto, niente pagina. */
+    return fetch(url,{ method:"POST", headers:headers, body:JSON.stringify({ message:m, hint:null, honeypot:"",
+      tech_context:{ utile_pdf:voto },
+      meta:{ app_version: window.__APP_VERSION__||null, viewport: innerWidth+"x"+innerHeight, language: navigator.language } }) })
+      .then(function(r){ return r.ok; });
+  }).catch(function(){ return false; });
+}
+window.utileMostra=utileMostra;
+(function(){ try{
+  var el=document.getElementById("utilePdf"), pm=document.getElementById("pdfModal");
+  if(!el || !pm || typeof MutationObserver==="undefined") return;
+  /* la finestra Esporta si chiude in tanti modi (Chiudi, Esc, fuori, ponte verso Condividi): si guarda l'attributo */
+  var eraAperta=!pm.hidden;
+  new MutationObserver(function(){
+    var aperta=!pm.hidden;
+    if(eraAperta && !aperta){   /* dopo 1,2 s; se c'è ancora il toast del download si riprova ogni 0,7 s, al massimo 6 volte */
+      var prova=function(n){ try{ if(!utileMostra() && n>0 && utileDecidi({ altrui:foreignDoc(), stato:utileLeggi() }) && !document.querySelector(".modal:not([hidden]), .guide-ov")) setTimeout(function(){ prova(n-1); }, 700); }catch(e){} };
+      setTimeout(function(){ prova(6); }, 1200);
+    }
+    eraAperta=aperta;
+  }).observe(pm, {attributes:true, attributeFilter:["hidden"]});
+  Array.prototype.forEach.call(el.querySelectorAll("[data-ut-voto]"), function(b){
+    b.addEventListener("click", function(){
+      utileVotoDato=b.getAttribute("data-ut-voto");
+      utileInvia(utileVotoDato, "");                 /* il voto parte subito: la riga dopo è un di più */
+      utileSegna("fatto");
+      document.getElementById("utileTitoloRiga").textContent=(utileVotoDato==="si") ? "Grazie. Cosa ti è servito di più?" : "Grazie. Cosa è mancato?";
+      utileFase("riga");
+      var t=document.getElementById("utileTesto"); if(t){ t.value=""; }
+    });
+  });
+  document.getElementById("utileNonOra").addEventListener("click", function(){ utileSegna("no"); utileNascondi(); });
+  document.getElementById("utileChiudi").addEventListener("click", utileNascondi);
+  document.getElementById("utileInvia").addEventListener("click", function(){
+    var t=document.getElementById("utileTesto"), testo=t ? t.value.trim() : "";
+    if(!testo){ utileNascondi(); return; }
+    utileInvia(utileVotoDato, testo);
+    utileFase("grazie"); setTimeout(utileNascondi, 1800);
+  });
+  document.addEventListener("keydown", function(ev){ if(ev.key==="Escape" && !el.hidden){ var f=el.querySelector("[data-ut]:not([hidden])"); if(f && f.getAttribute("data-ut")==="chiedi") utileSegna("no"); utileNascondi(); } });
+}catch(e){} })();
 /* Da dove è partito un accesso: letto (e tolto) da login_success al ritorno da Google. Va nella chiave «from»,
    l'unica ammessa dalla policy di analytics_events (0035) per dire una provenienza: una chiave nuova farebbe
    rifiutare l'intero evento. */
@@ -8839,6 +8958,7 @@ function uscitaChiavi(st){
 /* Invito a salvare dopo il PDF (09/11/2026): due chiavi da tenere. Aggiunte qui e non nelle righe sopra, che
    altre PR aperte toccano: così i rami si uniscono senza conflitti. */
 USCITA_TIENI_LOCAL.sp_invitoSalva=1; USCITA_TIENI_SESSION.sp_accessoDa=1;
+USCITA_TIENI_LOCAL.sp_utilePdf=1;   /* «Ti è stato utile?» (L-B, 27/11/2026): aggiunta qui, non nelle righe sopra, per non toccare i rami aperti */
 /* Lo stato in memoria torna quello di un progetto vuoto, senza passare da save(): niente punto di
    ripristino (conterrebbe il progetto che si sta togliendo) e niente scrittura locale. */
 function azzeraMemoriaDocumento(){
@@ -47512,6 +47632,7 @@ function exportPdf(paperKey, scaleSel, orient, header){
     if(!invitoSalvaDopoPdf()) maybeLoginNudge();   /* l'invito a salvare (una riga nel piede) prende il posto del toast */
     try{ rigaProgettoDopoPdf(); }catch(e){}         /* chi ha un account: dove resta il progetto (P2, una volta sola) */
     try{ parereSegna("pdf"); }catch(e){}            /* il primo PDF accende la domanda di parere nel box (P5) */
+    try{ utileSegna("pdf"); }catch(e){}             /* il primo PDF accende «Ti è stato utile?», che compare alla chiusura della finestra (L-B) */
   }).catch(function(e){
     info.className="mstatus err"; info.textContent=(e&&e.piedi ? "" : "Errore: ")+(e&&e.message||e); window.__pdfScope="full";
   });

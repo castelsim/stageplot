@@ -29034,6 +29034,57 @@ t("L-C la ricerca capisce quello che gli utenti scrivono (dalle ricerche senza r
   eq(chiavi("scala")[0], "scala", "«scala» dà ancora Scala accesso per prima"); ok(chiavi("piano").includes("grancoda"), "«piano» dà ancora i pianoforti");
   ok(!chiavi("beam").includes("grancoda") && chiavi("beam").length <= 3, "«beam» non porta altro");
   ok(!chiavi("akg").length && !chiavi("neumann").length, "le marche senza modello nel catalogo NON si mappano: resta «nessun elemento» e «Non c'è? Crealo»");
+t("L-B «Ti è stato utile?»: il primo PDF la accende, risposta e «Non ora» la chiudono per sempre, mai su documenti altrui", () => {
+  eq(A.UTILE_KEY, "sp_utilePdf", "chiave");
+  const f = A.utileStatoDopo;
+  eq(f(null, "pdf"), "attivo", "il primo PDF la accende"); eq(f("attivo", "pdf"), "attivo", "un secondo PDF non cambia");
+  eq(f("fatto", "pdf"), "fatto", "risposto resta risposto"); eq(f("no", "pdf"), "no", "«Non ora» resta tale");
+  eq(f("attivo", "fatto"), "fatto"); eq(f("attivo", "no"), "no"); eq(f("no", "fatto"), "no", "chiuso resta chiuso");
+  eq(f(null, "no"), "no", "anche prima del PDF, «Non ora» vale");
+  const d = (o) => A.utileDecidi(Object.assign({ altrui: false, stato: "attivo" }, o));
+  ok(d({}), "dopo il primo PDF: sì"); ok(!d({ stato: null }), "senza PDF (login, apertura): MAI"); ok(!d({ stato: "fatto" })); ok(!d({ stato: "no" }));
+  ok(!d({ altrui: true }), "documento altrui: no"); ok(!A.utileDecidi(null));
+});
+t("L-B utileMessaggio: il voto va in testa, ≥ 5 caratteri con un tocco solo, la riga è un secondo messaggio", () => {
+  eq(A.utileMessaggio("si", ""), "[Utile dopo il primo PDF · sì]");
+  eq(A.utileMessaggio("cosi", ""), "[Utile dopo il primo PDF · così così]");
+  eq(A.utileMessaggio("no", "  manca il sax "), "[Utile dopo il primo PDF · no · riga] manca il sax");
+  eq(A.utileMessaggio("boh", "x"), "", "voto sconosciuto: niente invio");
+  ok(["si", "cosi", "no"].every((v) => A.utileMessaggio(v, "").length >= 5), "supera il minimo del server");
+});
+t("L-B utileSegna / utileMostra: localStorage con try/catch, compare solo a finestre chiuse, una volta sola", () => {
+  const old = { doc: A.document, ls: A.localStorage, cons: A.__consultMode };
+  const mem = {}; const el = { hidden: true, querySelectorAll: () => [] };
+  let aperte = null, fb = null;
+  try {
+    A.document = { body: { classList: { contains: () => false } }, getElementById: (id) => (id === "utilePdf" ? el : id === "fbBox" ? fb : null),
+      querySelector: () => aperte };
+    A.localStorage = { getItem: (k) => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); }, removeItem: (k) => { delete mem[k]; } };
+    A.__consultMode = false;
+    ok(!A.utileMostra(), "senza PDF non compare"); ok(el.hidden);
+    A.utileSegna("pdf"); eq(mem.sp_utilePdf, "attivo");
+    aperte = {}; ok(!A.utileMostra(), "con un'altra finestra aperta non compare"); ok(el.hidden);
+    aperte = null; fb = { classList: { contains: () => true } }; ok(!A.utileMostra(), "col box segnalazioni aperto non compare");
+    fb = null; ok(A.utileMostra(), "a finestre chiuse compare"); ok(!el.hidden);
+    A.utileSegna("fatto"); eq(mem.sp_utilePdf, "fatto"); el.hidden = true; ok(!A.utileMostra(), "risposto: non torna");
+    A.utileSegna("pdf"); eq(mem.sp_utilePdf, "fatto", "un altro PDF non la riaccende");
+    mem.sp_utilePdf = "attivo"; A.__consultMode = true; ok(!A.utileMostra(), "in consulenza resta spenta");
+    A.localStorage = { getItem() { throw new Error("x"); }, setItem() { throw new Error("x"); } };
+    A.utileSegna("pdf"); A.utileMostra();   /* non deve lanciare */
+  } finally { A.document = old.doc; A.localStorage = old.ls; A.__consultMode = old.cons; }
+});
+t("L-B nel template: nasce nascosta, fuori dal box segnalazioni, l'export la accende, l'uscita la classifica, non cambia i PDF", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/<div id="utilePdf" role="dialog" aria-label="Ti è stato utile\?" hidden>/.test(src), "nasce nascosta");
+  ok(/data-ut-voto="si"[\s\S]{0,200}data-ut-voto="cosi"[\s\S]{0,200}data-ut-voto="no"/.test(src), "tre risposte");
+  ok(/id="utileNonOra"/.test(src) && /id="utileChiudi"/.test(src), "saltabile");
+  const fine = appjs.indexOf('track("export",{format:"pdf"});'); const dopo = appjs.slice(fine, fine + 2600), catchI = dopo.indexOf("}).catch(");
+  ok(/try\{ utileSegna\("pdf"\); \}catch\(e\)\{\}/.test(dopo.slice(0, catchI)), "a PDF scaricato, in try/catch");
+  ok(!/utileMostra\(\)/.test(dopo.slice(0, catchI)), "l'export NON la mostra: compare alla chiusura della finestra, mai a metà lavoro");
+  ok(/attributeFilter:\["hidden"\]/.test(appjs) && /setTimeout\(function\(\)\{ prova\(6\); \}, 1200\)/.test(appjs), "si guarda la chiusura della finestra Esporta");
+  ok(A.USCITA_TIENI_LOCAL.sp_utilePdf, "chiave classificata per l'uscita");
+  ok(/hint:null, honeypot:""/.test(appjs), "nessuna funzione nuova sul server: submit-feedback com'è, hint nullo");
+  ok(/#utilePdf\[hidden\]\{display:none\}/.test(stylesCss) && /#utilePdf \[hidden\]\{display:none\}/.test(stylesCss), "hidden vince sul display");
 });
 t("P2 + P5: nel template nascono nascoste, nel posto giusto; l'export le chiama, l'uscita le classifica", () => {
   const src = readFileSync(join(root, "index.template.html"), "utf8");
