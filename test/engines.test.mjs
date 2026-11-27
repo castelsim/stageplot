@@ -43752,7 +43752,7 @@ t("Cavi uniti · PDF: la testata «TUTTI I CAVI» porta la legenda a misura fiss
   ok(Pv.linee.every((l) => l.x2 <= Lv.pw - Lv.M + 1e-9) && Pv.testi.every((x) => x.x + d.getTextWidth(x.t) <= Lv.pw - Lv.M + 1e-9), "e niente supera il margine destro");
   ok(Pv.rett[0].y + Pv.rett[0].h >= Math.max(...Pv.testi.map((x) => x.y)) + 1, "la piastra bianca copre tutte le righe");
   /* il PDF: la pagina ha la sua testata al posto del titolo a 11 mm, e il disegno senza legenda dentro */
-  ok(/var _cavi=\(v\[0\]==="cavi"\);/.test(appjs) && /if\(!_cavi\) doc\.text\(titoloVistaPdf\(v\[1\]\), L\.M, PDF_TITOLO_Y\);/.test(appjs), "la pagina «Tutti i cavi» ha la sua testata, le altre viste il titolo a PDF_TITOLO_Y");
+  ok(/var _cavi=\(v\[0\]==="cavi"\);/.test(appjs) && /if\(!_cavi\) pdfTitoloVista\(doc, L, titoloVistaPdf\(v\[1\]\)\);/.test(appjs), "la pagina «Tutti i cavi» ha la sua testata, le altre viste il titolo a PDF_TITOLO_Y");
   ok(/_cavi \? \{textK:scena\.textK, areaFoglio:scena\.areaFoglio, legendaFuori:true\}/.test(appjs) && /if\(_cavi\)\{ try\{ caviTestataPdf\(doc, L, N\); \}/.test(appjs), "disegno senza legenda dentro, e la testata sopra, dopo il palco");
   /* documento in inglese */
   A.state.docLang = "en";
@@ -43826,21 +43826,28 @@ t("Cavi uniti · legenda a pastiglie: sigla, nome, numero, acceso/spento, «Chiu
 
 t("Cavi uniti · rifiniture 27/11: fuoco sulla pastiglia, legenda ridisegnata da render(), aria-checked del Menu, titoli delle pagine-vista a 15 mm", () => {
   const rc = appjs.slice(appjs.indexOf("function renderCaviLegenda(){"), appjs.indexOf("function renderCaviUnitiRiga("));
-  ok(/var _fuoco=\(document\.activeElement && el\.contains\(document\.activeElement\)\)[\s\S]*el\.innerHTML=caviLegendaHtml\(\)[\s\S]*if\(_fuoco\)\{[^\n]*\.focus\(\)/.test(rc), "D2: la legenda si riscrive ma il fuoco torna sulla pastiglia che lo aveva");
+  ok(/var _fuoco=\(document\.activeElement && el\.contains\(document\.activeElement\)\)[\s\S]*el\.innerHTML=caviLegendaHtml\(\)[\s\S]*if\(_fuoco\)\{[^\n]*\[data-fam="'\+_fuoco\+'"\][^\n]*_fuoco==="caviEsci"[^\n]*\.focus\(\)/.test(rc), "D2: la legenda si riscrive ma il fuoco torna sulla pastiglia che lo aveva");
   ok(/renderFramePanel\(\);\s*renderVistaBanner\(\);[^\n]*\n\s*funzRenderAvviso\(\);[^\n]*\n\s*renderCaviLegenda\(\);/.test(appjs), "D5: render() ridisegna la legenda (a vista spenta la nasconde)");
   ok(/if\(!caviUnitiAttiva\(\) \|\| _caviUnitiFoglio\)\{ if\(!el\.hidden\)\{ el\.hidden=true; el\.innerHTML=""; \} return; \}/.test(rc), "D5: a vista spenta (o nel foglio) la legenda si nasconde e si svuota");
   ok(/var cr=document\.getElementById\("mCaviRow"\);[^\n]*\n\s*if\(cr\)\{ cr\.hidden=!caviUnitiDisponibile\(\); cr\.setAttribute\("aria-checked", caviUnitiStato\(\)\.on===true \? "true" : "false"\); \}/.test(appjs), "D5: la voce del Menu dice «true» a vista accesa");
-  /* titoli: linea di base a 20,2 mm, riquadro del testo da 13 pt alto ~4,9 mm → oltre i 15 mm della Ricoh, discendenti sotto i 22 mm dove parte il disegno; in inglese tradotti */
+  /* titoli: linea di base a 20,2 mm, riquadro del testo da 13 pt alto ~4,9 mm → oltre i 15 mm della Ricoh, il disegno parte a 17 mm (drawY = 10 + topLbl, non 22): il titolo (16,8-21,2 mm) può cadere sul disegno, per questo ha un alone bianco ed è scritto DOPO il disegno; in inglese tradotti */
   ok(A.PDF_TITOLO_Y - 13 * 0.3528 * 1.07 >= 15, "titolo a ≥ 15 mm dal bordo alto");
-  ok(A.PDF_TITOLO_Y + 13 * 0.3528 * 0.25 <= 22, "e i discendenti restano sopra l'area di disegno (22 mm)");
-  ok(!/doc\.text\((titoloVistaPdf\()?[^;\n]*L\.M, 11\)/.test(appjs) && /doc\.text\(titoloVistaPdf\(v\[1\]\), L\.M, PDF_TITOLO_Y\)/.test(appjs) && /"PIANTA PALCO"\), L\.M, PDF_TITOLO_Y\);/.test(appjs), "nessun titolo di pagina-vista resta a 11 mm");
+  const lay = A.pdfLayout("a3", "landscape", 22);
+  ok(lay.drawY === 17, "l'area di disegno parte a 17 mm (non 22): il titolo ci cade sopra, serve l'alone");
+  ok(/function pdfTitoloVista\(doc, L, t\)\{[\s\S]*setDrawColor\(255,255,255\)[\s\S]*setLineWidth\(1\.2\)[\s\S]*renderingMode:"stroke"\}[\s\S]*renderingMode:"fill"/.test(appjs), "D1: il titolo ha l'alone bianco (tratto) e poi il testo pieno");
+  ok(/\.then\(function\(\)\{\s*if\(!_cavi\) pdfTitoloVista\(doc, L, titoloVistaPdf\(v\[1\]\)\);/.test(appjs), "D1: il titolo delle pagine-vista è scritto DOPO il disegno");
+  ok(/pdfTitoloVista\(doc, L, titoloVistaPdf\(scena\.foglio==="luci"/.test(appjs), "D1: anche il titolo dei fogli palco/luci ha l'alone");
+  { const el = appjs.slice(appjs.indexOf("function luciElencoPdf("), appjs.indexOf("function programmaLuciDati") > 0 ? appjs.indexOf("/* ===== PROGRAMMA LUCI") : undefined);
+    ok(/yIni=35/.test(el) && /titoloVistaPdf\("ELENCO FARI"\)[^\n]*PDF_TITOLO_Y\)/.test(el) && !/, M, 11\)/.test(el), "ELENCO FARI: titolo a PDF_TITOLO_Y, tabella da 35 mm");
+    ok(/"No\.","Fixture","Position","Mounting"/.test(el) && /\(cont\.\)/.test(el), "ELENCO FARI: intestazione e «(segue)» tradotti"); }
+  ok(!/doc\.text\((titoloVistaPdf\()?[^;\n]*L\.M, 11\)/.test(appjs) && /pdfTitoloVista\(doc, L, titoloVistaPdf\(v\[1\]\)\)/.test(appjs) && /doc\.text\(t, L\.M, PDF_TITOLO_Y, \{renderingMode:"fill"\}\)/.test(appjs), "nessun titolo di pagina-vista resta a 11 mm");
   /* D4: tema scuro, palco bianco → i cavi sul palco col colore del tema chiaro; le pastiglie sul pannello scuro quello chiaro */
-  for (const [sel, col] of [["cab-line", "#0d9488"], ["net-line", "#4f46e5"], ["elec-line", "#d97706"], ["elec-feed", "#d97706"], ["dmx-line", "#db2777"]])
-    ok(new RegExp("body\\.dark \\.cavi-uniti \\.(?:[\\w-]+,body\\.dark \\.cavi-uniti \\.)*" + sel + "[^{]*\\{stroke:" + col + "\\}").test(stylesCss), "tema scuro: " + sel + " sul palco bianco = " + col);
+  for (const [sel, col, prop = "stroke"] of [["cab-line", "#0d9488"], ["net-line", "#4f46e5"], ["elec-line", "#d97706"], ["elec-feed", "#d97706"], ["dmx-line", "#db2777"], ["cab-mondot", "#0d9488", "fill"], ["mond-line", "#4f46e5"], ["cab-snake", "#0d9488"], ["dmx-lbl", "#be185d", "fill"]])
+    ok(new RegExp("body\\.dark \\.cavi-uniti \\.(?:[\\w-]+,body\\.dark \\.cavi-uniti \\.)*" + sel + "[^{]*\\{" + prop + ":" + col + "[;}]").test(stylesCss), "tema scuro: " + sel + " sul palco bianco = " + col);
   ok(/body\.dark \.cu-audio\{stroke:#2dd4bf\}/.test(stylesCss) && /body\.dark \.cu-corrente\{stroke:#fbbf24\}/.test(stylesCss), "tema scuro: le pastiglie restano chiare");
   A.state.docLang = "en";
-  eq(["INGRESSI", "MONITOR", "PERSONAL MONITOR", "CABLAGGIO AUDIO", "ELETTRICO", "MICROFONAZIONE", "LUCI", "PIANTA PALCO", "PIANTA LUCI E TRUSS", "TUTTI I CAVI"].map(A.titoloVistaPdf),
-    ["INPUTS", "MONITORS", "PERSONAL MONITORS", "AUDIO CABLING", "POWER", "MIC PLACEMENT", "LIGHTING", "STAGE PLAN", "LIGHTING AND TRUSS PLAN", "TUTTI I CAVI"], "titoli in inglese (la testata «Tutti i cavi» ha la sua)");
+  eq(["INGRESSI", "MONITOR", "PERSONAL MONITOR", "CABLAGGIO AUDIO", "ELETTRICO", "MICROFONAZIONE", "LUCI", "PIANTA PALCO", "PIANTA LUCI E TRUSS", "ELENCO FARI", "TUTTI I CAVI"].map(A.titoloVistaPdf),
+    ["INPUTS", "MONITORS", "PERSONAL MONITORS", "AUDIO CABLING", "POWER", "MIC PLACEMENT", "LIGHTING", "STAGE PLAN", "LIGHTING AND TRUSS PLAN", "FIXTURE LIST", "TUTTI I CAVI"], "titoli in inglese (la testata «Tutti i cavi» ha la sua)");
   A.state.docLang = "it";
   eq(A.titoloVistaPdf("INGRESSI"), "INGRESSI", "in italiano i titoli restano");
   delete A.state.docLang;
