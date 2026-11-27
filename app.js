@@ -18385,8 +18385,9 @@ function cablingMarkup(){
   var showIn=layerShown("cabin") && cabLayerLive("cabin"), showRet=layerShown("cabout") && cabLayerLive("cabout");
   if(!showIn && !showRet) return '';
   var R=cabResult(); if(!R) return '';
-  var op=soloOn("cabin")?1:(state.cab.opacity==null?70:state.cab.opacity)/100;   /* in solo: piena resa */
-  var retOp=soloOn("cabout")?1:(state.cab.retOpacity==null?100:state.cab.retOpacity)/100;   /* #23: opacità indipendente dei ritorni monitor */
+  var _uni=caviUnitiAttiva();   /* C4: nella vista «Tutti i cavi» ogni famiglia è a piena resa */
+  var op=(soloOn("cabin")||_uni)?1:(state.cab.opacity==null?70:state.cab.opacity)/100;   /* in solo: piena resa */
+  var retOp=(soloOn("cabout")||_uni)?1:(state.cab.retOpacity==null?100:state.cab.retOpacity)/100;   /* #23: opacità indipendente dei ritorni monitor */
   var edit=!state.cab.lockIn && showIn && !window.__cabStatic;   /* editing cavi INGRESSO (layer Input): lock indipendente dal Monitor */
   var editRet=!state.cab.lockOut && showRet && !window.__cabStatic;   /* #17: cavi di RITORNO (layer Monitor): lock indipendente dall'Input */
   /* stile Max (08/07): canvas PULITO — etichette visibili solo se "sempre" (toggle), nel PDF/PNG
@@ -18399,7 +18400,7 @@ function cablingMarkup(){
     /* L5: la tratta box→FOH di una box digitale è resa da netMarkup (rete) — niente doppia linea.
        Se il layer rete è nascosto, torna la rappresentazione generica a multicore. */
     var netBox={};
-    if(layerShown("net")){ netEngine().runs.forEach(function(r){ if(r.box&&r.box.id) netBox[r.box.id]=1; }); }
+    if(layerShown("net") || _uni){ netEngine().runs.forEach(function(r){ if(r.box&&r.box.id) netBox[r.box.id]=1; }); }   /* C4: nella vista unica una tratta digitale resta «rete» anche con la rete spenta */
     var FM=cabFasciMap();   /* L4: percorsi con i fasci scostati di 4 cm (assenti se il cavo non si può spostare senza toccare un ingombro) */
     R.snakes.forEach(function(k){ if(k.box && k.box.id && netBox[k.box.id]) return;
       var ex={}; if(k.box&&k.box.id) ex[k.box.id]=1;
@@ -19127,7 +19128,7 @@ function elecMarkup(){
   if(!state.elec || !state.elec.on || !layerShown("elec")) return '';
   if(!cabLayerLive("elec")) return '';   /* vista attiva su un altro layer → i cavi power si tolgono di mezzo */
   var R=elecResult(); if(!R) return '';
-  var op=soloOn("elec")?1:(state.elec.opacity==null?70:state.elec.opacity)/100, sl=state.elec.showLabels, sg=state.elec.showLengths;
+  var op=(soloOn("elec")||caviUnitiAttiva())?1:(state.elec.opacity==null?70:state.elec.opacity)/100, sl=state.elec.showLabels, sg=state.elec.showLengths;
   var editE=!window.__cabStatic && !state.elec.locked;   /* parità Max; niente editing se il layer Elettrico è bloccato (lucchetto) */
   var LBLE=window.__cabStatic || state.elec.labelMode==="always" || document.body.classList.contains("viewmode");
   var s='<g class="elec-layer'+(editE?' elec-editable':'')+'" style="opacity:'+op+'">';
@@ -19216,7 +19217,7 @@ function monDigMarkup(){
   if(!state.mond || !state.mond.on || !layerShown("mond")) return '';
   if(!cabLayerLive("mond")) return '';   /* vista attiva su un altro layer → i cavi P.M. si tolgono di mezzo */
   var R=mondResult(); if(!R) return '';
-  var op=soloOn("mond")?1:(state.mond.opacity==null?70:state.mond.opacity)/100;
+  var op=(soloOn("mond")||caviUnitiAttiva())?1:(state.mond.opacity==null?70:state.mond.opacity)/100;
   var editM=!window.__cabStatic;
   var LBLM=window.__cabStatic || document.body.classList.contains("viewmode");
   var s='<g class="mond-layer'+(editM?' mond-editable':'')+'" style="opacity:'+op+'">';
@@ -21285,7 +21286,7 @@ function netMarkup(){
   if(!state.cab || !state.cab.on || !layerShown("net")) return '';
   if(!cabLayerLive("cabin")) return '';   /* rete = infrastruttura Input: segue la vista Input */
   var N=netEngine(); if(!N.runs.length) return '';
-  var op=soloOn("net")?1:(state.cab.opacity==null?70:state.cab.opacity)/100;
+  var op=(soloOn("net")||caviUnitiAttiva())?1:(state.cab.opacity==null?70:state.cab.opacity)/100;
   var LBL=window.__cabStatic || state.cab.labelMode==="always" || document.body.classList.contains("viewmode");
   var s='<g class="net-layer" style="opacity:'+op+'">';
   N.runs.forEach(function(r){
@@ -21419,10 +21420,11 @@ function rfMarkup(esporta){
   if(!cabLayerLive("cabin")) return '';   /* RF = infrastruttura Input: segue la vista Input */
   var C; try{ C=rfChain(); }catch(_e){ return ''; }
   if(!C.links.length && !C.ants.length) return '';
-  var op=soloOn("rf")?1:0.85;
+  var _uni=caviUnitiAttiva();   /* C4: nella vista «Tutti i cavi» il coassiale è un cavo della famiglia Audio; i coni di copertura non si disegnano */
+  var op=(soloOn("rf")||_uni)?1:0.85;
   var s2='<g class="rf-layer" style="opacity:'+op+'">';
   /* coni di copertura (solo visivi): direzione = rotazione dell'antenna, ampiezza antAng, raggio fisso */
-  C.ants.forEach(function(an){
+  (_uni ? [] : C.ants).forEach(function(an){
     var ang=antAngOf(an), R2=260;
     if(ang>=360){ s2+='<circle cx="'+an.x+'" cy="'+an.y+'" r="'+R2+'" fill="#7c3aed" opacity="0.06"/>'; return; }
     var dir=((an.rot||0)-90)*Math.PI/180, a0=dir-ang*Math.PI/360, a1=dir+ang*Math.PI/360;
@@ -21434,9 +21436,9 @@ function rfMarkup(esporta){
   var LBL=window.__cabStatic || (state.cab&&state.cab.labelMode==="always") || document.body.classList.contains("viewmode");
   /* i coax sono cavi: con «Connessioni» spenta non si vedono (i coni di copertura sì) */
   (connessioniVisibili(esporta) ? C.links : []).forEach(function(l){
-    s2+='<path d="'+orthPathD(l.pts)+'" fill="none" stroke="#7c3aed" stroke-width="2.2" opacity="0.9"/>';
+    s2+='<path'+(_uni?' class="cu-coax"':'')+' d="'+orthPathD(l.pts)+'" fill="none" stroke="#7c3aed" stroke-width="2.2" opacity="0.9"/>';
     if(LBL){ var mid=cabMidpoint(l.pts);
-      s2+='<text x="'+mid[0]+'" y="'+(mid[1]-4)+'" text-anchor="middle" font-size="9" fill="#7c3aed" font-weight="700" paint-order="stroke" stroke="#ffffff" stroke-width="2.6">coax '+Math.ceil(l.lenM)+' m</text>'; }
+      s2+='<text'+(_uni?' class="cu-coax-lbl"':'')+' x="'+mid[0]+'" y="'+(mid[1]-4)+'" text-anchor="middle" font-size="9" fill="#7c3aed" font-weight="700" paint-order="stroke" stroke="#ffffff" stroke-width="2.6">coax '+Math.ceil(l.lenM)+' m</text>'; }
   });
   return s2+'</g>';
 }
@@ -21455,8 +21457,10 @@ function connessioniVisibili(esporta){
   return funzOn("conn");
 }
 function overlayLayerMarkup(esporta){
-  var cavi = connessioniVisibili(esporta);
-  return (cavi ? cablingMarkup()+netMarkup() : '')+rfMarkup(esporta)+(cavi ? elecMarkup()+monDigMarkup() : '')+lightsLabelsMarkup(esporta)+(cavi ? cableLegendMarkup() : '')+sectionLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup()+mzMicHitMarkup();
+  var cavi = connessioniVisibili(esporta), uni = cavi && caviUnitiAttiva();
+  var cab = (cavi ? cablingMarkup()+netMarkup() : '')+rfMarkup(esporta)+(cavi ? elecMarkup()+monDigMarkup() : '');
+  if(uni) cab = '<g class="cavi-uniti">'+cab+caviDmxMarkup()+'</g>';   /* C4 «Tutti i cavi»: gli stessi cavi, colore e tratto per famiglia (CSS); la legenda è quella a pastiglie, non questa */
+  return cab+lightsLabelsMarkup(esporta)+(cavi && !uni ? cableLegendMarkup() : '')+sectionLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup()+mzMicHitMarkup();
 }
 /* Le etichette delle richieste luci, al posto dei cartelli scritti a mano. Seguono l'occhio
    del layer: spegnere le Luci le spegne insieme alle icone, come per ogni altro reparto. */
@@ -21896,6 +21900,7 @@ function render(){
   renderFramePanel();
   renderVistaBanner();   /* SP-06: la vista attiva si dichiara, e si annulla con un comando che si vede */
   funzRenderAvviso();   /* il progetto usa funzioni spente: lo si dice (14/09) */
+  renderCaviLegenda();   /* C4: la legenda a pastiglie della vista «Tutti i cavi» */
   syncVistaRuotata();   /* telefono: l'avviso della vista ruotata e la mappa */
   /* K anti-confusione: nomi nascosti da lontano (auto) o forzati sì/no. 46 → 30 px/m (revisione 25/09): col
      corpo minimo i nomi si leggono anche da più lontano, e a 46 il Band aperto su un portatile da 1280
@@ -27815,6 +27820,8 @@ function renderMobileList(){
     if(th) th.setAttribute("aria-checked", document.body.classList.contains("dark") ? "true" : "false");
     var rr=document.getElementById("mRotRow");
     if(rr) rr.setAttribute("aria-checked", vistaRuotataPref() ? "true" : "false");
+    var cr=document.getElementById("mCaviRow");   /* C4: la voce c'è solo se il progetto ha almeno due famiglie di cavi */
+    if(cr){ cr.hidden=!caviUnitiDisponibile(); cr.setAttribute("aria-checked", caviUnitiStato().on===true ? "true" : "false"); }
     syncSnapSelects();
     if(window.syncDisegnoMenu) window.syncDisegnoMenu();
   }
@@ -27840,6 +27847,7 @@ function renderMobileList(){
       if(a==="cambi"){ toggleCambi(); return; }
       /* C2: «Cosa manca?» dal telefono. Già acceso ma coperto dal cassetto di un elemento (si è premuto «Mostra»): la voce riporta alla lista, togliendo la selezione (rilettura #235) */
       if(a==="manca"){ if(!auditActive) toggleAuditView(); else { clearSelection(); render(); } return; }
+      if(a==="cavi"){ clearSelection(); caviUnitiImposta(!caviUnitiStato().on); return; }   /* C4: il menu si chiude e si vede il palco con la legenda */
       if(a==="chan"){ toggleChan(); return; }
       if(a==="venue"){ toggleVenueEdit(); return; }
       if(a==="frame"){ toggleFrameEdit(); return; }
@@ -33417,7 +33425,8 @@ function soloOn(id){ return !!layerSoloUI[id]; }
 function inListMode(){ return !!layerAccOpen || anySolo(); }
 /* Uscita unica dalla lista — la stessa di Esc: liste chiuse, niente solo, cavi deselezionati. */
 function exitListMode(){
-  var wasList=inListMode();
+  var wasList=inListMode(), _cu=caviUnitiStato();
+  if(_cu.on){ _cu.on=false; wasList=true; }   /* C4: la stessa uscita (Esc compreso) spegne «Tutti i cavi» */
   layerSoloUI={}; layerAccOpen=null;
   selCab=null; selCabSet={}; selElec=null; selMond=null;
   if(typeof closeCabMenu==="function") closeCabMenu();
@@ -33434,6 +33443,14 @@ function exitListMode(){
 function cabLayerLive(id){ return !!window.__cabStatic || !anySolo() || soloOn(id); }
 /* fonte unica di visibilità di un layer nella scena: il solo (se attivo) vince sugli occhi */
 function layerShown(id){
+  /* C4: nella vista «Tutti i cavi» decidono le famiglie accese nella legenda, non gli occhi dei layer (che restano com'erano) */
+  if(CAVI_FAM_LAYER[id] && caviUnitiAttiva()){
+    if(!caviFamAccesa(CAVI_FAM_LAYER[id])) return false;
+    if(id==="rf") return true;
+    if(id==="mond") return !!(state.mond && state.mond.on);
+    if(id==="elec") return !!(state.elec && state.elec.on);
+    return !!(state.cab && state.cab.on);
+  }
   /* Layer v3: rete e RF sono infrastruttura del layer Ingressi → sotto solo seguono cabin */
   if(id==="net"||id==="rf"){ if(anySolo()) return soloOn("cabin"); }
   else if(anySolo()) return soloOn(id);
@@ -33450,6 +33467,169 @@ function layerShown(id){
     case "venue":  return !!(state.venue && state.venue.enabled!==false);
   }
   return true;
+}
+/* ===== VISTA «TUTTI I CAVI» (cablaggi C4, 27/11/2026) ==========================================
+   Studio cablaggi, Idea A: i cavi stavano su 4 layer (Input, Output, P.M., Elettrico) ognuno coi suoi colori, e nessuna vista
+   diceva «che cavi servono, dove passano». Qui UNA vista con 4 FAMIGLIE — Audio, Rete, Corrente, DMX — ognuna con colore E tratto
+   E sigla, così si legge anche in bianco e nero. Sta DIETRO UN PULSANTE (decisione della regia sulla domanda 3 dello studio):
+   di serie restano i layer di sempre e chi non lo preme non vede nessun cambiamento, né a schermo né nei fogli né nel file.
+   - Stato della PAGINA, mai nel progetto (come occhi e solo di Palco/Musicisti/Luci): `caviUnitiUI` = {on, off:{famiglia:true}}.
+   - Il disegno dei cavi non si rifà: i markup dei motori (cablingMarkup, netMarkup, rfMarkup, elecMarkup, monDigMarkup) finiscono
+     in un gruppo `cavi-uniti` e il CSS cambia solo colore e tratto. Si selezionano e si spostano come sempre.
+   - «Tutti» vuol dire tutti: gli occhi dei layer non contano (layerShown), le famiglie si spengono dalla legenda.
+   - DMX: UN tratto indicativo dalla console luci alla prima luce (caviDmxTratto). Le linee vere sono il lotto 5.
+   - Si esclude con liste e solo (caviUnitiSync) e non entra mai negli export di sempre (senzaVisteDiLavoro); ha una sua
+     pagina-vista facoltativa nel PDF (focus «cavi»), mai preselezionata. */
+var CAVI_FAM=[["audio","A","Audio"],["rete","R","Rete"],["corrente","C","Corrente"],["dmx","D","DMX"]];
+var CAVI_FAM_LAYER={ cabin:"audio", cabout:"audio", rf:"audio", net:"rete", mond:"rete", elec:"corrente" };
+var caviUnitiUI, _caviUnitiFoglio=false;   /* niente valore iniziale su caviUnitiUI: il disegno gira anche prima di questa riga (boot), lo stato nasce al primo uso */
+function caviUnitiStato(){ if(!caviUnitiUI) caviUnitiUI={on:false, off:{}}; return caviUnitiUI; }
+/* la vista è in atto: accesa a schermo e nessun solo (il solo vince), oppure si sta disegnando la sua pagina del PDF */
+function caviUnitiAttiva(){ return _caviUnitiFoglio===true || (caviUnitiStato().on===true && !anySolo()); }
+function caviFamAccesa(k){ return _caviUnitiFoglio===true || caviUnitiStato().off[k]!==true; }   /* nel foglio le famiglie ci sono sempre tutte */
+/* DMX, solo indicativo: dalla prima console luci alla «prima luce» — a patch accesa l'indirizzo più basso, altrimenti il primo
+   nell'ordine della patch (dimmer, poi i fari numerati come nella pianta luci). Chi è «Senza DMX» non conta. Pura. */
+function caviDmxTratto(){
+  var its=state.items||[], desk=null, i;
+  for(i=0;i<its.length;i++){ if(LIGHT_DESKS[its[i].type] && !its[i].rackId){ desk=its[i]; break; } }
+  if(!desk) return null;
+  var cand=dmxApparecchi().filter(function(x){ return !dmxSenza(x.it); });
+  if(!cand.length) return null;
+  var primo=cand[0].it;
+  if(dmxAttiva()){ var best=null;
+    dmxPatch().righe.forEach(function(r){ if(r.u==null) return; if(!best || r.u<best.u || (r.u===best.u && r.a<best.a)) best=r; });
+    if(best) primo=best.it; }
+  return {da:desk, a:primo, pts:[[Math.round(desk.x), Math.round(desk.y)], [Math.round(primo.x), Math.round(primo.y)]]};
+}
+/* Le 4 famiglie col numero dei cavi DISEGNATI (un fascio di N canali della stessa sorgente è un cavo; la rete ridondante sono due).
+   → [{k, sigla, nome, n}], sempre quattro e in quest'ordine. Non guarda gli occhi né la legenda: dice cosa c'è nel progetto. */
+function caviFamiglie(){
+  var n={audio:0, rete:0, corrente:0, dmx:0};
+  try{ if(state.cab && state.cab.on){
+    var R=cabResult()||{}, netBox={}, visti={};
+    netEngine().runs.forEach(function(r){ if(r.box && r.box.id) netBox[r.box.id]=1; n.rete+=r.red ? 2 : 1; });
+    (R.links||[]).forEach(function(l){ if(l.deleted || visti[l.key]) return; visti[l.key]=1; n.audio++; });
+    n.audio+=(R.returnLinks||[]).length;
+    (R.snakes||[]).forEach(function(k){ if(!(k.box && k.box.id && netBox[k.box.id])) n.audio++; });   /* la tratta di una box digitale è rete, non multicore */
+  } }catch(_e){}
+  try{ n.audio+=rfChain().links.length; }catch(_e){}
+  try{ if(state.mond && state.mond.on) n.rete+=((mondResult()||{}).links||[]).length; }catch(_e){}
+  try{ if(state.elec && state.elec.on){ var E=elecResult()||{}; n.corrente+=(E.feeds||[]).length+(E.uplinks||[]).length+(E.loadLinks||[]).length; } }catch(_e){}
+  try{ if(caviDmxTratto()) n.dmx=1; }catch(_e){}
+  return CAVI_FAM.map(function(f){ return {k:f[0], sigla:f[1], nome:f[2], n:n[f[0]]}; });
+}
+function caviFamiglieConCavi(){ return caviFamiglie().filter(function(f){ return f.n>0; }); }
+/* Il pulsante c'è solo se serve: almeno DUE famiglie con cavi (con una sola la vista sarebbe il layer che c'è già), i cavi si
+   vedono sul palco («Connessioni» accesa sul computer), e non si è in sola lettura né in «Crea elemento». */
+function caviUnitiDisponibile(){
+  if(!state || !state.cab || !state.elec || !state.mond) return false;
+  if(paloTemporaneoAttivo() || soloLetturaProgetto() || !connessioniVisibili(false)) return false;
+  return caviFamiglieConCavi().length>=2;
+}
+function caviUnitiImposta(on){
+  var cu=caviUnitiStato();
+  if(on && caviUnitiDisponibile()){ exitListMode(); cu.on=true; cu.off={}; }   /* si accende sempre con tutte le famiglie */
+  else cu.on=false;
+  render(); if(typeof renderLayerManager==="function") renderLayerManager();
+  return cu.on;
+}
+/* a ogni ridisegno: una lista aperta o un solo scelti DOPO spengono la vista, e così un progetto che non ha più due famiglie */
+function caviUnitiSync(){ var cu=caviUnitiStato(); if(cu.on && (inListMode() || !caviUnitiDisponibile())) cu.on=false; }
+function caviDmxMarkup(){
+  if(!caviUnitiAttiva() || !caviFamAccesa("dmx")) return '';
+  var t; try{ t=caviDmxTratto(); }catch(_e){ t=null; }
+  if(!t) return '';
+  var ex={}; ex[t.da.id]=1; ex[t.a.id]=1;
+  var dpts=cabRoutePts(t.pts, obstacleRects(), ex), st=cabStyle(), d=cabDrawD(t.pts, dpts, st);
+  var s='<g class="dmx-layer"><g class="cabgrp" data-own="'+esc(t.da.id+' '+t.a.id)+'"><path class="dmx-line" d="'+d+'"/>';
+  if(window.__cabStatic){ var mid=cabMidpoint(st==="dir" ? t.pts : orthExpand(dpts));
+    s+='<text class="dmx-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">DMX</text>'; }
+  return s+'</g></g>';
+}
+/* La legenda DISEGNATA nel foglio (pagina-vista «Tutti i cavi»): tratto, sigla, nome, numero. Stesso angolo della legenda di sempre. */
+function caviLegendaSvg(){
+  var rows=caviFamiglieConCavi(); if(!rows.length) return '';
+  var k=(window.__sceneTextK>0 ? window.__sceneTextK : 1);   /* il testo sul foglio cresce con la scala (scaleSvgFonts): il riquadro lo segue */
+  var txt=rows.map(function(r){ return r.sigla+" · "+r.nome+" · "+r.n+(r.k==="dmx" ? " · indicativo" : ""); });
+  var lung=txt.reduce(function(m, t){ return Math.max(m, t.length); }, 0);
+  var D=state.stage.d, lh=13*k, pad=6, h=rows.length*lh+pad*2, w=46+lung*4.9*k, x=6, y=D-6-h;
+  var s='<g class="cab-legend cavi-legenda"><rect class="cab-legend-bg" x="'+x+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="6"/>';
+  rows.forEach(function(r, i){ var cy=y+pad+i*lh+lh/2;
+    s+='<line class="cu-tratto cu-'+r.k+'" x1="'+(x+8)+'" y1="'+cy.toFixed(1)+'" x2="'+(x+36)+'" y2="'+cy.toFixed(1)+'"/>';
+    s+='<text class="cab-legend-t" x="'+(x+42)+'" y="'+(cy+3.2*k).toFixed(1)+'">'+esc(txt[i])+'</text>'; });
+  return s+'</g>';
+}
+/* I tratti delle famiglie in numeri, per disegnare la legenda col PDF: GLI STESSI del foglio di stile (`.cu-audio`, `.cu-rete`…),
+   un test li confronta. c = colore RGB · w = spessore e d = tratteggio in centimetri di palco · cap = estremità. */
+var CAVI_TRATTO={ audio:{c:[13,148,136], w:2.4, d:null, cap:"round"}, rete:{c:[79,70,229], w:2.2, d:[8,5], cap:"butt"},
+  corrente:{c:[217,119,6], w:3.6, d:[14,6], cap:"butt"}, dmx:{c:[219,39,119], w:2.4, d:[1.5,5.5], cap:"round"} };
+DOC_EN["TUTTI I CAVI"]="ALL CABLES"; DOC_EN["Rete"]="Network"; DOC_EN["indicativo"]="indicative";   /* documento in inglese: le voci nuove della legenda (Corrente → Power c'è già) */
+/* LA TESTATA della pagina «Tutti i cavi» nel PDF: titolo e legenda su una riga, a misura FISSA sul foglio. Dentro il disegno la
+   legenda scalava col palco (a 1:100 il testo era alto 0,9 mm) e copriva l'angolo del palco; qui si legge a ogni scala. Tutto il
+   testo sta ad almeno 15 mm dal bordo alto (la Ricoh dello studio taglia): la riga entra di 2 mm nel riquadro del disegno, su una
+   piastra bianca. I campioni sono nella scala del foglio (N): il tratto in legenda è largo e lungo come quello dei cavi sotto.
+   → le voci scritte, per le prove. */
+function caviTestataPdf(doc, L, N){
+  var fam=caviFamiglieConCavi(), k=10/(N>0 ? N : 100), y0=18.9, x0=L.M, xMax=L.pw-L.M, camp=9, passo=4.6;
+  var voci=fam.map(function(f){ return {f:f, t:f.nome+" · "+f.n+(f.k==="dmx" ? " · indicativo" : "")}; });
+  doc.setFont("helvetica","bold"); doc.setFontSize(10); var tit="TUTTI I CAVI", wTit=doc.getTextWidth(tit);
+  doc.setFontSize(8);
+  voci.forEach(function(v){ doc.setFont("helvetica","bold"); v.ws=doc.getTextWidth(v.f.sigla); doc.setFont("helvetica","normal"); v.wt=doc.getTextWidth(v.t); v.w=camp+1.5+v.ws+1.2+v.wt; });
+  /* dove va ogni voce: di seguito al titolo; se non entra nel foglio (A4 verticale, parole più lunghe in inglese) va a capo */
+  var x=x0+wTit+6, y=y0, xFine=x0+wTit;
+  voci.forEach(function(v){ if(x+v.w>xMax && x>x0){ x=x0; y+=passo; } v.x=x; v.y=y; x+=v.w+5; xFine=Math.max(xFine, v.x+v.w); });
+  doc.setFillColor(255,255,255); doc.rect(x0-1, y0-4.4, (xFine-x0)+2, (y-y0)+6, "F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(17,24,39); doc.text(tit, x0, y0);
+  doc.setFontSize(8);
+  voci.forEach(function(v){ var T=CAVI_TRATTO[v.f.k], yl=v.y-1.1;
+    doc.setDrawColor(T.c[0], T.c[1], T.c[2]); doc.setLineWidth(Math.max(0.12, T.w*k));
+    if(typeof doc.setLineCap==="function") doc.setLineCap(T.cap);
+    if(typeof doc.setLineDashPattern==="function") doc.setLineDashPattern(T.d ? T.d.map(function(q){ return q*k; }) : [], 0);
+    doc.line(v.x, yl, v.x+camp, yl);
+    if(typeof doc.setLineDashPattern==="function") doc.setLineDashPattern([], 0);
+    if(typeof doc.setLineCap==="function") doc.setLineCap("butt");
+    doc.setFont("helvetica","bold"); doc.setTextColor(17,24,39); doc.text(v.f.sigla, v.x+camp+1.5, v.y);
+    doc.setFont("helvetica","normal"); doc.setTextColor(55,65,81); doc.text(v.t, v.x+camp+1.5+v.ws+1.2, v.y); });
+  doc.setLineWidth(0.2); doc.setDrawColor(0,0,0);
+  return voci.map(function(v){ return v.f.sigla+" "+v.t; });
+}
+/* elemento a piena resa nella pagina-vista «Tutti i cavi»: chi sta a un capo di un cavo — le 4 liste dei cavi, più la console luci
+   (una console senza watt dichiarati non è un carico, ma da lì parte il DMX). La «prima luce» è già un carico o un quadro (dimmer). */
+function caviFgItem(it){
+  return !!(layerFgItem("cabin",it) || layerFgItem("cabout",it) || layerFgItem("mond",it) || layerFgItem("elec",it) || LIGHT_DESKS[it.type]);
+}
+/* La legenda A SCHERMO, sopra il disegno in basso a sinistra: una pastiglia per famiglia (tratto, sigla, nome, numero) che la
+   accende e la spegne, e «Chiudi». Solo le famiglie che hanno cavi. */
+function caviLegendaHtml(){
+  var cu=caviUnitiStato(), fam=caviFamiglieConCavi();
+  var h='<span class="cu-tit">Tutti i cavi</span>';
+  fam.forEach(function(f){ var on=cu.off[f.k]!==true;
+    h+='<button type="button" class="cu-fam" data-fam="'+f.k+'" aria-pressed="'+(on?"true":"false")+'" title="'+(on?"Nascondi":"Mostra")+' i cavi «'+f.nome+'»'+(f.k==="dmx"?" (DMX: tratto indicativo dalla console alla prima luce)":"")+'">'+
+       '<svg viewBox="0 0 30 8" aria-hidden="true"><path class="cu-tratto cu-'+f.k+'" d="M1 4H29"/></svg><b>'+f.sigla+'</b> '+esc(f.nome)+' <span class="cu-n">'+f.n+'</span></button>'; });
+  return h+'<button type="button" class="cu-esci" id="caviEsci" aria-label="Chiudi la vista Tutti i cavi" title="Torna ai layer di sempre"><span class="cu-esci-t">Chiudi</span><span class="cu-esci-x" aria-hidden="true">\u2715</span></button>';
+}
+function renderCaviLegenda(){
+  var el=document.getElementById("caviLegenda"); if(!el) return;
+  if(!caviUnitiAttiva() || _caviUnitiFoglio){ if(!el.hidden){ el.hidden=true; el.innerHTML=""; } return; }
+  el.innerHTML=caviLegendaHtml(); el.hidden=false;
+  Array.prototype.forEach.call(el.querySelectorAll(".cu-fam"), function(b){
+    b.addEventListener("click", function(e){ e.stopPropagation(); var k=b.getAttribute("data-fam"), cu=caviUnitiStato();
+      if(cu.off[k]) delete cu.off[k]; else cu.off[k]=true;
+      render(); }); });
+  var x=document.getElementById("caviEsci"); if(x) x.addEventListener("click", function(e){ e.stopPropagation(); caviUnitiImposta(false); });
+}
+/* La riga nelle Liste (computer): come «Scaletta», non è un layer — niente S, occhio e lucchetto. A destra quanti cavi in tutto. */
+function renderCaviUnitiRiga(rows){
+  if(!rows || !caviUnitiDisponibile()) return;
+  var on=caviUnitiStato().on===true, tot=caviFamiglie().reduce(function(s, f){ return s+f.n; }, 0);
+  var r=document.createElement("div"); r.className="layer-row layer-clickable cu-lriga"+(on?" focus":""); r.id="caviUnitiRiga";
+  r.innerHTML='<span class="layer-chev">'+(on?"▾":"▸")+'</span><span class="layer-dot cu-dot"></span><span class="layer-name">Tutti i cavi</span><span class="layer-cnt">'+tot+'</span>';
+  r.title = on ? "Torna ai layer di sempre" : "Audio, rete, corrente e DMX in una vista sola, con la legenda";
+  var f=function(){ caviUnitiImposta(!caviUnitiStato().on); };
+  r.addEventListener("click", f);
+  premibile(r, f, (on?"Chiudi":"Apri")+" la vista Tutti i cavi");
+  r.setAttribute("aria-pressed", on?"true":"false");
+  rows.appendChild(r);
 }
 /* ===== Punti colorati per SEZIONE nei layer tecnici (Simone 21/07): nei solo/fuoco di
    Ingressi/Output/P.M. i musicisti completi rendono la vista troppo complessa → ogni musicista
@@ -33588,7 +33768,7 @@ var soloPedGesto=false, soloPedFirma=null;
 function soloPedaneAutoVietato(){
   var cl=document.body.classList;
   if(window.__projLocked || cl.contains("viewmode") || cl.contains("consult-viewer")) return true;   /* sola lettura: niente da modificare, niente vista di lavoro */
-  return !!layerAccOpen || (anySolo() && !soloOn("pedane"));   /* una vista dei layer scelta a mano non si scavalca */
+  return !!layerAccOpen || (anySolo() && !soloOn("pedane")) || caviUnitiStato().on===true;   /* una vista dei layer scelta a mano non si scavalca (C4: nemmeno «Tutti i cavi») */
 }
 function soloPedaneAuto(){
   var gesto=soloPedGesto; soloPedGesto=false;
@@ -33605,11 +33785,11 @@ function soloPedaneAuto(){
    (revisione 14/10, provato layer per layer): con la S su Output, Monitor, Elettrico o Palco il PNG usciva con
    0 elementi, con Input o Musicisti PNG e PDF cambiavano. Gli export non hanno bisogno del solo vivo: le
    pagine-vista del PDF il loro solo se lo accendono da sé dentro stageSceneSvg (focus). Quindi via tutti. */
-function vistaDiLavoro(){ return anySolo(); }
+function vistaDiLavoro(){ return anySolo() || caviUnitiStato().on===true; }   /* C4: anche «Tutti i cavi» è una vista di lavoro, mai nei fogli di sempre */
 function senzaVisteDiLavoro(fn){
   if(!vistaDiLavoro()) return fn();
-  var keep=layerSoloUI; layerSoloUI={};
-  try{ return fn(); } finally { layerSoloUI=keep; }
+  var keep=layerSoloUI, cu=caviUnitiStato(), keepCu=cu.on; layerSoloUI={}; cu.on=false;
+  try{ return fn(); } finally { layerSoloUI=keep; cu.on=keepCu; }
 }
 function aggiornaSoloPedane(){
   var si=soloPedaneDisponibile(), on=si && soloOn("pedane");
@@ -33714,6 +33894,7 @@ function itemInSoloLayer(it){
 function soloMostra(it){ return anySolo() && (!soloOn("pedane") || itemInSoloLayer(it)); }
 /* un layer spento (cestino/toggle) non deve restare in solo fantasma sfumando tutto */
 function pruneSolo(){
+  caviUnitiSync();   /* C4: a ogni ridisegno anche «Tutti i cavi» si controlla — si esclude con liste e solo (qui, e non in render(): è lo stesso lavoro, togliere le viste rimaste senza motivo) */
   if(!anySolo()){ soloPiantaPannello=false; return; }
   /* il pannello possiede solo il SUO solo (pieno): passato al fuoco della riga dei Livelli, è dei Livelli e
      non si spegne più col pannello (prima: tendina della riga aperta su una vista che non c'era più) */
@@ -33735,6 +33916,7 @@ function pruneSolo(){
 function resetMetaLayersUI(){ stageLayerUI={vis:true,op:100,lock:false}; micLayerUI={vis:true,op:100,lock:false};
   musLayerUI={vis:true,op:100,lock:false};
   layerSoloUI={};
+  caviUnitiUI={on:false, off:{}};   /* C4: «Tutti i cavi» è stato della pagina, torna spenta con un progetto nuovo */
   lightsLayerUI={vis:true, op:100, lock:false}; vistaLivelli="tutto";   /* occhio/lucchetto Luci e vista a un tocco: stato della pagina, tornano di serie con un progetto nuovo */
   document.body.classList.remove("stage-lock","miczone-lock","mus-lock","luci-lock"); }
 var layerOpen=true;
@@ -34009,6 +34191,7 @@ function renderLayerManager(){
     else { var n=document.createElement("div"); n.className="adv-quante";
       n.textContent = avanz.length===1 ? "1 lista" : avanz.length+" liste"; rows.appendChild(n); }
   }
+  renderCaviUnitiRiga(rows);   /* C4: «Tutti i cavi», solo con almeno due famiglie di cavi */
   renderStatoRider(rows);
   renderPmAccList();
   renderMusAccList();
@@ -40826,7 +41009,8 @@ function stageSceneSvgDisegna(cropVb, opts){
       (focus==="cabin" && layerFgItem("cabin",it)) ||     /* 1 pagina per layer (17/07) */
       (focus==="cabout" && layerFgItem("cabout",it)) ||
       (focus==="mond" && layerFgItem("mond",it)) ||
-      (focus==="elec" && layerFgItem("elec",it)));
+      (focus==="elec" && layerFgItem("elec",it)) ||
+      (focus==="cavi" && caviFgItem(it)));   /* C4: pagina «Tutti i cavi» */
     if(fg){ fgItems+=m; fgLbls+=lb; } else { bgItems+=m; bgLbls+=lb; }
   });
   } finally { _lblSchermo=_keepSchermo; }
@@ -40872,6 +41056,10 @@ function stageSceneSvgDisegna(cropVb, opts){
       else if(focus==="cabout"){ layerSoloUI={cabout:true}; audioCab=cablingMarkup()+cableLegendMarkup(); }
       else if(focus==="mond"){ layerSoloUI={mond:true}; audioCab=monDigMarkup(); }
       else if(focus==="elec"){ layerSoloUI={elec:true}; elecCab=elecMarkup(); }
+      else if(focus==="cavi"){   /* C4: tutte le famiglie nello stesso foglio, con la legenda disegnata */
+        var _kf=_caviUnitiFoglio; _caviUnitiFoglio=true;
+        try{ audioCab='<g class="cavi-uniti">'+cablingMarkup()+netMarkup()+rfMarkup(true)+elecMarkup()+monDigMarkup()+caviDmxMarkup()+'</g>'+(opts.legendaFuori ? '' : caviLegendaSvg()); }   /* nel PDF la legenda è la testata (caviTestataPdf); nell'anteprima resta nel disegno */
+        finally { _caviUnitiFoglio=_kf; } }
       else if(focus===null || focus==="cabaudio"){ audioCab=cablingMarkup()+netMarkup()+monDigMarkup()+cableLegendMarkup(); if(focus===null) elecCab=elecMarkup(); }
     } finally { layerSoloUI=_keepSolo; }
   }catch(_e){ audioCab=''; elecCab=''; }
@@ -45336,22 +45524,25 @@ function buildPdfDoc(paperKey, N, orient, header, foglio){   /* foglio (lotto 2)
     if(want("view-mond"))   _views.push(["mond","PERSONAL MONITOR"]);
     if(want("view-cabaudio")) _views.push(["cabaudio","CABLAGGIO AUDIO"]);   /* legacy (non più offerta) */
     if(want("view-elec"))     _views.push(["elec","ELETTRICO"]);
+    if(want("view-cavi"))     _views.push(["cavi","TUTTI I CAVI"]);   /* C4: facoltativa, mai preselezionata */
     if(want("view-sectionmic")) _views.push(["sectionmic","MICROFONAZIONE"]);
     if(want("view-luci"))     _views.push(["luci","LUCI"]);
     var _viewChain=Promise.resolve();
     _views.forEach(function(v){
       _viewChain=_viewChain.then(function(){
         doc.addPage(paperKey, L.orient);
+        var _cavi=(v[0]==="cavi");   /* C4: la pagina «Tutti i cavi» ha la sua testata (titolo + legenda), disegnata DOPO il palco */
         doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(17,24,39);
-        doc.text(v[1], L.M, 11);
+        if(!_cavi) doc.text(v[1], L.M, 11);
         /* stesso corpo del testo di pag. 1; le quote per blocco qui RESTANO: in queste pagine
            jsPDF non ne disegna, quindi sono l'unica quotatura e non fanno doppione */
-        return drawStageVector(doc, ix, iy, stMmW, stMmH, box.vb, v[0], {textK:scena.textK, areaFoglio:scena.areaFoglio})
+        return drawStageVector(doc, ix, iy, stMmW, stMmH, box.vb, v[0], _cavi ? {textK:scena.textK, areaFoglio:scena.areaFoglio, legendaFuori:true} : {textK:scena.textK, areaFoglio:scena.areaFoglio})
           .catch(function(e){   /* se svg2pdf fallisce la pagina resta col solo titolo: non blocca l'export, ma va detto */
             try{ console.error("[stageplot] pagina-vista non disegnata:", v[1], e); }catch(_){}
             _viewFails.push(v[1]);
           })
           .then(function(){
+            if(_cavi){ try{ caviTestataPdf(doc, L, N); }catch(_e){ doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(17,24,39); doc.text(v[1], L.M, 18.9); } }
             var barraV=pdfScaleBarPosa(box, N, {blockDims:true});   /* qui le quote per blocco ci sono sempre */
             pdfScaleBar(doc, barraV.x, barraV.y, N);
             pdfCartiglio(doc, L, N, header);   /* «stampato in basso su ogni pagina»: anche qui, non solo sulla prima */
@@ -46363,7 +46554,7 @@ function pdfChannelPage(doc, L, paperKey){
   var prevIdx=0;
   var VIEW_MAP={ "view-cabin":{focus:"cabin",title:"Ingressi"}, "view-cabout":{focus:"cabout",title:"Monitor"},
     "view-mond":{focus:"mond",title:"Personal monitor"}, "view-cabaudio":{focus:"cabaudio",title:"Cablaggio audio"},
-    "view-elec":{focus:"elec",title:"Elettrico"}, "view-sectionmic":{focus:"sectionmic",title:"Mic zone"},
+    "view-elec":{focus:"elec",title:"Elettrico"}, "view-cavi":{focus:"cavi",title:"Tutti i cavi"}, "view-sectionmic":{focus:"sectionmic",title:"Mic zone"},
     "view-luci":{focus:"luci",title:"Luci"} };
   function previewPages(){
     var pages=[{focus:"clean", title:"Palco"}];
@@ -46762,6 +46953,7 @@ function pdfChannelPage(doc, L, paperKey){
     if(state.cab && state.cab.on && (state.items||[]).some(function(x){return OUT_SET[x.type]!=null;})){ pages.push({key:"view-cabout", label:"Vista: Monitor"}); }
     if(state.mond && state.mond.on){ pages.push({key:"view-mond", label:"Vista: Personal monitor"}); }
     if(state.elec && state.elec.on){ pages.push({key:"view-elec", label:"Vista: Elettrico"}); }
+    try{ if(caviFamiglieConCavi().length>=2) pages.push({key:"view-cavi", label:"Vista: Tutti i cavi"}); }catch(_e){}   /* C4: il foglio unico dei cavi, solo con almeno due famiglie; mai fra le suggerite */
     if((state.items||[]).some(function(x){return x.type==="miczone";})){ pages.push({key:"view-sectionmic", label:"Vista: Mic zone"}); }
     if(((state.lights&&state.lights.rows)||[]).length){ pages.push({key:"view-luci", label:"Vista: Luci"}); }
     if((state.items||[]).length){ pages.push({key:"rider", label:nomeDocumento()}); }   /* T2: rider generato dai dati */
