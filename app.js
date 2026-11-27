@@ -25887,7 +25887,7 @@ function setEventInputs(){
   TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.titolo||""; });
   /* come si chiamerà il file: la stessa `fileName()` che usa l'export, così la promessa è verificabile */
   var _fn=document.getElementById("pdfFileName");
-  if(_fn && typeof fileName==="function") _fn.textContent="Il file uscirà come "+pdfNomeFileTesto();
+  if(_fn && typeof fileName==="function"){ _fn.textContent="Il file uscirà come "+pdfNomeFileTesto(); _fn.title=_fn.textContent; }
   var _vc=document.getElementById("pdfVersione");   /* la versione: quella del campo, o letta dal titolo (precompilata) */
   if(_vc && document.activeElement!==_vc) _vc.value=versioneNumero()||"";
   if(_vc) _vc.disabled=versioneNumeroBloccato();   /* versione chiusa: il numero non si cambia da qui */
@@ -46860,7 +46860,7 @@ function pdfChannelPage(doc, L, paperKey){
     var _cartH=cartHFor(header.value, paper.value, _or);   /* la stessa che userà il PDF */
     var N=resolveScale(paper.value, pdfScaleValue(), _or, _cartH);
     var oTxt=(_or==="portrait"?"verticale":"orizzontale")+(orient.value==="auto"?" (scelto in automatico)":"");
-    var _nf=document.getElementById("pdfFileName"); if(_nf) _nf.textContent="Il file uscirà come "+pdfNomeFileTesto();   /* il nome dipende da foglio, verso e scala (12/11) */
+    var _nf=document.getElementById("pdfFileName"); if(_nf){ _nf.textContent="Il file uscirà come "+pdfNomeFileTesto(); _nf.title=_nf.textContent; }   /* il nome dipende da foglio, verso e scala (12/11) */
     if(!N){ info.className="mstatus err"; info.textContent="Non entra nemmeno a 1:500 su "+paper.value.toUpperCase()+" "+oTxt+" — prova un foglio più grande o l'altro orientamento."; }
     else {
       var _A=printArea(), mmW=Math.round(_A.w*10/N), mmH=Math.round(_A.h*10/N);
