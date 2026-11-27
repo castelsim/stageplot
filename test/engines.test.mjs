@@ -29015,6 +29015,26 @@ t("P5 parereSegna: scrive in locale con try/catch e ritira la domanda dal box", 
     A.parereSegna("pdf"); A.parereAggiorna();   /* non deve lanciare */
   } finally { A.document = old.doc; A.localStorage = old.ls; A.__consultMode = old.cons; }
 });
+t("L-C la ricerca capisce quello che gli utenti scrivono (dalle ricerche senza risultato del 14–27/11): parole, refusi, funzioni", () => {
+  const nomi = (q) => A.__spSearch(q).map((r) => r.nome);
+  const chiavi = (q) => A.__spSearch(q).map((r) => r.k);
+  /* le funzioni c'erano già: «espo» e «freque» restano esatte e DUE risultati sarebbero rumore */
+  eq(nomi("espo"), ["Esporta"], "«espo» → solo Esporta"); eq(nomi("freque"), ["Frequenze radio (RF)"], "«freque» → Frequenze radio (RF)");
+  eq(nomi("foto"), ["Esporta"], "«foto» → Esporta"); eq(nomi("duplica"), ["Nuova versione"], "«duplica» → Nuova versione");
+  eq(nomi("a norma"), ["Cosa manca?"], "«a norma» → Cosa manca?"); eq(nomi("consumi"), ["Funzioni avanzate"], "«consumi» → Funzioni avanzate");
+  const verso = (q, k) => ok(chiavi(q).includes(k), "«" + q + "» trova " + k + " (trovato: " + nomi(q).slice(0, 3).join(", ") + ")");
+  verso("controbass", "contrabbasso");
+  verso("parled", "parluci"); verso("parled", "parslimpar"); verso("paraled", "parluci");
+  verso("movig he", "testamobile"); verso("beam", "testamobile"); verso("moving head", "testamobile");
+  verso("centralina", "consolaluci"); verso("centralina", "etccs40");
+  verso("gradino", "scala"); verso("traliccio", "truss"); verso("tralicci", "trussladder"); eq(chiavi("trousse").length, 0, "«trousse» resta senza risposta (decisione del 20/11)");
+  verso("sm58", "astamic"); verso("shure sm58", "astamic"); verso("e935", "astamic"); verso("sm57", "astabassa"); verso("beta58", "wireless");
+  ok(!chiavi("beta58").includes("astamic") && !chiavi("sm57").includes("astamic"), "ogni modello porta all'elemento giusto, non a tutti");
+  /* niente inquinamento: ciò che già funzionava resta com'era */
+  eq(chiavi("scala")[0], "scala", "«scala» dà ancora Scala accesso per prima"); ok(chiavi("piano").includes("grancoda"), "«piano» dà ancora i pianoforti");
+  ok(!chiavi("beam").includes("grancoda") && chiavi("beam").length <= 3, "«beam» non porta altro");
+  ok(!chiavi("akg").length && !chiavi("neumann").length, "le marche senza modello nel catalogo NON si mappano: resta «nessun elemento» e «Non c'è? Crealo»");
+});
 t("P2 + P5: nel template nascono nascoste, nel posto giusto; l'export le chiama, l'uscita le classifica", () => {
   const src = readFileSync(join(root, "index.template.html"), "utf8");
   ok(/<div id="pdfRigaProgetto" role="status" hidden>/.test(src), "P2 nasce nascosta");

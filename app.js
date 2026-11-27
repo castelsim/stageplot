@@ -2658,7 +2658,22 @@ var SEARCH_ALIAS_UX45 = {
   leggio:"leggio conferenza leggio da conferenza leggio relatore leggio oratore",
   telo:"schermo per proiettore schermo proiettore schermo conferenza"
 };
-[SEARCH_ALIAS, SEARCH_ALIAS_GIRI, SEARCH_ALIAS_UX45].forEach(function(tab){ Object.keys(tab).forEach(function(k){   /* fuso nei tipi: le due ricerche leggono solo TYPES[k].alias */
+/* 27/11/2026, lotto L-C («la ricerca capisce quello che l'utente scrive»), dalle ricerche senza risultato dei giorni 14–27/11
+   (48 eventi `search_no_results` di utenti veri, solo il testo cercato): parole e refusi che indicano un oggetto che ESISTE.
+   Stessa regola di sempre: niente sigle di 2-3 lettere (la ricerca è a sottostringa), solo verso tipi presenti nel catalogo.
+   I modelli di microfono (SM58, SM57, Beta 58, E935) sono del catalogo che non c'è: portano all'elemento che l'app usa per quel microfono (asta
+   microfono = voce, asta bassa, mic wireless: gli stessi predefiniti dell'elenco canali), e il modello si scrive a mano. Marche senza modello (AKG, Neumann) non si mappano: sarebbe far credere che il catalogo le abbia. */
+var SEARCH_ALIAS_LC = {
+  contrabbasso:"controbasso controbass contrabasso double bass",
+  parluci:"parled paraled par led faretto faro par", parslimpar:"parled paraled par led faretto",
+  testamobile:"moving head movig head mooving head beam spot wash faro mobile", testaspot360x:"moving head movig head beam spot",
+  consolaluci:"centralina centraline luci centralina dmx controller luci", etccs40:"centralina luci centralina dmx controller luci",
+  scala:"gradino gradini scalino scalini",
+  truss:"traliccio tralicci", truss40:"traliccio tralicci", trusstri:"traliccio tralicci", trussladder:"traliccio tralicci",
+  astamic:"sm58 shure sm58 e935 e945 sennheiser e935",   /* «Asta microfono» È il microfono voce del catalogo: nell'elenco canali il modello predefinito è SM58 (riga «astamic:"SM58"») */
+  astabassa:"sm57 shure sm57", wireless:"beta58 beta 58 shure beta58 beta58a",   /* gli stessi predefiniti dell'elenco canali: SM57 sull'asta bassa, Beta 58A sul wireless */
+};
+[SEARCH_ALIAS, SEARCH_ALIAS_GIRI, SEARCH_ALIAS_UX45, SEARCH_ALIAS_LC].forEach(function(tab){ Object.keys(tab).forEach(function(k){   /* fuso nei tipi: le due ricerche leggono solo TYPES[k].alias */
   if(TYPES[k]) TYPES[k].alias=((TYPES[k].alias||"")+" "+tab[k]).trim();
 }); });
 /* CAT_ORDER = macro-categorie per la trovabilità (L, 07/07): da 17 a 10, strumenti in UN posto.
@@ -26621,7 +26636,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   entries.push({nome:"Palco", fn:true, dim:"blocchi, misure e altezze", icon:"pedana", action:toggleStageEdit, noQuick:true,
                 kw:"palco stage forma del palco blocchi misure altezza semicerchio pedana pedane praticabile"});   /* cercando "pedana" si arriva qui, dove le pedane si fanno davvero */
   entries.push({nome:"Planimetria", fn:true, dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON, noQuick:true});
-  entries.push({nome:"Cosa manca?", fn:true, dim:"controlla il progetto", action:toggleAuditView, iconHtml:AUDIT_ICON, kw:"cosa manca audit progetto controllo caduta tensione controlla verifica diagnostica analisi problemi manca prontezza checklist errori avvisi punteggio", noQuick:true});
+  entries.push({nome:"Cosa manca?", fn:true, dim:"controlla il progetto", action:toggleAuditView, iconHtml:AUDIT_ICON, kw:"cosa manca audit progetto controllo caduta tensione controlla verifica diagnostica analisi avvisi errori problemi a norma sicurezza problemi manca prontezza checklist errori avvisi punteggio", noQuick:true});
   /* Comandi cercati per nome (25/09, dalle ricerche senza risultati degli utenti): «espo» e
      «freque» non trovavano niente. Chi scrive nella ricerca non sempre vuole un oggetto: a volte
      cerca una FUNZIONE, e se non la trova lì non sa dove altro guardarla. */
@@ -26631,7 +26646,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   var RF_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M16 17v11"/><circle cx="16" cy="15" r="2"/><path d="M11.5 10.5a6.4 6.4 0 0 0 0 9M20.5 10.5a6.4 6.4 0 0 1 0 9M7.5 6.5a12 12 0 0 0 0 17M24.5 6.5a12 12 0 0 1 0 17"/></svg>';
   entries.push({nome:"Esporta", fn:true, qaPrimo:"stampa stampare", dim:"PDF, PNG, CSV per la console", noQuick:true, iconHtml:EXPORT_ICON,
                 action:function(){ var b=document.getElementById("bExportHdr"); if(b) b.click(); },
-                kw:"esporta esportare export pdf png stampa stampare scarica scaricare rider manda inviare"});
+                kw:"esporta esportare export pdf png stampa stampare scarica scaricare rider manda inviare foto immagine"});
   /* Le liste e le varianti cercate per nome (revisione 25/09): «channel list», «input list», «lista
      canali» davano Esporta o niente, e la lista vive dentro un layer che nell'avvio base è spento.
      «monitor» resta dei wedge (qaCede): la Monitor list si trova con «monitor list», «lista monitor». */
@@ -26646,7 +26661,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   entries.push({nome:"Cambi di palco", fn:true, dim:"chi esce, entra o si sposta durante lo spettacolo", noQuick:true, iconHtml:LISTA_ICON, action:function(){ if(!cambiEdit) toggleCambi(); },
                 kw:"cambi cambio di palco cambi palco entra esce sposta intervallo pausa secondo tempo ospite ripresa"});
   entries.push({nome:"Nuova versione", fn:true, dim:"copia dell'ultima versione, da cambiare", noQuick:true, iconHtml:VAR_ICON, action:function(){ nuovaVersione(); },
-                kw:"versione versioni variante varianti scena scene alternativa seconda formazione"});   /* «variante» resta come sinonimo: chi la cercava la trova */
+                kw:"versione versioni variante varianti scena scene alternativa seconda formazione duplica duplicare copia copiare clona"});   /* «variante» resta come sinonimo: chi la cercava la trova */
   entries.push({nome:"Importa organico", fn:true, dim:"da una riga o da Excel, con anteprima", noQuick:true, iconHtml:LISTA_ICON, action:function(){ orgImportApri(); },
                 kw:"importa importare incolla organico orchestra formazione foglio convocazione csv excel archi formula sezioni"});   /* G1 fase 2 (13/11): fuori dal menu File, che resta essenziale */
   /* CORO DAL CATALOGO (15/11/2026, segnalazione anonima «manca una immagine del coro»): cercando «coro» uscivano
@@ -26676,7 +26691,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   fnEntry("Area di stampa", "quale parte del palco esce sul foglio", EXPORT_ICON, function(){ if(!frameEdit) toggleFrameEdit(); },
           "area stampa cornice inquadratura ritaglio margini");
   fnEntry("Funzioni avanzate", "connessioni e liste tecniche: input, cavi, corrente", LISTA_ICON, function(){ funzApriFinestra(); },
-          "funzioni avanzate connessioni cavi corrente cablaggio liste tecniche collegamenti");
+          "funzioni avanzate connessioni cavi corrente cablaggio liste tecniche collegamenti consumi consumo potenza watt ampere elettrico piano elettrico tutti i cavi cablaggi");
   fnEntry("Nuovo progetto", "un palco vuoto o da un modello", LISTA_ICON, function(){ if(window.openNewDialog) window.openNewDialog(); else fnClick("bNew")(); },
           "nuovo progetto nuova pagina modello vuoto ricomincia");
   fnEntry("Guida", "cos'è uno stage plot e come si usa", LISTA_ICON, function(){ var h=document.querySelector('#helpMenu [data-help="learn"]'); if(h) h.click(); },
