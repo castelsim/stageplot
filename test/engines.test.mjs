@@ -29035,6 +29035,101 @@ t("L-C la ricerca capisce quello che gli utenti scrivono (dalle ricerche senza r
   ok(!chiavi("beam").includes("grancoda") && chiavi("beam").length <= 3, "«beam» non porta altro");
   ok(!chiavi("akg").length && !chiavi("neumann").length, "le marche senza modello nel catalogo NON si mappano: resta «nessun elemento» e «Non c'è? Crealo»");
 });
+t("L-B «Ti è stato utile?»: il primo PDF la accende, risposta e «Non ora» la chiudono per sempre, mai su documenti altrui", () => {
+  eq(A.UTILE_KEY, "sp_utilePdf", "chiave");
+  const f = A.utileStatoDopo;
+  eq(f(null, "pdf"), "attivo", "il primo PDF la accende"); eq(f("attivo", "pdf"), "attivo", "un secondo PDF non cambia");
+  eq(f("fatto", "pdf"), "fatto", "risposto resta risposto"); eq(f("no", "pdf"), "no", "«Non ora» resta tale");
+  eq(f("attivo", "fatto"), "fatto"); eq(f("attivo", "no"), "no"); eq(f("no", "fatto"), "no", "chiuso resta chiuso");
+  eq(f(null, "no"), "no", "anche prima del PDF, «Non ora» vale");
+  /* D3 (rilettura 27/11): ignorata → al massimo DUE comparse, poi si spegne da sola */
+  eq(f("attivo", "mostrata"), "visto", "la prima comparsa ignorata → «visto»"); eq(f("visto", "mostrata"), "no", "la seconda comparsa ignorata → spenta");
+  eq(f("visto", "pdf"), "visto", "un altro PDF non la riporta indietro"); eq(f("visto", "fatto"), "fatto", "risposta alla seconda: fatto"); eq(f("fatto", "mostrata"), "fatto"); eq(f(null, "mostrata"), null);
+  const d = (o) => A.utileDecidi(Object.assign({ altrui: false, stato: "attivo" }, o));
+  ok(d({ stato: "visto" }), "dopo una comparsa ignorata c'è la seconda");
+  ok(d({}), "dopo il primo PDF: sì"); ok(!d({ stato: null }), "senza PDF (login, apertura): MAI"); ok(!d({ stato: "fatto" })); ok(!d({ stato: "no" }));
+  ok(!d({ altrui: true }), "documento altrui: no"); ok(!A.utileDecidi(null));
+});
+t("L-B utileMessaggio: il voto va in testa, ≥ 5 caratteri con un tocco solo, la riga è un secondo messaggio", () => {
+  eq(A.utileMessaggio("si", ""), "[Utile dopo il primo PDF · sì]");
+  eq(A.utileMessaggio("cosi", ""), "[Utile dopo il primo PDF · così così]");
+  eq(A.utileMessaggio("no", "  manca il sax "), "[Utile dopo il primo PDF · no · riga] manca il sax");
+  eq(A.utileMessaggio("boh", "x"), "", "voto sconosciuto: niente invio");
+  ok(["si", "cosi", "no"].every((v) => A.utileMessaggio(v, "").length >= 5), "supera il minimo del server");
+});
+t("L-B utileSegna / utileMostra: localStorage con try/catch, compare solo a finestre chiuse, una volta sola", () => {
+  const old = { doc: A.document, ls: A.localStorage, cons: A.__consultMode };
+  const mem = {}; const el = { hidden: true, querySelectorAll: () => [] };
+  let aperte = null, fb = null;
+  try {
+    A.document = { body: { classList: { contains: () => false } }, getElementById: (id) => (id === "utilePdf" ? el : id === "fbBox" ? fb : null),
+      querySelector: () => aperte };
+    A.localStorage = { getItem: (k) => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); }, removeItem: (k) => { delete mem[k]; } };
+    A.__consultMode = false;
+    ok(!A.utileMostra(), "senza PDF non compare"); ok(el.hidden);
+    A.utileSegna("pdf"); eq(mem.sp_utilePdf, "attivo");
+    aperte = {}; ok(!A.utileMostra(), "con un'altra finestra aperta non compare"); ok(el.hidden);
+    aperte = null; fb = { classList: { contains: () => true } }; ok(!A.utileMostra(), "col box segnalazioni aperto non compare");
+    fb = null; ok(A.utileMostra(), "a finestre chiuse compare"); ok(!el.hidden);
+    eq(mem.sp_utilePdf, "visto", "la comparsa conta"); el.hidden = true; ok(A.utileMostra(), "seconda comparsa dopo averla ignorata"); eq(mem.sp_utilePdf, "no", "ignorata due volte: spenta");
+    el.hidden = true; ok(!A.utileMostra(), "terza volta: mai");
+    mem.sp_utilePdf = "attivo"; ok(A.utileMostra(), "(prova) di nuovo da «attivo»");
+    A.utileSegna("fatto"); eq(mem.sp_utilePdf, "fatto"); el.hidden = true; ok(!A.utileMostra(), "risposto: non torna");
+    A.utileSegna("pdf"); eq(mem.sp_utilePdf, "fatto", "un altro PDF non la riaccende");
+    mem.sp_utilePdf = "attivo"; A.__consultMode = true; ok(!A.utileMostra(), "in consulenza resta spenta"); eq(mem.sp_utilePdf, "attivo", "…e non conta come comparsa");
+    A.localStorage = { getItem() { throw new Error("x"); }, setItem() { throw new Error("x"); } };
+    A.utileSegna("pdf"); A.utileMostra();   /* non deve lanciare */
+  } finally { A.document = old.doc; A.localStorage = old.ls; A.__consultMode = old.cons; }
+});
+await tw("L-B D6: se l'invio fallisce NON segna «fatto» né ringrazia; riprova alla prossima occasione; solo l'invio riuscito conta", async () => {
+  const old = { doc: A.document, ls: A.localStorage, cons: A.__consultMode, fetch: A.fetch, fb: A.__fbInvio, cloud: A.__cloud, iw: A.innerWidth, ih: A.innerHeight };
+  const mem = { sp_utilePdf: "attivo" }; const fasi = [];
+  const el = { hidden: true, style: { removeProperty() {} }, contains: () => false,
+    querySelectorAll: (q) => (/data-ut\]/.test(q) ? [] : []) };
+  const campo = { textContent: "", value: "", focus() {} };
+  try {
+    A.document = { body: { classList: { contains: () => false } }, querySelector: () => null,
+      getElementById: (id) => (id === "utilePdf" ? el : (id === "utileTitoloRiga" || id === "utileTesto") ? campo : null) };
+    A.localStorage = { getItem: (k) => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); }, removeItem: (k) => { delete mem[k]; } };
+    A.__consultMode = false; A.__fbInvio = { url: "https://x.invalid/f" }; A.__cloud = null; A.innerWidth = 1000; A.innerHeight = 700;
+    ok(A.utileMostra(), "compare"); eq(mem.sp_utilePdf, "visto");
+    A.fetch = () => Promise.resolve({ ok: false, status: 429 });
+    eq(await A.utileProva({ voto: "si", testo: "" }, false), false, "429: non riuscito");
+    eq(mem.sp_utilePdf, "attivo", "stato com'era prima della comparsa: ricompare alla prossima occasione");
+    A.fetch = () => Promise.reject(new Error("rete"));
+    eq(await A.utileProva({ voto: "no", testo: "" }, false), false, "rete assente: non riuscito"); eq(mem.sp_utilePdf, "attivo");
+    ok(A.utileMostra(), "ricompare"); A.fetch = () => Promise.resolve({ ok: true, status: 200 });
+    eq(await A.utileProva({ voto: "cosi", testo: "" }, false), true, "200: riuscito"); eq(mem.sp_utilePdf, "fatto", "solo ora «fatto»");
+  } finally { A.document = old.doc; A.localStorage = old.ls; A.__consultMode = old.cons; A.fetch = old.fetch; A.__fbInvio = old.fb; A.__cloud = old.cloud; A.innerWidth = old.iw; A.innerHeight = old.ih; }
+});
+t("L-B D1-D5 nel sorgente: sopra il dock, a sinistra del pannello, Esc solo col fuoco dentro, fuoco alla casella da tastiera, due comparse", () => {
+  /* D1/D2: la posizione la calcola utilePosiziona (dock = altezza + 8; computer = a sinistra di #props) */
+  ok(/function utilePosiziona\(\)\{[\s\S]{0,700}getElementById\("mDock"\)[\s\S]{0,400}style\.bottom=\(dh\+8\)\+"px"[\s\S]{0,300}getElementById\("props"\)[\s\S]{0,300}style\.right=/.test(appjs), "sopra il dock; altrimenti a sinistra del pannello di destra");
+  ok(/utileFase\("chiedi"\); el\.hidden=false; utilePosiziona\(\);/.test(appjs), "si posiziona a ogni comparsa");
+  ok(/window\.addEventListener\("resize", function\(\)\{ if\(!el\.hidden\) utilePosiziona\(\); \}\);/.test(appjs), "e se la finestra cambia misura");
+  ok(/@media \(max-width:720px\)\{ #utilePdf\{left:8px;right:8px;bottom:8px;/.test(stylesCss) && !/#utilePdf\{left:0;right:0;bottom:0/.test(stylesCss), "su telefono non è più ancorata al fondo dello schermo");
+  /* D4: Esc solo col fuoco dentro la scheda */
+  ok(/ev\.key!=="Escape" \|\| el\.hidden \|\| !el\.contains\(document\.activeElement\)\) return;/.test(appjs), "Esc altrove non la spegne");
+  /* D5: fuoco alla casella solo da tastiera (col dito aprirebbe la tastiera dello schermo) */
+  ok(/var daTastiera=\(ev\.detail===0\);/.test(appjs) && /if\(daTastiera\)\{ try\{ t\.focus\(\{preventScroll:true\}\); \}catch\(e\)\{\} \}/.test(appjs), "fuoco alla casella da tastiera");
+  /* D3 + D6: lo stato passa da «mostrata»; «fatto» solo nel ramo dell'invio riuscito */
+  ok(/utileSegna\("mostrata"\);/.test(appjs), "ogni comparsa si conta");
+  ok(/if\(!okInvio\)\{[^}]*utileScrivi\(utilePrima\)[^}]*utileFase\("errore"\); return false; \}/.test(appjs), "invio fallito: stato rimesso, fase di errore");
+  ok(/id="utileRiprova"/.test(readFileSync(join(root, "index.template.html"), "utf8")), "c'è «Riprova»");
+});
+t("L-B nel template: nasce nascosta, fuori dal box segnalazioni, l'export la accende, l'uscita la classifica, non cambia i PDF", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/<div id="utilePdf" role="dialog" aria-label="Ti è stato utile\?" hidden>/.test(src), "nasce nascosta");
+  ok(/data-ut-voto="si"[\s\S]{0,200}data-ut-voto="cosi"[\s\S]{0,200}data-ut-voto="no"/.test(src), "tre risposte");
+  ok(/id="utileNonOra"/.test(src) && /id="utileChiudi"/.test(src), "saltabile");
+  const fine = appjs.indexOf('track("export",{format:"pdf"});'); const dopo = appjs.slice(fine, fine + 2600), catchI = dopo.indexOf("}).catch(");
+  ok(/try\{ utileSegna\("pdf"\); \}catch\(e\)\{\}/.test(dopo.slice(0, catchI)), "a PDF scaricato, in try/catch");
+  ok(!/utileMostra\(\)/.test(dopo.slice(0, catchI)), "l'export NON la mostra: compare alla chiusura della finestra, mai a metà lavoro");
+  ok(/attributeFilter:\["hidden"\]/.test(appjs) && /setTimeout\(function\(\)\{ prova\(6\); \}, 1200\)/.test(appjs), "si guarda la chiusura della finestra Esporta");
+  ok(A.USCITA_TIENI_LOCAL.sp_utilePdf, "chiave classificata per l'uscita");
+  ok(/hint:null, honeypot:""/.test(appjs), "nessuna funzione nuova sul server: submit-feedback com'è, hint nullo");
+  ok(/#utilePdf\[hidden\]\{display:none\}/.test(stylesCss) && /#utilePdf \[hidden\]\{display:none\}/.test(stylesCss), "hidden vince sul display");
+});
 t("P2 + P5: nel template nascono nascoste, nel posto giusto; l'export le chiama, l'uscita le classifica", () => {
   const src = readFileSync(join(root, "index.template.html"), "utf8");
   ok(/<div id="pdfRigaProgetto" role="status" hidden>/.test(src), "P2 nasce nascosta");

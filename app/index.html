@@ -4692,6 +4692,25 @@ body.dark #caviLegenda{box-shadow:0 6px 20px rgba(0,0,0,.4)}
 /* la riga «Tutti i cavi» nelle Liste: un quadratino coi quattro colori, il numero dei cavi in fondo a destra */
 #layerRows .cu-lriga .layer-cnt{margin-left:auto}
 #layerRows .cu-lriga .cu-dot{background:conic-gradient(#0d9488 0 25%,#4f46e5 0 50%,#d97706 0 75%,#db2777 0)}
+
+/* «Ti è stato utile?» dopo il primo PDF (27/11/2026, L-B): scheda quieta in basso. Sul telefono ancorata al fondo e a tutta
+   larghezza, sul computer in basso a destra; più piccola possibile (UI iPhone: bottoni piccoli, niente scroll). Sotto i modali
+   (z-index 50..340 non la coprono: compare solo a modali chiusi), il box delle segnalazioni resta libero: sul computer la scheda sta a sinistra del pannello di destra (utilePosiziona). */
+#utilePdf{position:fixed;right:16px;bottom:16px;width:min(340px,calc(100vw - 32px));z-index:60;background:var(--surface);
+  border:1px solid var(--border);border-radius:12px;box-shadow:var(--elev-3,0 12px 32px rgba(38,33,24,.18));padding:12px 14px;font-size:13px;line-height:var(--lh-snug)}
+#utilePdf[hidden]{display:none}
+#utilePdf [hidden]{display:none}
+#utilePdf .ut-h{display:block;font-size:14px;margin:0 0 8px}
+#utilePdf .ut-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+#utilePdf .ut-row .btn{height:32px;padding:0 12px;font-size:13px}
+#utilePdf .ut-no{margin-left:auto;border:0;background:none;color:var(--text-2);font:inherit;font-size:13px;padding:6px;cursor:pointer}
+#utilePdf .ut-no:hover{color:var(--text);text-decoration:underline}
+#utilePdf textarea{width:100%;box-sizing:border-box;font:inherit;font-size:16px;border:1px solid var(--border-strong,var(--border));border-radius:8px;padding:6px 8px;resize:none;background:var(--surface);color:var(--text)}
+#utilePdf .ut-fine{margin-top:6px;justify-content:flex-end}
+#utilePdf .ut-fine .ut-no{margin-left:0}
+/* telefono: tutta larghezza, e SOPRA il dock (la posizione la mette utilePosiziona(): bottom = altezza del dock + 8) */
+@media (max-width:720px){ #utilePdf{left:8px;right:8px;bottom:8px;width:auto;border-radius:12px} #utilePdf .ut-row .btn{min-height:40px} #utilePdf .ut-no{min-height:40px} }
+@media (prefers-reduced-motion:reduce){ #utilePdf{transition:none} }
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -7411,6 +7430,34 @@ body.dark #caviLegenda{box-shadow:0 6px 20px rgba(0,0,0,.4)}
       <p>Il progetto resta nel tuo account: lo ritrovi in <b>File → I miei progetti</b>. Con «Condividi» il link si aggiorna da solo.</p>
       <button type="button" class="pis-no" id="pdfRigaProgettoX" aria-label="Chiudi">✕</button>
     </div>
+  </div>
+</div>
+
+<!-- «TI È STATO UTILE?» DOPO IL PRIMO PDF (27/11/2026, lotto L-B del piano di crescita). Scheda quieta in basso, NON un popup:
+     compare una sola volta, quando si chiude la finestra Esporta dopo il primo PDF; mai al login, mai su documenti altrui.
+     Un tocco (Sì / Così così / No) basta e parte subito; la riga facoltativa viene dopo, ed è saltabile. «Non ora» la spegne per sempre. -->
+<div id="utilePdf" role="dialog" aria-label="Ti è stato utile?" hidden>
+  <div data-ut="chiedi">
+    <b class="ut-h">Ti è stato utile stageplot.it?</b>
+    <div class="ut-row">
+      <button type="button" class="btn tint" data-ut-voto="si">Sì</button>
+      <button type="button" class="btn" data-ut-voto="cosi">Così così</button>
+      <button type="button" class="btn" data-ut-voto="no">No</button>
+      <button type="button" class="ut-no" id="utileNonOra">Non ora</button>
+    </div>
+  </div>
+  <div data-ut="riga" hidden>
+    <b class="ut-h" id="utileTitoloRiga">Grazie.</b>
+    <textarea id="utileTesto" maxlength="400" rows="2" aria-label="Una riga, facoltativa" placeholder="Una riga, se vuoi (facoltativa)"></textarea>
+    <div class="ut-row ut-fine">
+      <button type="button" class="ut-no" id="utileChiudi">Chiudi</button>
+      <button type="button" class="btn tint" id="utileInvia">Invia la riga</button>
+    </div>
+  </div>
+  <div data-ut="grazie" hidden><b class="ut-h">Ricevuto, grazie.</b></div>
+  <div data-ut="errore" hidden>
+    <b class="ut-h">Non è partito.</b>
+    <div class="ut-row"><button type="button" class="btn tint" id="utileRiprova">Riprova</button><button type="button" class="ut-no" id="utileErroreChiudi">Chiudi</button></div>
   </div>
 </div>
 

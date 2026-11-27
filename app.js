@@ -6211,6 +6211,141 @@ try{ parereAggiorna(); }catch(e){}
     });
   });
 })();
+/* «TI È STATO UTILE?» DOPO IL PRIMO PDF (27/11/2026, lotto L-B del piano di crescita: è il primo passo dell'ascolto, L1).
+   Una domanda, tre risposte, un tocco. Compare quando si CHIUDE la finestra Esporta dopo il primo PDF (mai a metà
+   lavoro, mai al login, mai sopra un'altra finestra), AL MASSIMO DUE VOLTE in tutto: se la si ignora due volte si
+   spegne da sola (rilettura 27/11, D3); «Non ora» la spegne subito. Per dispositivo e non per progetto: chi fa il
+   secondo progetto ha già risposto. Stato in localStorage UTILE_KEY: «attivo» (dopo il primo PDF, mai mostrata),
+   «visto» (mostrata una volta, ignorata), «fatto» (ha risposto), «no» (Non ora o ignorata due volte).
+   Preferenza dell'interfaccia: si tiene all'uscita. Il voto conta «fatto» SOLO se l'invio è andato a buon fine (D6).
+   Niente funzione nuova sul server: parte per submit-feedback come il parere P5, col tipo in testa al messaggio
+   («[Utile dopo il primo PDF · sì]»); l'eventuale riga è un secondo messaggio col tipo «riga». Nessun dato personale. */
+var UTILE_KEY="sp_utilePdf";
+function utileDecidi(o){ return !!(o && !o.altrui && (o.stato==="attivo" || o.stato==="visto")); }
+function utileStatoDopo(stato, azione){
+  if(stato==="fatto" || stato==="no") return stato;                 /* chiuso resta chiuso */
+  if(azione==="pdf") return (stato==null) ? "attivo" : stato;       /* il primo PDF lo accende, poi non lo tocca */
+  if(azione==="mostrata") return stato==="attivo" ? "visto" : (stato==="visto" ? "no" : stato);   /* ignorata la prima volta: una seconda; ignorata due volte: spenta (D3) */
+  if(azione==="fatto" || azione==="no") return azione;
+  return stato;
+}
+function utileLeggi(){ try{ return localStorage.getItem(UTILE_KEY); }catch(e){ return null; } }
+function utileScrivi(v){ try{ localStorage.setItem("sp_utilePdf", v); }catch(e){} }   /* chiave scritta per esteso: la cerca il test dell'uscita */
+function utileSegna(azione){ var v=utileLeggi(), nuovo=utileStatoDopo(v, azione); if(nuovo!==v) utileScrivi(nuovo); }
+var UTILE_VOTI={si:"sì", cosi:"così così", no:"no"};
+/* il messaggio che parte: il tipo in testa (sempre ≥ 5 caratteri: il server scarta i più corti), poi l'eventuale riga */
+function utileMessaggio(voto, testo){
+  var v=UTILE_VOTI[voto]; if(!v) return "";
+  var t=String(testo==null?"":testo).trim();
+  return t ? "[Utile dopo il primo PDF · "+v+" · riga] "+t : "[Utile dopo il primo PDF · "+v+"]";
+}
+/* la finestra Esporta si è appena chiusa: è il momento giusto solo se non c'è altro aperto */
+function utileLibero(){
+  try{
+    if(document.querySelector(".modal:not([hidden]), .guide-ov")) return false;
+    var fb=document.getElementById("fbBox"); if(fb && fb.classList.contains("open")) return false;
+    var tt=document.getElementById("cloudToast"); if(tt && tt.hidden===false) return false;   /* il «Download completato» (3,2 s) non si copre: si aspetta che sparisca */
+    return true;
+  }catch(e){ return false; }
+}
+function utileMostra(){
+  var el=document.getElementById("utilePdf"); if(!el) return false;
+  if(!utileDecidi({ altrui:foreignDoc(), stato:utileLeggi() }) || !utileLibero()) return false;
+  utilePrima=utileLeggi();                                  /* per rimetterlo com'era se l'invio fallisce (D6) */
+  utileSegna("mostrata");
+  utileFase("chiedi"); el.hidden=false; utilePosiziona();
+  return true;
+}
+var utilePrima=null;
+/* D1/D2 (rilettura 27/11): la scheda non copre mai la barra in basso del telefono (Aggiungi·Elementi·Esporta·Menu) né il box
+   «Scrivici»: con il dock visibile sta SOPRA il dock; sul computer sta a sinistra del pannello di destra, dove il box vive. */
+function utilePosiziona(){
+  try{
+    var el=document.getElementById("utilePdf"); if(!el) return;
+    ["left","right","bottom"].forEach(function(k){ el.style.removeProperty(k); });
+    var dock=document.getElementById("mDock"), dh=0;
+    if(dock && window.getComputedStyle(dock).display!=="none") dh=dock.getBoundingClientRect().height;
+    if(dh>0){ el.style.bottom=(dh+8)+"px"; return; }
+    var pr=document.getElementById("props"), r=pr ? pr.getBoundingClientRect() : null;
+    if(r && r.width>0 && r.left>0 && r.left<window.innerWidth) el.style.right=Math.round(window.innerWidth-r.left+12)+"px";
+  }catch(e){}
+}
+function utileNascondi(){ var el=document.getElementById("utilePdf"); if(el) el.hidden=true; }
+function utileFase(f){
+  var el=document.getElementById("utilePdf"); if(!el) return;
+  Array.prototype.forEach.call(el.querySelectorAll("[data-ut]"), function(x){ x.hidden=(x.getAttribute("data-ut")!==f); });
+}
+var utileVotoDato=null;
+function utileInvia(voto, testo){
+  var m=utileMessaggio(voto, testo); if(!m) return Promise.resolve(false);
+  var tokP=(window.__cloud && window.__cloud.accessToken) ? window.__cloud.accessToken() : Promise.resolve(null);
+  return tokP.then(function(tok){
+    var headers={"Content-Type":"application/json"};
+    if(tok) headers["Authorization"]="Bearer "+tok;
+    var url=(window.__fbInvio && window.__fbInvio.url) || "";
+    if(!url) return false;
+    /* solo ciò che serve a leggere il numero: versione, lingua e schermo (telefono o computer). Niente progetto, niente pagina. */
+    return fetch(url,{ method:"POST", headers:headers, body:JSON.stringify({ message:m, hint:null, honeypot:"",
+      tech_context:{ utile_pdf:voto },
+      meta:{ app_version: window.__APP_VERSION__||null, viewport: innerWidth+"x"+innerHeight, language: navigator.language } }) })
+      .then(function(r){ return r.ok; });
+  }).catch(function(){ return false; });
+}
+/* Invia e SOLO se va a buon fine segna «fatto» e ringrazia; altrimenti dice che non è partito, rimette lo stato com'era
+   (alla prossima occasione ricompare) e offre «Riprova» (D6). Il voto e la riga sono due invii: il secondo non cambia lo stato. */
+var utileUltimo=null;
+function utileProva(invio, daTastiera){
+  utileUltimo=invio;
+  var el=document.getElementById("utilePdf"); if(el) Array.prototype.forEach.call(el.querySelectorAll("button"), function(b){ b.disabled=true; });
+  return utileInvia(invio.voto, invio.testo).then(function(okInvio){
+    if(el) Array.prototype.forEach.call(el.querySelectorAll("button"), function(b){ b.disabled=false; });
+    if(!okInvio){ if(!invio.testo && utilePrima!=null) utileScrivi(utilePrima); utileFase("errore"); return false; }
+    if(invio.testo){ utileFase("grazie"); setTimeout(utileNascondi, 1800); return true; }
+    utileSegna("fatto");
+    document.getElementById("utileTitoloRiga").textContent=(invio.voto==="si") ? "Grazie. Cosa ti è servito di più?" : "Grazie. Cosa è mancato?";
+    utileFase("riga");
+    var t=document.getElementById("utileTesto"); if(t){ t.value=""; if(daTastiera){ try{ t.focus({preventScroll:true}); }catch(e){} } }
+    return true;
+  });
+}
+window.utileMostra=utileMostra;
+(function(){ try{
+  var el=document.getElementById("utilePdf"), pm=document.getElementById("pdfModal");
+  if(!el || !pm || typeof MutationObserver==="undefined") return;
+  /* la finestra Esporta si chiude in tanti modi (Chiudi, Esc, fuori, ponte verso Condividi): si guarda l'attributo */
+  var eraAperta=!pm.hidden;
+  new MutationObserver(function(){
+    var aperta=!pm.hidden;
+    if(eraAperta && !aperta){   /* dopo 1,2 s; se c'è ancora il toast del download si riprova ogni 0,7 s, al massimo 6 volte */
+      var prova=function(n){ try{ if(!utileMostra() && n>0 && utileDecidi({ altrui:foreignDoc(), stato:utileLeggi() }) && !document.querySelector(".modal:not([hidden]), .guide-ov")) setTimeout(function(){ prova(n-1); }, 700); }catch(e){} };
+      setTimeout(function(){ prova(6); }, 1200);
+    }
+    eraAperta=aperta;
+  }).observe(pm, {attributes:true, attributeFilter:["hidden"]});
+  Array.prototype.forEach.call(el.querySelectorAll("[data-ut-voto]"), function(b){
+    b.addEventListener("click", function(ev){
+      utileVotoDato=b.getAttribute("data-ut-voto");
+      var daTastiera=(ev.detail===0);               /* da tastiera il fuoco passa alla casella (D5); col dito no: aprirebbe la tastiera dello schermo */
+      utileProva({ voto:utileVotoDato, testo:"" }, daTastiera);
+    });
+  });
+  document.getElementById("utileNonOra").addEventListener("click", function(){ utileSegna("no"); utileNascondi(); });
+  document.getElementById("utileChiudi").addEventListener("click", utileNascondi);
+  document.getElementById("utileErroreChiudi").addEventListener("click", utileNascondi);
+  document.getElementById("utileRiprova").addEventListener("click", function(){ if(utileUltimo) utileProva(utileUltimo, false); });
+  document.getElementById("utileInvia").addEventListener("click", function(){
+    var t=document.getElementById("utileTesto"), testo=t ? t.value.trim() : "";
+    if(!testo){ utileNascondi(); return; }
+    utileProva({ voto:utileVotoDato, testo:testo }, false);
+  });
+  /* D4: Esc vale solo se il fuoco è DENTRO la scheda; un Esc dato altrove (deselezionare, chiudere un menu) non la spegne */
+  document.addEventListener("keydown", function(ev){
+    if(ev.key!=="Escape" || el.hidden || !el.contains(document.activeElement)) return;
+    var f=el.querySelector("[data-ut]:not([hidden])"); if(f && f.getAttribute("data-ut")==="chiedi") utileSegna("no");
+    utileNascondi();
+  });
+  window.addEventListener("resize", function(){ if(!el.hidden) utilePosiziona(); });
+}catch(e){} })();
 /* Da dove è partito un accesso: letto (e tolto) da login_success al ritorno da Google. Va nella chiave «from»,
    l'unica ammessa dalla policy di analytics_events (0035) per dire una provenienza: una chiave nuova farebbe
    rifiutare l'intero evento. */
@@ -6631,6 +6766,7 @@ function uscitaChiavi(st){
 /* Invito a salvare dopo il PDF (09/11/2026): due chiavi da tenere. Aggiunte qui e non nelle righe sopra, che
    altre PR aperte toccano: così i rami si uniscono senza conflitti. */
 USCITA_TIENI_LOCAL.sp_invitoSalva=1; USCITA_TIENI_SESSION.sp_accessoDa=1;
+USCITA_TIENI_LOCAL.sp_utilePdf=1;   /* «Ti è stato utile?» (L-B, 27/11/2026): aggiunta qui, non nelle righe sopra, per non toccare i rami aperti */
 /* Lo stato in memoria torna quello di un progetto vuoto, senza passare da save(): niente punto di
    ripristino (conterrebbe il progetto che si sta togliendo) e niente scrittura locale. */
 function azzeraMemoriaDocumento(){
@@ -46342,6 +46478,7 @@ function exportPdf(paperKey, scaleSel, orient, header){
     if(!invitoSalvaDopoPdf()) maybeLoginNudge();   /* l'invito a salvare (una riga nel piede) prende il posto del toast */
     try{ rigaProgettoDopoPdf(); }catch(e){}         /* chi ha un account: dove resta il progetto (P2, una volta sola) */
     try{ parereSegna("pdf"); }catch(e){}            /* il primo PDF accende la domanda di parere nel box (P5) */
+    try{ utileSegna("pdf"); }catch(e){}             /* il primo PDF accende «Ti è stato utile?», che compare alla chiusura della finestra (L-B) */
   }).catch(function(e){
     info.className="mstatus err"; info.textContent=(e&&e.piedi ? "" : "Errore: ")+(e&&e.message||e); window.__pdfScope="full";
   });
