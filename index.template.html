@@ -47462,22 +47462,22 @@ function buildPdfPalcoEsterni(paperKey, scaleSel, orientSel){
     if(!P) throw new Error("Il palco non entra nemmeno a 1:500 su "+paperKey.toUpperCase()+": cambia foglio o area nell'Esporta.");
     var N=P.N, box=P.box, F=P.F, sh=F.h, L=box.L, M=L.M;
     var doc=new jsPDF({orientation:L.orient, unit:"mm", format:paperKey, compress:true});
-    var boxQ=Object.assign({}, box, {rMm:{x:box.rMm.x, y:box.rMm.y+sh, w:box.rMm.w, h:box.rMm.h}});   /* le quote si giudicano dove stanno davvero: sotto la fascia (27/11, soglia 15 mm) */
-    var scena={textK:pdfTextK(N), noBlockDims:pdfQuoteFuoriDalDisegno(boxQ) && stageBlocks().length<2,
-      areaFoglio:{x:L.drawX, y:L.drawY+sh, w:L.drawW, h:L.drawH}};
-    /* il box tutto spostato in giù della fascia, col fondo del cartiglio «finto» ridotto a 1: serve a barra e quote */
+    /* il box tutto spostato in giù della fascia, col fondo del cartiglio «finto» ridotto a 1: serve a barra e quote
+       (le quote si giudicano dove stanno davvero, sotto la fascia: 27/11, soglia 15 mm) */
     var b2=Object.assign({}, box, {L:Object.assign({}, L, {cartH:1, drawY:L.drawY+sh}), iy:box.iy+sh,
       rMm:{x:box.rMm.x, y:box.rMm.y+sh, w:box.rMm.w, h:box.rMm.h}});
+    var scena={textK:pdfTextK(N), noBlockDims:pdfQuoteFuoriDalDisegno(b2) && stageBlocks().length<2,
+      areaFoglio:{x:L.drawX, y:L.drawY+sh, w:L.drawW, h:L.drawH}};
     return drawStageVector(doc, box.ix, box.iy+sh, box.mmW, box.mmH, box.vb, "clean", scena)
       .catch(function(){ return pdfRipiegoRaster(doc, box.ix, box.iy+sh, box.mmW, box.mmH, box.vb, scena); })
       .then(function(){
-        if(pdfQuoteFuoriDalDisegno(boxQ)){
+        if(pdfQuoteFuoriDalDisegno(b2)){
           doc.setFont("helvetica","normal"); doc.setTextColor(107,114,128); doc.setFontSize(8.5);
           var q=b2.rMm;
           doc.text(docLen(state.stage.w, adattaM(state.stage.w)+" m"), q.x+q.w/2, q.y-8, {align:"center"});
           doc.text(docLen(state.stage.d, adattaM(state.stage.d)+" m"), q.x-5, q.y+q.h/2, {align:"center", angle:90});
         }
-        var barra=pdfScaleBarPosa(b2, N, {blockDims:!scena.noBlockDims, quoteJs:pdfQuoteFuoriDalDisegno(boxQ)});
+        var barra=pdfScaleBarPosa(b2, N, {blockDims:!scena.noBlockDims, quoteJs:pdfQuoteFuoriDalDisegno(b2)});
         pdfScaleBar(doc, barra.x, barra.y, N);
         /* la fascia in alto: titolo · luogo, «Stage plot vN · data», e una riga sotto */
         var T=palcoEsterniTesti(d), y=M+5.1;

@@ -43983,6 +43983,15 @@ t("Quota 15 mm: le quote di jsPDF fuori dal palco non escono mai dall'area sicur
   { const r = prova(2600, 600, "a2", 50); A.state.printFrame = { x: 0, y: 0, w: 2600, h: 600 }; ok(A.pdfQuoteFuoriDalDisegno(A.pdfStageBox(50, "a2", "landscape", 22)) === false, "area scelta a mano: come prima (nessuna quota fuori)"); delete A.state.printFrame; }
   ok(/var QUOTA_X_MIN=20\.75, QUOTA_Y_MIN=18\.25;/.test(appjs) && /return !!q && q\.x-5>=QUOTA_X_MIN-1e-6 && q\.y-8>=QUOTA_Y_MIN-1e-6;/.test(appjs), "la soglia è nel sorgente (15 mm + corpo e discesa misurati nel PDF)");
   ok(/box\.quoteLibere!==false && pdfQuoteDentroMargine\(box\);/.test(appjs), "pdfQuoteFuoriDalDisegno usa la soglia");
+  /* rilettura 244 (D1): i 3 punti che decidono chi scrive le quote passano TUTTI da pdfQuoteFuoriDalDisegno (nessuna condizione scritta a mano) */
+  const corpo = (nome) => { const i = appjs.indexOf("function " + nome + "("); const j = appjs.indexOf("\nfunction ", i + 10); return appjs.slice(i, j < 0 ? undefined : j); };
+  for (const [nome, chiamate, arg] of [["buildPdfDoc", 3, "box"], ["_pdfPreviewSvgIt", 2, "box"], ["buildPdfPalcoEsterni", 3, "b2"]]) {
+    const c = corpo(nome);
+    ok(c.length > 500, nome + ": funzione trovata nel sorgente");
+    ok(c.split("pdfQuoteFuoriDalDisegno(" + arg + ")").length - 1 === chiamate, nome + ": le " + chiamate + " decisioni sulle quote (scena, quote jsPDF, barra) passano da pdfQuoteFuoriDalDisegno(" + arg + ")");
+    ok(!/!\w+\.A\.custom\s*&&\s*!\w+\.cropped/.test(c) && !/quoteLibere\s*!==\s*false/.test(c), nome + ": nessuna condizione sulle quote scritta a mano (A.custom / cropped / quoteLibere)");
+  }
+  ok(!/pdfQuoteFuoriDalDisegno\(box\)/.test(corpo("buildPdfPalcoEsterni")) && !/boxQ/.test(appjs), "palco per esterni: le quote si giudicano sul box spostato sotto la fascia (b2), non su quello senza fascia");
 });
 
 await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
