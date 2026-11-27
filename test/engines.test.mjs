@@ -21045,7 +21045,7 @@ t("nel PDF ogni quota è scritta una volta sola", () => {
      dal palco nel disegno (14/10: con chi sta fuori le quote di jsPDF gli cadevano addosso) */
   const q = (custom, cropped, coperte, rMm = { x: 60, y: 60, w: 100, h: 100 }) => A.pdfQuoteFuoriDalDisegno({ A: { custom }, cropped, quoteLibere: !coperte, rMm });
   eq([q(false, false, false), q(true, false, false), q(false, true, false), q(false, false, true)], [true, false, false, false], "quando jsPDF quota il palco");
-  eq([q(false, false, false, { x: 24, y: 60, w: 100, h: 100 }), q(false, false, false, { x: 60, y: 28, w: 100, h: 100 }), q(false, false, false, { x: 25.75, y: 28.75, w: 100, h: 100 })], [false, false, true], "27/11: sotto 20,75 mm (15 + corpo) la quota passa al disegno");
+  eq([q(false, false, false, { x: 24, y: 60, w: 100, h: 100 }), q(false, false, false, { x: 60, y: 25, w: 100, h: 100 }), q(false, false, false, { x: 25.75, y: 26.25, w: 100, h: 100 })], [false, false, true], "27/11: sotto 20,75 mm a sinistra o 18,25 in alto la quota passa al disegno");
   /* e l'anteprima deve dire le stesse cose del file che uscirà */
   const prev = src.slice(src.indexOf("function pdfPreviewSvg"), src.indexOf("function pdfPreviewSvg") + 2000);
   ok(/textK:pdfTextK\(Ng\)/.test(prev), "l'anteprima non compensa il testo come il PDF");
@@ -43971,17 +43971,17 @@ t("Cavi uniti · rifiniture 27/11: fuoco sulla pastiglia, legenda ridisegnata da
 });
 
 t("Quota 15 mm: le quote di jsPDF fuori dal palco non escono mai dall'area sicura (palco 26×6 A2 1:50, 8×5 A4 1:50); la scala resta", () => {
-  const prova = (w, d, paper, N) => { A.state.stage = { w, d, blocks: [{ x: 0, y: 0, w, d }] }; A.recalcStageBBox(); A.state.items = []; delete A.state.printFrame;
+  const prova = (w, d, paper, N) => { A.state.titolo = "Prova quota"; A.state.stage = { w, d, blocks: [{ x: 0, y: 0, w, d }] }; A.recalcStageBBox(); A.state.items = []; add("batteria", w / 2, d * 0.4); add("cantante", w / 2 - 150, d * 0.75); delete A.state.printFrame;   /* con gli elementi il cartiglio ha la riga dei totali, come in ogni export vero */
     const box = A.pdfStageBox(N, paper, "landscape", A.cartHFor("", paper, "landscape")); return { box, fuori: A.pdfQuoteFuoriDalDisegno(box), q: box.rMm }; };
   { const r = prova(2600, 600, "a2", 50);
     ok(r.q.x - 5 < 20.75, "caso trovato dal Mac Studio: la quota di sinistra a " + (r.q.x - 5) + " mm sarebbe sotto l'area sicura");
     ok(r.fuori === false, "26×6 A2 1:50: le quote non le scrive più jsPDF fuori dal disegno (le scrive il disegno, attaccate al palco)");
     ok(r.box.cropped === false && Math.abs(r.box.mmPerCm - 0.2) < 1e-9, "la scala resta 1:50 (0,2 mm/cm) e il palco non viene ritagliato"); }
-  { const r = prova(800, 500, "a4", 50); ok(r.q.y - 8 < 20.75 && r.fuori === false, "8×5 A4 1:50: la quota in alto (a " + (r.q.y - 8) + " mm) passa al disegno"); }
+  { const r = prova(800, 500, "a4", 50); ok(r.q.y - 8 < 18.25 && r.fuori === false, "8×5 A4 1:50: la quota in alto (a " + (r.q.y - 8) + " mm) passa al disegno"); }
   for (const [w, d, paper, N] of [[1400, 900, "a4", 100], [1400, 900, "a3", 100], [2600, 600, "a2", 100], [2200, 600, "a2", 50], [3000, 800, "a3", 100], [1000, 1400, "a3", 100]]) {
     const r = prova(w, d, paper, N); ok(r.fuori === true, "palco normale " + w / 100 + "×" + d / 100 + " " + paper.toUpperCase() + " 1:" + N + ": quote fuori come sempre (invariato)"); }
   { const r = prova(2600, 600, "a2", 50); A.state.printFrame = { x: 0, y: 0, w: 2600, h: 600 }; ok(A.pdfQuoteFuoriDalDisegno(A.pdfStageBox(50, "a2", "landscape", 22)) === false, "area scelta a mano: come prima (nessuna quota fuori)"); delete A.state.printFrame; }
-  ok(/var QUOTA_BASE_MIN=20\.75;/.test(appjs) && /return !!q && q\.x-5>=QUOTA_BASE_MIN-1e-6 && q\.y-8>=QUOTA_BASE_MIN-1e-6;/.test(appjs), "la soglia è nel sorgente (15 mm + corpo e discesa misurati nel PDF)");
+  ok(/var QUOTA_X_MIN=20\.75, QUOTA_Y_MIN=18\.25;/.test(appjs) && /return !!q && q\.x-5>=QUOTA_X_MIN-1e-6 && q\.y-8>=QUOTA_Y_MIN-1e-6;/.test(appjs), "la soglia è nel sorgente (15 mm + corpo e discesa misurati nel PDF)");
   ok(/box\.quoteLibere!==false && pdfQuoteDentroMargine\(box\);/.test(appjs), "pdfQuoteFuoriDalDisegno usa la soglia");
 });
 

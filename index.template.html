@@ -42166,10 +42166,10 @@ function areaConFuori(f, list, N){
    con l'area scelta a mano (revisione 14/10). */
 /* Quota 15 mm (27/11/2026, Q1 del Mac Studio: palco 26×6 m su A2 a 1:50, «6 m» a 10,3 mm dal bordo; e «8 m» a 12,5 mm su A4 a 1:50): la Ricoh taglia
    sotto i 15 mm dal bordo. Le due quote di jsPDF stanno a 5 mm (sinistra) e 8 mm (sopra) fuori dal riquadro del palco: se il disegno arriva vicino al
-   foglio la loro scritta (baseline a 20,75 mm = 15 mm + corpo e discesa misurati nel PDF) uscirebbe dall'area sicura. In quel caso NON si cambia scala: le
+   foglio la loro scritta (scritta a sinistra a ≥ 20,75 mm, in alto a ≥ 18,25 mm: 15 mm + lo scarto misurato nel PDF) uscirebbe dall'area sicura. In quel caso NON si cambia scala: le
    quote le scrive il disegno attaccate al bordo del palco (stageDimsMarkup, già dentro per costruzione), come con l'area scelta a mano. */
-var QUOTA_BASE_MIN=20.75;
-function pdfQuoteDentroMargine(box){ var q=box.rMm; return !!q && q.x-5>=QUOTA_BASE_MIN-1e-6 && q.y-8>=QUOTA_BASE_MIN-1e-6; }
+var QUOTA_X_MIN=20.75, QUOTA_Y_MIN=18.25;   /* misurate nei PDF veri (fitz): a sinistra il riquadro della scritta ruotata sta a 5,7 mm dal punto dato; sopra a 3,2 mm */
+function pdfQuoteDentroMargine(box){ var q=box.rMm; return !!q && q.x-5>=QUOTA_X_MIN-1e-6 && q.y-8>=QUOTA_Y_MIN-1e-6; }
 function pdfQuoteFuoriDalDisegno(box){ return !box.A.custom && !box.cropped && box.quoteLibere!==false && pdfQuoteDentroMargine(box); }
 /* IL FUOCO ALL'APERTURA DELL'ESPORTA (14/10). Il contratto delle modali lo dà al primo elemento: con l'avviso fuori
    palco era «Adatta il palco», e un Invio dato d'abitudine spostava tutto. Col mouse si parte dal nome del progetto
