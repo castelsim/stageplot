@@ -43106,7 +43106,7 @@ t("Patch DMX · il salvataggio scrive gli indirizzi assegnati (solo a patch acce
   eq(A.dmxFissa(), 0, "una seconda volta non cambia niente");
   A.dmxImposta(fari[0], { ch: null }); A.save();
   eq(fari[0].dmx, undefined, "senza canali non resta un indirizzo fantasma"); eq(dxInd(fari[0]), null);
-  ok(/if\(dmxAttiva\(\)\) dmxFissa\(\);/.test(appjs.slice(appjs.indexOf("function save(){"), appjs.indexOf("function save(){") + 700)), "save() chiama dmxFissa solo a patch accesa");
+  ok(/if\(dmxAttiva\(\)\)\{ try\{ dmxFissa\(\); \}catch\(_e\)\{\} \}/.test(appjs.slice(appjs.indexOf("function save(){"), appjs.indexOf("function save(){") + 1100)), "save() chiama dmxFissa solo a patch accesa");
   A.dmxAccendi(false); eq(A.state.dmx, undefined, "«Spegni la patch» toglie la chiave"); eq(fari[1].dmx, { ch: 8, u: 1, a: 9 }, "ma non i dati");
   A.dmxAccendi(true); eq(dxInd(fari[1]), "1.009", "riaccesa: gli indirizzi sono quelli di prima");
   dxReset();
@@ -43273,6 +43273,198 @@ t("Patch DMX · pannello: il gruppo «DMX» sta dietro «Opzioni complete», a p
   ok(/<div id="pDxPatchRow" style="display:flex;/.test(html) && !/class="btns" id="pDxPatchRow"/.test(html), "«Riassegna» e «Spegni» restano dentro il gruppo DMX: una riga .btns verrebbe portata in fondo al pannello di ogni elemento");
   ok(/if\(ms\.__dxElenco!==h\)\{ ms\.innerHTML=h; ms\.__dxElenco=h; \}\s*ms\.value=m \? m\[0\] : \(altro \? "__altro" : ""\);/.test(rp), "l'elenco delle modalità non si riscrive a ogni disegno (la tendina appena aperta resterebbe chiusa)");
   ok(/custCopiaPulita\(c, false\); dmxCopiaPulita\(c\);/.test(appjs) && /custCopiaPulita\(c, true\); dmxCopiaPulita\(c\);/.test(appjs), "Duplica e Incolla puliscono l'indirizzo della copia");
+});
+
+/* ════ PEZZETTI (26/11/2026): rifiniture della patch DMX dalla rilettura di #236 ════
+   a) la patch non può far saltare il salvataggio · b) «1.041» nel campo Indirizzo è universo.indirizzo, e svuotare i campi non fissa niente
+   · c) canali fuori limite: si rifiuta, non si cancella · d) senza canali il foglio non stampa un indirizzo · e) «N canali su 512» = occupati. */
+console.log("\nPezzetti (rifiniture della patch DMX):");
+t("Pezzetti · a) se la patch esplode dentro save(), il salvataggio e la cronologia vanno avanti lo stesso", () => {
+  const fari = dxScena(2, 8); A.save(); A.resetHistory();   /* la pila di Annulla ha un tetto: si parte da vuota */
+  const vero = A.dmxFissa, id = fari[0].id, x0 = fari[0].x; let ret, lanciata = null, chiamata = 0;
+  A.dmxFissa = () => { chiamata++; throw new Error("patch rotta"); };
+  try { fari[0].x += 40; try { ret = A.save(); } catch (e) { lanciata = e; } } finally { A.dmxFissa = vero; }
+  eq(chiamata, 1, "scena: a patch accesa save() passa dalla patch");
+  eq(lanciata, null, "save() non lancia");
+  ok(ret !== false, "il salvataggio locale è andato a buon fine");
+  eq(A.undoStack.length, 1, "e il passo di cronologia c'è");
+  A.undo(); eq(A.state.items.find((x) => x.id === id).x, x0, "Annulla riporta il faro dov'era");
+  A.resetHistory(); dxReset();
+});
+t("Pezzetti · b) campo «Indirizzo»: «1.041» è universo 1 indirizzo 41, mai «1» arrotondato; fuori dai limiti si rifiuta con un messaggio", () => {
+  const L = A.dmxLeggiIndirizzo;
+  eq(L("1", "1.041", { u: 1, a: 1 }), { u: 1, a: 41 }, "il formato che l'app mostra");
+  eq(L("3", "2.041", { u: 1, a: 1 }), { u: 2, a: 41 }, "l'indirizzo completo vince sul campo Universo");
+  eq(L("", "1,041", null), { u: 1, a: 41 }, "la virgola della tastiera italiana");
+  eq(L("", "2.5", null), { u: 2, a: 5 }, "universo.indirizzo senza zeri");
+  eq(L("1", "41", { u: 1, a: 9 }), { u: 1, a: 41 }, "un numero solo = l'indirizzo");
+  eq(L("", "41", { u: 2, a: 9 }), { u: 2, a: 41 }, "scritto solo l'indirizzo: l'universo resta il suo");
+  eq(L("", "41", null), { u: 1, a: 41 }, "senza un universo suo: il primo");
+  eq(L("3", "", { u: 1, a: 9 }), { u: 3, a: 9 }, "scritto solo un universo diverso: l'indirizzo resta il suo");
+  eq(L(" 2 ", " 512 ", null), { u: 2, a: 512 }, "spazi tollerati, limiti compresi"); eq(L("999", "1", null), { u: 999, a: 1 });
+  for (const [tu, ta] of [["1", "600"], ["1", "0"], ["1", "1.600"], ["1", "1.0"], ["1", "0.5"], ["1", "1000.1"], ["1", "abc"], ["1", "1.2.3"], ["1", "-3"], ["1", "1e2"], ["1", "1."], ["1000", "5"], ["0", "5"], ["1.5", "5"], ["x", "5"]]) {
+    const r = L(tu, ta, { u: 1, a: 9 });
+    ok(r && typeof r.err === "string" && r.err.length > 20 && r.u === undefined, "«" + tu + "» / «" + ta + "» si rifiuta con un messaggio: " + JSON.stringify(r));
+  }
+  ok(/da 1 a 512/.test(L("1", "600", null).err) && /universo\.indirizzo \(es\. 1\.041\)/.test(L("1", "abc", null).err) && /da 1 a 999/.test(L("1000", "5", null).err), "il messaggio dice i limiti");
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/<input type="text" id="pDxA" inputmode="decimal"/.test(html), "il campo è testo: il browser non arrotonda né riscrive «1.041»");
+  const h = appjs.slice(appjs.indexOf('["pDxU","pDxA"].forEach'), appjs.indexOf('document.getElementById("pDxLibero")'));
+  ok(/dmxLeggiIndirizzo\(eu\.value, ea\.value, /.test(h) && !/Math\.round\(\+document/.test(h), "il pannello legge il testo con dmxLeggiIndirizzo, non un numero arrotondato");
+  ok(h.indexOf("if(L.err){ dmxRifiuta(L.err); return; }") > 0 && h.indexOf("if(L.err){ dmxRifiuta(L.err); return; }") < h.indexOf("dmxGesto("), "un valore rifiutato non arriva a dmxGesto (niente cronologia, niente salvataggio)");
+  ok(/dmxCampoRotto\(eu\) \? dmxLeggiIndirizzo\("x"/.test(h), "testo non numerico nel campo Universo (value vuoto, badInput) = rifiuto, non «campo svuotato»");
+  const rf = appjs.slice(appjs.indexOf("function dmxRifiuta"), appjs.indexOf("function dmxCampoRotto"));
+  ok(/dmxCampiRiscrivi\(\);/.test(rf) && /showToast\(msg, "err"\)/.test(rf) && !/save\(|primaDiAgire|dmxImposta/.test(rf), "rifiuto = campo com'era + messaggio, senza toccare il progetto");
+});
+t("Pezzetti · b) svuotare i campi non fissa l'indirizzo «a mano»: resta (o torna) automatico", () => {
+  const L = A.dmxLeggiIndirizzo;
+  /* un campo alla volta, come succede davvero: uscendo da un campo l'altro mostra di nuovo ciò che è salvato */
+  eq(L("1", "", { u: 1, a: 9 }), { vuoto: true, rilascia: true }, "Indirizzo svuotato, universo di prima: niente di nuovo scritto; chi era a mano si rilascia");
+  eq(L("", "", { u: 1, a: 9 }), { vuoto: true, rilascia: true }, "tutti e due vuoti: lo stesso");
+  eq(L("3", "", null), { vuoto: true, rilascia: true }, "nessun indirizzo da tenere: niente"); eq(L("", "", null), { vuoto: true, rilascia: true });
+  eq(L("", "9", { u: 1, a: 9 }), { vuoto: true }, "Universo svuotato e indirizzo di prima: non si fissa niente (prima un automatico diventava «a mano»)");
+  eq(L("", "9", { u: 1, a: 9 }).rilascia, undefined, "e non rilascia: chi era a mano resta a mano");
+  eq(L("", "10", { u: 1, a: 9 }), { u: 1, a: 10 }, "ma un indirizzo NUOVO con l'universo vuoto si scrive, nel suo universo");
+  eq(L("1", "9", { u: 1, a: 9 }), { u: 1, a: 9 }, "riscritti tutti e due uguali: è un gesto esplicito, si fissa");
+  const h = appjs.slice(appjs.indexOf('["pDxU","pDxA"].forEach'), appjs.indexOf('document.getElementById("pDxLibero")'));
+  const vu = h.slice(h.indexOf("if(L.vuoto){"), h.indexOf("var u=L.u, a=L.a;"));
+  ok(vu.length > 50 && /return;\s*\}\s*$/.test(vu), "il ramo «vuoto» esce prima di scrivere");
+  ok(!/fix:true/.test(vu), "e non fissa niente");
+  ok(/if\(L\.rilascia && r0 && r0\.fix\) dmxGesto\(function\(it\)\{ if\(!it\) return; dmxImposta\(it, \{u:null, a:null, fix:null\}\);/.test(vu), "Indirizzo svuotato su uno scritto a mano: lo rilascia, come «Primo libero»; su un automatico non fa niente");
+  /* ciò che fa quel ramo, sul motore: da «a mano» torna automatico e prende il primo libero; chi era automatico non cambia */
+  const fari = dxScena(3, 8); A.save();
+  A.dmxImposta(fari[2], { u: 2, a: 101, fix: true }); A.save(); eq(dxRiga(fari[2]).fix, true, "scena: scritto a mano");
+  A.dmxImposta(fari[2], { u: null, a: null, fix: null }); A.save();
+  eq([dxInd(fari[2]), dxRiga(fari[2]).fix, fari[2].dmx.fix], ["1.017", false, undefined], "rilasciato: automatico, al primo libero");
+  eq([dxInd(fari[0]), dxInd(fari[1])], ["1.001", "1.009"], "gli altri fermi");
+  dxReset();
+});
+t("Pezzetti · c) canali fuori limite (600, 0, 8.5, testo): si rifiutano con un messaggio, canali e indirizzo di prima restano", () => {
+  const C = A.dmxLeggiCanali;
+  eq(C("8"), { ch: 8 }); eq(C(" 512 "), { ch: 512 }); eq(C("1"), { ch: 1 }); eq(C(""), { vuoto: true }, "campo svuotato = canali tolti, come prima"); eq(C(null), { vuoto: true });
+  for (const v of ["600", "513", "0", "-1", "8.5", "8,5", "abc", "1e2", "00600"]) { const r = C(v); ok(r && typeof r.err === "string" && /da 1 a 512/.test(r.err) && r.ch === undefined, "«" + v + "» si rifiuta: " + JSON.stringify(r)); }
+  const h = appjs.slice(appjs.indexOf('document.getElementById("pDxCh").addEventListener'), appjs.indexOf('document.getElementById("pDxNo").addEventListener'));
+  ok(h.indexOf("if(L.err){ dmxRifiuta(L.err); return; }") > 0 && h.indexOf("if(L.err){ dmxRifiuta(L.err); return; }") < h.indexOf("dmxGesto("), "il rifiuto esce prima di dmxGesto: dmxImposta non viene chiamata");
+  ok(/dmxCampoRotto\(el\) \? dmxLeggiCanali\("x"\) : dmxLeggiCanali\(el\.value\)/.test(h), "testo non numerico (value vuoto, badInput) = rifiuto, non «svuotato»");
+  ok(/dmxImposta\(it, \{ch:L\.vuoto \? null : L\.ch, m:null\}\)/.test(h) && !/isFinite\(n\)/.test(h), "si scrive solo un valore letto bene; niente più «fuori limite = null»");
+  /* il difetto: con 600 il vecchio gestore scriveva ch:null, e il salvataggio toglieva anche l'indirizzo */
+  const fari = dxScena(2, 8); A.save(); const prima = JSON.stringify(fari[0].dmx);
+  const r = C("600"); if (!r.err) { A.dmxImposta(fari[0], { ch: r.ch == null ? null : r.ch, m: null }); A.save(); }
+  eq(JSON.stringify(fari[0].dmx), prima, "dopo «600» canali e indirizzo sono quelli di prima"); eq(dxInd(fari[0]), "1.001");
+  dxReset();
+});
+t("Pezzetti · d) apparecchio con indirizzo a mano ma senza canali: sul foglio trattino e niente †, coerente con la nota «non ha un indirizzo»", () => {
+  const fari = dxScena(3, 8); A.save();
+  A.dmxImposta(fari[0], { u: 2, a: 101, fix: true }); A.save(); A.dmxImposta(fari[0], { ch: null }); A.save();
+  eq([fari[0].dmx.u, fari[0].dmx.a, fari[0].dmx.fix, A.dmxCanali(fari[0])], [2, 101, true, null], "scena: indirizzo a mano tenuto da parte, canali tolti");
+  const doc = docFintoPL(); eq(A.patchLuciPdf(doc), true);
+  const tx = doc.testi.map((r) => r.t), riga = (code) => { const r = doc.testi.find((x) => x.t === code); return doc.testi.filter((x) => x.p === r.p && x.y === r.y).map((x) => x.t); };
+  eq(riga("T1.1"), ["T1.1", "PAR / Wash", "—", "—", "—", "—"], "nessun indirizzo stampato");
+  ok(tx.some((x) => /^1 apparecchio senza canali: non ha un indirizzo \(T1\.1\)\.$/.test(x)), "la nota lo dice");
+  ok(!tx.some((x) => /†/.test(x)), "nessuna croce e nessuna nota della croce: " + tx.filter((x) => /†/.test(x)).join(" | "));
+  ok(!tx.some((x) => /^Universo 2/.test(x)), "e non conta in un universo");
+  A.dmxImposta(fari[0], { ch: 8 }); A.save();
+  const d2 = docFintoPL(); A.patchLuciPdf(d2); const r2 = d2.testi.find((x) => x.t === "T1.1");
+  eq(d2.testi.filter((x) => x.p === r2.p && x.y === r2.y).map((x) => x.t), ["T1.1", "PAR / Wash", "—", "8", "2.101 †", "2.108"], "rimessi i canali, l'indirizzo a mano torna, con la croce");
+  dxReset();
+});
+t("Pezzetti · e) «N canali su 512» conta i canali davvero occupati (unione degli intervalli), non la somma dei dichiarati", () => {
+  const fari = dxScena(3, 8); A.save();
+  eq(A.dmxPatch().universi.map((o) => [o.u, o.canali, o.n]), [[1, 24, 3]], "senza sovrapposizioni: la somma");
+  A.dmxImposta(fari[0], { u: 1, a: 300, fix: true }); A.dmxImposta(fari[1], { u: 1, a: 304, fix: true });
+  eq(A.dmxPatch().universi.map((o) => [o.u, o.canali, o.n]), [[1, 20, 3]], "300–307 e 304–311 sono 12 canali, non 16 (più gli 8 del terzo)");
+  A.dmxImposta(fari[1], { u: 1, a: 300, fix: true });
+  eq(A.dmxPatch().universi[0].canali, 16, "due gemelli sullo stesso indirizzo occupano 8 canali");
+  A.dmxImposta(fari[1], { u: 1, a: 509, fix: true });
+  eq(A.dmxPatch().universi[0].canali, 20, "chi esce dall'universo conta fino al 512: 509–512 sono 4");
+  ok(A.dmxPatch().universi.every((o) => o.canali <= A.DMX_CH), "mai più di 512");
+  const doc = docFintoPL(); A.patchLuciPdf(doc);
+  ok(doc.testi.some((r) => r.t === "Universo 1 · 20 canali su 512 · 3 apparecchi"), "il foglio stampa gli occupati: " + doc.testi.map((r) => r.t).filter((x) => /^Universo/.test(x)).join(" | "));
+  dxReset(); const tanti = dxScena(0, 0); for (let i = 0; i < 70; i++) A.dmxImposta(piazza("parluci", 20 + i * 15, 400), { u: 1, a: 1 + ((i * 8) % 505), ch: 8, fix: true });
+  ok(A.dmxPatch().universi[0].canali <= 512, "70 × 8 = 560 dichiarati sullo stesso universo: gli occupati restano entro 512 (" + A.dmxPatch().universi[0].canali + ")");
+  dxReset();
+});
+
+console.log("\nPezzetti (Cosa manca?, tema scuro):");
+t("Pezzetti · «Cosa manca?»: lo stesso doppione di nome è una voce sola (quella dell'audit, col «Mostra»), non due", () => {
+  const doc = (labels) => Object.assign(docVuoto(), { items: labels.map((l, i) => ({ id: "m" + i, type: "astamic", x: 100 + i * 90, y: 300, label: l })) });
+  const delNome = (M, re) => M.voci.filter((v) => re.test(v.msg));
+  reset(); A.loadDoc(doc(["Vox 4", "Vox 5", "Vox 4"]));
+  ok(A.auditEngine().findings.some((x) => /^2 canali si chiamano «vox 4»/.test(x.msg)), "scena: l'audit lo dice");
+  eq(cpe("etichetta-duplicata").length, 1, "scena: e lo dice anche il controllo prima dell'export (i due motori non cambiano)");
+  let M = A.cosaManca(), V = delNome(M, /vox 4/i);
+  eq(V.map((v) => v.fonte), ["audit"], "in lista una voce sola, quella dell'audit: " + V.map((v) => v.msg).join(" | "));
+  ok(!M.voci.some((v) => v.rule === "etichetta-duplicata"), "il controllo sullo stesso nome non si ripete");
+  ok(/Se è uno spare/.test(V[0].perche), "col rimedio dell'audit");
+  eq(V[0].azioni.map((a) => a.label), ["Mostra"], "e il «Mostra» che aveva l'altra");
+  V[0].azioni[0].run(); eq(Object.keys(A.selSet).sort(), ["m0", "m2"], "«Mostra» seleziona tutti gli omonimi");
+  eq(new Set(M.voci.map((v) => v.id)).size, M.voci.length, "id unici");
+  /* più nomi doppi: l'audit li riassume in una frase; quelli che cita non si ripetono */
+  A.loadDoc(doc(["Vox 4", "Vox 4", "Vox 5", "Vox 5"])); M = A.cosaManca();
+  ok(M.voci.some((v) => v.fonte === "audit" && /^2 nomi di canale compaiono più volte \(vox 4, vox 5…\)/.test(v.msg)), "scena: due nomi doppi");
+  eq(M.voci.filter((v) => v.rule === "etichetta-duplicata").length, 0, "nessuna ripetizione");
+  M.voci.find((v) => /nomi di canale compaiono/.test(v.msg)).azioni[0].run(); eq(Object.keys(A.selSet).sort(), ["m0", "m1", "m2", "m3"], "«Mostra» li seleziona tutti");
+  /* un nome che l'audit NON cita resta una voce sua: qui i canali doppi sono quelli della batteria, non «Batteria 1» */
+  A.loadDoc(Object.assign(docVuoto(), { items: [{ id: "b0", type: "batteria", x: 300, y: 300, label: "Batteria 1" }, { id: "b1", type: "batteria", x: 700, y: 300, label: "Batteria 1" }] })); M = A.cosaManca();
+  const ex = M.voci.filter((v) => v.rule === "etichetta-duplicata");
+  eq(ex.length, 1, "il controllo dell'export resta: " + M.voci.map((v) => v.msg).join(" | ")); ok(/«Batteria 1» è scritto su 2 canali/.test(ex[0].msg), ex[0].msg);
+  /* senza doppioni nell'audit non si tocca niente */
+  A.loadDoc(doc(["Vox 4", "Vox 5"])); M = A.cosaManca(); ok(!M.voci.some((v) => /si chiamano|è scritto su/.test(v.msg)), "nessun doppione, nessuna voce");
+  eq(A.cosaMancaDoppiAudit([{ msg: "3 canali si chiamano «Coro  1»: patch ambiguo per il service." }]), { i: 0, nomi: { "coro 1": 1 } }, "il nome si confronta senza maiuscole e con gli spazi normalizzati");
+  eq(A.cosaMancaDoppiAudit([{ msg: "altro" }]), null);
+  reset();
+});
+t("Pezzetti · tema scuro: il bottone del pannello col mouse sopra non diventa chiaro sotto il testo chiaro", () => {
+  ok(/#selProps \.btn:hover\{background:var\(--n-100\)\}/.test(stylesCss), "scena: in chiaro l'hover usa --n-100");
+  const scuro = stylesCss.slice(stylesCss.indexOf("body.dark{"), stylesCss.indexOf("body.dark{") + 3000);
+  ok(!/--n-100:/.test(scuro), "scena: --n-100 in scuro resta quello chiaro (per questo serve la regola)");
+  ok(/:where\(body\.dark\) #selProps \.btn:hover\{background:var\(--surface-3\)\}/.test(stylesCss), "in scuro l'hover passa a una superficie scura");
+  ok(/--surface-3:#253036/.test(scuro), "--surface-3 in scuro è scura (testo #e5e7eb sopra: oltre 10:1)");
+  ok(stylesCss.indexOf(":where(body.dark) #selProps .btn:hover") > stylesCss.indexOf("#selProps .btn:hover{background:var(--n-100)}"), "sta DOPO la regola chiara: stessa specificità (1,2,0), vince l'ultima");
+  ok(!/body\.dark #selProps \.btn:hover\{/.test(stylesCss), "non con `body.dark` nudo: (1,3,1) batterebbe «Elimina» (#props .btn.danger:hover) e i bottoni teal (#pDivide:hover)");
+});
+
+t("Pezzetti · pastiglia del salvataggio: l'ora è un pezzo a sé che non si taglia; il minimo vale solo per «online» e «salvataggio»", () => {
+  const finto = (misura) => ({ className: "", innerHTML: "", hidden: true, title: "", style: {}, get textContent() { return this.innerHTML.replace(/<svg[\s\S]*?<\/svg>/g, "").replace(/<[^>]+>/g, ""); },
+    querySelector(q) { if (!misura) return null; if (q === ".dc-k") return /dc-k/.test(this.innerHTML) ? { getBoundingClientRect: () => ({ width: 30.2 }) } : null; if (q === "svg") return /<svg/.test(this.innerHTML) ? { getBoundingClientRect: () => ({ width: 12 }) } : null; return null; } });
+  const d = A.document, gcs = A.getComputedStyle; let el = finto(true), elM = finto(false);
+  A.document = new Proxy({}, { get: (t, k) => k === "getElementById" ? (id) => (id === "docState" ? el : id === "docStateM" ? elM : d.getElementById(id)) : d[k] });
+  A.getComputedStyle = () => ({ columnGap: "5px", paddingLeft: "9px", paddingRight: "9px", borderLeftWidth: "1px", borderRightWidth: "1px" });
+  A.dcMinPx = 0;
+  /* un test di prima può aver lasciato acceso «aperto in un'altra scheda» o «archivio pieno», che vincono su ogni altro stato: qui si spengono */
+  const fermi = [A.__localConflict, A.__localStorageUnavailable]; A.__localConflict = false; A.__localStorageUnavailable = false;
+  try {
+    A.setDocState("saving"); eq(el.innerHTML, '<span class="dc-t">Salvataggio…</span>', "mentre salva la frase è quella di sempre");
+    ok(/\bdc-min\b/.test(el.className), "ma con il minimo"); eq(el.style.minWidth, "", "prima della prima misura vale il ripiego del foglio di stile");
+    A.setDocState("online");
+    ok(/^<svg[\s\S]*<\/svg><span class="dc-t">Salvato online · <\/span><span class="dc-k">\d\d:\d\d<\/span>$/.test(el.innerHTML), "icona, frase che può cedere, ora che non cede: " + el.innerHTML.slice(-90));
+    ok(/\bdc-min\b/.test(el.className) && /\bon\b/.test(el.className), el.className);
+    ok(/^Salvato online · \d\d:\d\d$/.test(el.title), "la frase intera resta nel title: " + el.title);
+    eq(el.style.minWidth, "74px", "minimo misurato: ora 30,2 + icona 12 + due spazi da 5 + margini 18 + bordo 2 + 1, arrotondato in su");
+    ok(!/dc-min|dc-k/.test(elM.className + elM.innerHTML) && !elM.innerHTML.includes("\u0001") && /Online · \d\d:\d\d$/.test(elM.innerHTML), "sul telefono niente cambia: " + elM.innerHTML.slice(-30));
+    A.setDocState("saving"); eq(el.style.minWidth, "74px", "mentre salva la larghezza minima è la stessa: i bottoni accanto non si spostano a ogni salvataggio");
+    for (const m of ["local", "offline-warn", "error", "locked", "blocked"]) {
+      A.setDocState(m);
+      ok(!/dc-min/.test(el.className) && !/dc-k/.test(el.innerHTML) && !el.innerHTML.includes("\u0001") && el.style.minWidth === "", "«" + m + "» resta com'era: " + el.className + " / " + el.style.minWidth);
+      ok(!el.title.includes("\u0001") && el.title.length > 5, "title pulito");
+    }
+  } finally { A.document = d; if (gcs === undefined) delete A.getComputedStyle; else A.getComputedStyle = gcs; A.dcMinPx = 0; A.__localConflict = fermi[0]; A.__localStorageUnavailable = fermi[1]; }
+  ok(/\.doc-chip \.dc-k\{flex:0 0 auto\}/.test(stylesCss), "il nucleo non si restringe");
+  ok(/\.doc-chip\.dc-min\{min-width:calc\(5ch \+ 34px\)\}/.test(stylesCss), "ripiego nel foglio di stile");
+  ok(/\.doc-chip\{[^}]*min-width:28px[^}]*max-width:260px/.test(stylesCss), "gli avvisi tengono il minimo e il tetto di prima");
+});
+t("Pezzetti · FAQ «misura di una torre»: dice ciò che fa l'app (misure di catalogo, niente maniglie) e rimanda alla «Forma»", () => {
+  const pag = readFileSync(join(root, "guida/stage-plot-in-scala/index.html"), "utf8");
+  const ld = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(pag)[1]);
+  const faq = ld["@graph"].find((x) => x["@type"] === "FAQPage").mainEntity, vis = [...pag.matchAll(/<details><summary>(.*?)<\/summary><p>(.*?)<\/p><\/details>/g)].map((m) => [m[1], m[2]]);
+  eq(faq.map((q) => [q.name, q.acceptedAnswer.text]), vis, "le domande dei dati strutturati sono quelle scritte in pagina, parola per parola");
+  const q = faq.find((x) => /misura di una torre/.test(x.name)); ok(q, "la domanda c'è");
+  const m2 = (cm) => String(cm / 100).replace(".", ",");
+  for (const [tipo, nome] of [["towergs", "torre ground support"], ["delaytower", "delay tower"], ["torrefaro", "torre faro mobile"]]) {
+    const T = A.TYPES[tipo]; ok(T && !T.resizable, tipo + ": misura fissa (se un giorno diventa regolabile, la FAQ va riscritta)");
+    ok(q.acceptedAnswer.text.includes(nome + " è " + m2(T.w) + "×" + m2(T.d) + " m") || q.acceptedAnswer.text.includes(nome + " " + m2(T.w) + "×" + m2(T.d) + " m"), nome + " " + m2(T.w) + "×" + m2(T.d) + " m: la FAQ riporta la misura del catalogo");
+  }
+  ok(A.TYPES.forma && A.TYPES.forma.resizable === true && A.TYPES.forma.nome === "Forma" && /«Forma»/.test(q.acceptedAnswer.text), "la «Forma» esiste e si ridimensiona davvero");
 });
 
 await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
