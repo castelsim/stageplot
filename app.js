@@ -40966,7 +40966,13 @@ function areaConFuori(f, list, N){
    box.rMm): solo con l'area automatica, il palco intero sul foglio e nessuno di quelli fuori dal palco sopra di loro
    (box.quoteLibere). Se no si usano le quote dentro il disegno (stageDimsMarkup), attaccate al bordo del palco, come
    con l'area scelta a mano (revisione 14/10). */
-function pdfQuoteFuoriDalDisegno(box){ return !box.A.custom && !box.cropped && box.quoteLibere!==false; }
+/* Quota 15 mm (27/11/2026, Q1 del Mac Studio: palco 26×6 m su A2 a 1:50, «6 m» a 10,3 mm dal bordo; e «8 m» a 12,5 mm su A4 a 1:50): la Ricoh taglia
+   sotto i 15 mm dal bordo. Le due quote di jsPDF stanno a 5 mm (sinistra) e 8 mm (sopra) fuori dal riquadro del palco: se il disegno arriva vicino al
+   foglio la loro scritta (scritta a sinistra a ≥ 20,75 mm, in alto a ≥ 18,25 mm: 15 mm + lo scarto misurato nel PDF) uscirebbe dall'area sicura. In quel caso NON si cambia scala: le
+   quote le scrive il disegno attaccate al bordo del palco (stageDimsMarkup, già dentro per costruzione), come con l'area scelta a mano. */
+var QUOTA_X_MIN=20.75, QUOTA_Y_MIN=18.25;   /* misurate nei PDF veri (fitz): a sinistra il riquadro della scritta ruotata sta a 5,7 mm dal punto dato; sopra a 3,2 mm */
+function pdfQuoteDentroMargine(box){ var q=box.rMm; return !!q && q.x-5>=QUOTA_X_MIN-1e-6 && q.y-8>=QUOTA_Y_MIN-1e-6; }
+function pdfQuoteFuoriDalDisegno(box){ return !box.A.custom && !box.cropped && box.quoteLibere!==false && pdfQuoteDentroMargine(box); }
 /* IL FUOCO ALL'APERTURA DELL'ESPORTA (14/10). Il contratto delle modali lo dà al primo elemento: con l'avviso fuori
    palco era «Adatta il palco», e un Invio dato d'abitudine spostava tutto. Col mouse si parte dal nome del progetto
    («titolo»); col dito (telefono, schermo tattile) mai su un campo di testo, che aprirebbe la tastiera sopra la
@@ -46258,21 +46264,22 @@ function buildPdfPalcoEsterni(paperKey, scaleSel, orientSel){
     if(!P) throw new Error("Il palco non entra nemmeno a 1:500 su "+paperKey.toUpperCase()+": cambia foglio o area nell'Esporta.");
     var N=P.N, box=P.box, F=P.F, sh=F.h, L=box.L, M=L.M;
     var doc=new jsPDF({orientation:L.orient, unit:"mm", format:paperKey, compress:true});
-    var scena={textK:pdfTextK(N), noBlockDims:pdfQuoteFuoriDalDisegno(box) && stageBlocks().length<2,
-      areaFoglio:{x:L.drawX, y:L.drawY+sh, w:L.drawW, h:L.drawH}};
-    /* il box tutto spostato in giù della fascia, col fondo del cartiglio «finto» ridotto a 1: serve a barra e quote */
+    /* il box tutto spostato in giù della fascia, col fondo del cartiglio «finto» ridotto a 1: serve a barra e quote
+       (le quote si giudicano dove stanno davvero, sotto la fascia: 27/11, soglia 15 mm) */
     var b2=Object.assign({}, box, {L:Object.assign({}, L, {cartH:1, drawY:L.drawY+sh}), iy:box.iy+sh,
       rMm:{x:box.rMm.x, y:box.rMm.y+sh, w:box.rMm.w, h:box.rMm.h}});
+    var scena={textK:pdfTextK(N), noBlockDims:pdfQuoteFuoriDalDisegno(b2) && stageBlocks().length<2,
+      areaFoglio:{x:L.drawX, y:L.drawY+sh, w:L.drawW, h:L.drawH}};
     return drawStageVector(doc, box.ix, box.iy+sh, box.mmW, box.mmH, box.vb, "clean", scena)
       .catch(function(){ return pdfRipiegoRaster(doc, box.ix, box.iy+sh, box.mmW, box.mmH, box.vb, scena); })
       .then(function(){
-        if(pdfQuoteFuoriDalDisegno(box)){
+        if(pdfQuoteFuoriDalDisegno(b2)){
           doc.setFont("helvetica","normal"); doc.setTextColor(107,114,128); doc.setFontSize(8.5);
           var q=b2.rMm;
           doc.text(docLen(state.stage.w, adattaM(state.stage.w)+" m"), q.x+q.w/2, q.y-8, {align:"center"});
           doc.text(docLen(state.stage.d, adattaM(state.stage.d)+" m"), q.x-5, q.y+q.h/2, {align:"center", angle:90});
         }
-        var barra=pdfScaleBarPosa(b2, N, {blockDims:!scena.noBlockDims, quoteJs:pdfQuoteFuoriDalDisegno(box)});
+        var barra=pdfScaleBarPosa(b2, N, {blockDims:!scena.noBlockDims, quoteJs:pdfQuoteFuoriDalDisegno(b2)});
         pdfScaleBar(doc, barra.x, barra.y, N);
         /* la fascia in alto: titolo · luogo, «Stage plot vN · data», e una riga sotto */
         var T=palcoEsterniTesti(d), y=M+5.1;
