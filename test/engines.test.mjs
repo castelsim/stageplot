@@ -43427,6 +43427,8 @@ t("Pezzetti · pastiglia del salvataggio: l'ora è un pezzo a sé che non si tag
   A.document = new Proxy({}, { get: (t, k) => k === "getElementById" ? (id) => (id === "docState" ? el : id === "docStateM" ? elM : d.getElementById(id)) : d[k] });
   A.getComputedStyle = () => ({ columnGap: "5px", paddingLeft: "9px", paddingRight: "9px", borderLeftWidth: "1px", borderRightWidth: "1px" });
   A.dcMinPx = 0;
+  /* un test di prima può aver lasciato acceso «aperto in un'altra scheda» o «archivio pieno», che vincono su ogni altro stato: qui si spengono */
+  const fermi = [A.__localConflict, A.__localStorageUnavailable]; A.__localConflict = false; A.__localStorageUnavailable = false;
   try {
     A.setDocState("saving"); eq(el.innerHTML, '<span class="dc-t">Salvataggio…</span>', "mentre salva la frase è quella di sempre");
     ok(/\bdc-min\b/.test(el.className), "ma con il minimo"); eq(el.style.minWidth, "", "prima della prima misura vale il ripiego del foglio di stile");
@@ -43442,7 +43444,7 @@ t("Pezzetti · pastiglia del salvataggio: l'ora è un pezzo a sé che non si tag
       ok(!/dc-min/.test(el.className) && !/dc-k/.test(el.innerHTML) && !el.innerHTML.includes("\u0001") && el.style.minWidth === "", "«" + m + "» resta com'era: " + el.className + " / " + el.style.minWidth);
       ok(!el.title.includes("\u0001") && el.title.length > 5, "title pulito");
     }
-  } finally { A.document = d; if (gcs === undefined) delete A.getComputedStyle; else A.getComputedStyle = gcs; A.dcMinPx = 0; }
+  } finally { A.document = d; if (gcs === undefined) delete A.getComputedStyle; else A.getComputedStyle = gcs; A.dcMinPx = 0; A.__localConflict = fermi[0]; A.__localStorageUnavailable = fermi[1]; }
   ok(/\.doc-chip \.dc-k\{flex:0 0 auto\}/.test(stylesCss), "il nucleo non si restringe");
   ok(/\.doc-chip\.dc-min\{min-width:calc\(5ch \+ 34px\)\}/.test(stylesCss), "ripiego nel foglio di stile");
   ok(/\.doc-chip\{[^}]*min-width:28px[^}]*max-width:260px/.test(stylesCss), "gli avvisi tengono il minimo e il tetto di prima");
