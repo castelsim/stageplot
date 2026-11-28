@@ -44580,9 +44580,13 @@ t("Altezza appesi D4 · le note dei fogli dicono che la lunghezza comprende la s
     ok(/drawn path × 1\.10 \+ 0\.6 m slack per cable, plus the rise to hung fixtures/.test(tx) && /declared height or 4 m by default/.test(tx), "EN: " + tx.slice(tx.indexOf("Length =")).slice(0, 260));
   } finally { delete A.state.docLang; }
   lnReset();
-  const src = readFileSync(join(root, "index.template.html"), "utf8");
-  ok(/più la salita agli apparecchi appesi \(altezza dichiarata o 4 m di serie\)/.test(src.slice(src.indexOf("STIMA PRELIMINARE"), src.indexOf("STIMA PRELIMINARE") + 2200)), "nel foglio elettrico c'è la stessa frase");
-  ok(/DOC_EN\["[^"]*salita agli apparecchi appesi[^"]*"\]="/.test(src), "e la traduzione inglese del foglio elettrico");
+  /* corrente: le lunghezze dei cavi stanno nella colonna «m» del blocco «Caduta di tensione» (foglio Alimentazioni e Piano elettrico) */
+  d4Elec({}); const R = A.elecResult(true), doc2 = docFintoPL(); A.elecDropBloccoPdf(doc2, R, 16, () => 30, () => {});
+  let t2 = doc2.testi.map((x) => x.t).join(" "); ok(/Calcolo:/.test(t2), "il blocco della caduta di tensione c'è");
+  ok(/m = lunghezza del cavo: percorso disegnato × 1,10 \+ 0,6 m di scorta, più la salita agli apparecchi appesi \(altezza dichiarata o 4 m di serie\)/.test(t2), "IT: " + t2.slice(t2.indexOf("giallo")).slice(0, 220));
+  A.state.docLang = "en"; try { const d3 = docFintoPL(); A.elecDropBloccoPdf(d3, R, 16, () => 30, () => {}); t2 = d3.testi.map((x) => x.t).join(" ");
+    ok(/m = cable length: drawn path × 1\.10 \+ 0\.6 m slack, plus the rise to hung fixtures \(declared height or 4 m by default\)/.test(t2), "EN: " + t2.slice(t2.indexOf("yellow")).slice(0, 220)); } finally { delete A.state.docLang; }
+  reset(); lnReset();
 });
 
 /* ═══ O1 · test più stretti sulle 3 mutazioni vive della rilettura delle correzioni #243 (28/11/2026) ═══ */
