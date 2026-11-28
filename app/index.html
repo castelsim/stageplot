@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.11.27";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.11.28";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -4643,6 +4643,8 @@ body.cambio-vista #catalog{pointer-events:none;opacity:.55}
 .cavi-uniti .elec-line.sel{stroke-width:4.8}
 .cu-dmx,.dmx-line{fill:none;stroke:#db2777;stroke-width:2.4;stroke-dasharray:1.5 5.5;stroke-linecap:round;stroke-linejoin:round}
 .dmx-line{pointer-events:none}
+/* C5: segno del terminatore da 120 Ω (barretta di traverso sull'ultimo apparecchio della linea) */
+.dmx-term{fill:none;stroke:#db2777;stroke-width:3.6;stroke-linecap:butt;pointer-events:none}
 .dmx-lbl{fill:#be185d;font-size:10px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px;pointer-events:none}
 /* tema scuro: le pastiglie (.cu-*) stanno sul pannello scuro e usano i colori chiari; i cavi sul PALCO, che resta bianco anche nel tema scuro, tengono quelli del tema chiaro (rilettura #238, D4: il verde acqua e il giallo chiari sul bianco hanno contrasto 1,9 e 1,7) */
 body.dark .cu-audio{stroke:#2dd4bf}
@@ -5551,6 +5553,7 @@ body.dark #caviLegenda{box-shadow:0 6px 20px rgba(0,0,0,.4)}
       <div class="cnt-row"><button class="btn cnt-b" id="pDmxInMinus" type="button" aria-label="Un ingresso in meno">−</button><span class="cnt-v" id="pDmxInVal">1</span><button class="btn cnt-b" id="pDmxInPlus" type="button" aria-label="Un ingresso in più">+</button></div>
       <label>Uscite DMX</label>
       <div class="cnt-row"><button class="btn cnt-b" id="pDmxOutMinus" type="button" aria-label="Un'uscita in meno">−</button><span class="cnt-v" id="pDmxOutVal">8</span><button class="btn cnt-b" id="pDmxOutPlus" type="button" aria-label="Un'uscita in più">+</button></div>
+      <label class="chk" id="pDmxTermWrap" style="display:none;margin-top:6px" title="Alcuni splitter terminano da soli le uscite (lo dice il manuale), altri no. Se sì, i suoi rami non chiedono il terminatore."><input type="checkbox" id="pDmxTerm"> Le uscite terminano da sole</label>
     </div>
     <div class="row" id="pDims">
       <span><label for="pW">L (cm)</label><input type="number" id="pW" min="10" step="1"></span>
@@ -5756,6 +5759,20 @@ body.dark #caviLegenda{box-shadow:0 6px 20px rgba(0,0,0,.4)}
         <div id="pDxPatchRow" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">
           <button type="button" class="btn" id="pDxRiassegna" title="Rimette in fila gli indirizzi di tutti gli apparecchi, nell'ordine dei numeri; quelli scritti a mano restano dove sono">Riassegna in ordine</button>
           <button type="button" class="btn" id="pDxSpegni" title="Toglie la patch da questa versione: i dati sugli apparecchi restano, per riaccenderla">Spegni la patch</button>
+        </div>
+        <!-- LINEE DMX (C5, 27/11/2026): chiuse di serie, un solo pulsante finché non si accendono -->
+        <div id="pDxLinee" style="margin-top:12px">
+          <div id="pDxLineeOff">
+            <div class="prop-hint">Le linee disegnano il cavo di ogni universo, dalla console fino all'ultimo apparecchio, con terminatori e lunghezze, e aggiungono il foglio «Cavi DMX». Si vedono nella vista «Tutti i cavi».</div>
+            <button type="button" class="btn" id="pDxLineeAttiva" style="margin-top:6px">Disegna le linee DMX</button>
+          </div>
+          <div id="pDxLineeOn" style="display:none">
+            <div id="pDxLineeInfo" class="prop-hint"></div>
+            <label class="chk" id="pDxTermWrap" style="display:none;margin-top:6px" title="Il terminatore (resistenza da 120 Ω) va sull'ultimo apparecchio di ogni linea"><input type="checkbox" id="pDxTerm"> Terminatore da 120 Ω su questo apparecchio</label>
+            <div style="margin-top:7px"><label for="pDxCavo">Cavo delle linee</label>
+              <select id="pDxCavo"><option value="dmx">Cavo DMX 110 Ω (schermato)</option><option value="xlr">XLR microfonico</option></select></div>
+            <button type="button" class="btn" id="pDxLineeSpegni" style="margin-top:8px" title="Toglie le linee da questa versione: i terminatori sugli apparecchi restano, per riaccenderle">Spegni le linee</button>
+          </div>
         </div>
       </div>
     </div>

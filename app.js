@@ -8091,6 +8091,7 @@ function dmxPulita(it){
   }
   var u=Math.round(+d.u), a=Math.round(+d.a);
   if(!o.no && isFinite(u) && isFinite(a) && u>=1 && u<=DMX_U_MAX && a>=1 && a<=DMX_CH){ o.u=u; o.a=a; if(d.fix===true) o.fix=true; }
+  if(!o.no && d.t===true) o.t=true;   /* C5: terminatore da 120 Ω su questo apparecchio (ultimo della linea) */
   if(Object.keys(o).length) it.dmx=o; else delete it.dmx;
 }
 /* il punto unico che scrive: `patch` nomina solo ciò che cambia; null o false = togli */
@@ -8112,7 +8113,7 @@ function dmxDopoCanali(it){
   return urta;
 }
 /* la copia di un apparecchio tiene modalità e canali ma non l'indirizzo: prende il primo libero (due fari uguali non nascono sovrapposti) */
-function dmxCopiaPulita(c){ var d=dmxDati(c); if(!d) return c; delete d.u; delete d.a; delete d.fix; if(!Object.keys(d).length) delete c.dmx; return c; }
+function dmxCopiaPulita(c){ var d=dmxDati(c); if(!d) return c; delete d.u; delete d.a; delete d.fix; delete d.t; if(!Object.keys(d).length) delete c.dmx; return c; }
 function dmxInd(u, a){ return u+"."+("00"+a).slice(-3); }   /* «1.041»: universo.indirizzo, come lo scrivono le console */
 /* CIÒ CHE SI SCRIVE NEI CAMPI DEL PANNELLO (lotto «pezzetti», 26/11/2026). Si legge il TESTO, non il numero arrotondato: «1.041» nel campo
    Indirizzo è universo 1, indirizzo 41 (come lo mostra l'app), non «1»; un valore fuori dai limiti si RIFIUTA dicendolo, non si corregge in
@@ -8232,6 +8233,159 @@ function dmxUsaPerTutti(it){
   dmxStessoTipo(it).forEach(function(x){ if(dmxScelta(x)===dmxScelta(it)) return; dmxImposta(x, {m:d.m||null, ch:d.m ? null : (d.ch||null), no:d.no===true ? true : null}); dmxDopoCanali(x); n++; });
   return n;
 }
+/* ═══ LINEE DMX (27/11/2026, lotto C5 dello studio cablaggi — gradino 2: le linee disegnate) ═══
+   Chiuse di serie: servono la patch accesa (`state.dmx.on`) E `state.dmx.linee===true`. Senza, nessun calcolo, nessun disegno, nessun
+   foglio, nessuna chiave nel documento. Si costruiscono dalla PATCH (universo e indirizzo già assegnati): ogni universo è una linea che
+   parte dalla console luci e passa in catena (daisy-chain) per i suoi apparecchi, il più vicino per primo. L'ordine lo decide il disegno
+   (non è un dato salvato): spostare un faro può cambiare la catena, mai un indirizzo.
+   · SPLITTER (`dmxsplit`): i suoi ingressi prendono gli universi in ordine, uno per ingresso (`dmxIn`); ogni uscita è una linea nuova con le
+     sue 32 unità (fonti/DMX.md F2-F3). I rami sono quanti servono per stare sotto 32 apparecchi, mai più delle uscite del suo universo.
+     Le fonti DIVERGONO sulla terminazione (ENTTEC: terminare ogni ramo; Pathway: terminata dentro): `it.dmxT===true` = «le uscite terminano da
+     sole», e allora i suoi rami non chiedono il terminatore. Senza il campo si chiede (è il guasto più comune: fonti F4, F7).
+   · TERMINATORE 120 Ω: `it.dmx.t===true` sull'ULTIMO apparecchio di ogni linea o ramo; a metà linea è un errore.
+   · cavo: `state.dmx.cavo==="xlr"` = cavo microfonico XLR dichiarato (di serie il cavo DMX da 110 Ω); oltre 15 m è un avviso (F5).
+   · lunghezza: Σ delle tratte DISEGNATE, con la funzione dei cavi audio e di corrente (Manhattan del percorso × 1,10 + 0,6 m, poi il taglio);
+     la tratta è un cavo vero, con la sua scorta. Giallo oltre 150 m, rosso oltre 300 m (F2: ~300 m pianificabili).
+   Pura: `dmxLinee()` non scrive niente. Regole e fonti: analisi/2026-11-24_STUDIO_CABLAGGI/fonti/DMX.md (fuori dal repo). */
+var DMX_LINEA_GIALLO_M=150, DMX_LINEA_ROSSO_M=300, DMX_XLR_MAX_M=15;
+function dmxLineeAttive(){ return dmxAttiva() && state.dmx.linee===true; }
+function dmxCavoXlr(){ return dmxLineeAttive() && state.dmx.cavo==="xlr"; }
+function dmxOrdXY(a, b){ return ((a.x||0)-(b.x||0)) || ((a.y||0)-(b.y||0)) || (String(a.id)<String(b.id) ? -1 : (String(a.id)>String(b.id) ? 1 : 0)); }
+/* la console da cui partono le linee: la prima console luci fuori da un rack (la stessa di caviDmxTratto) */
+function dmxConsole(){ var L=(state.items||[]).filter(function(x){ return LIGHT_DESKS[x.type] && !x.rackId; }); return L.length ? L[0] : null; }
+/* console luci che ci sono ma stanno solo dentro un rack: le linee non partono da lì (le voci lo dicono, non dicono «non c'è») */
+function dmxConsoleInRack(){ return (state.items||[]).some(function(x){ return LIGHT_DESKS[x.type] && x.rackId; }); }
+function dmxSplitterList(){ return (state.items||[]).filter(function(x){ return x.type==="dmxsplit"; }).sort(dmxOrdXY); }
+/* catena a vicino più vicino da `da` (distanza Manhattan, come i cavi): a parità vince chi viene prima nella patch */
+function dmxOrdina(da, righe){
+  var left=righe.slice(), cx=da.x, cy=da.y, out=[];
+  while(left.length){
+    var bi=0, bd=Infinity;
+    for(var i=0;i<left.length;i++){ var d=Math.abs(left[i].it.x-cx)+Math.abs(left[i].it.y-cy); if(d<bd-1e-9){ bd=d; bi=i; } }
+    var r=left.splice(bi, 1)[0]; out.push(r); cx=r.it.x; cy=r.it.y;
+  }
+  return out;
+}
+/* una tratta = un cavo vero fra due capi: percorso e lunghezza dalla stessa funzione che li disegna (_cabDisegnata ↔ cabRoutePts) */
+function dmxTratta(da, a, OBS){
+  var pts=[[Math.round(da.x), Math.round(da.y)], [Math.round(a.x), Math.round(a.y)]], ex={}; ex[da.id]=1; ex[a.id]=1;
+  var cm=_cabDisegnata(pts, OBS, ex), lenM=cabLenFinale(cm);
+  return {da:da, a:a, pts:pts, ex:ex, pathM:cm/100, lenM:lenM, cut:cabCut(lenM)};
+}
+/* → {on, senzaConsole, cavoXlr, tronchi:[tratta + u], splitter:[{it, universi, uscite, perUniverso, termInterna}],
+      linee:[{key, nome, u, ramo, sp, tronco, righe, tratte, n, lenM, ultimo, term, termInterna, termMezzo:[riga]}]}
+   Una linea per universo (con apparecchi che hanno universo e canali); con lo splitter un ramo per uscita usata. */
+function dmxLinee(){
+  var out={on:dmxLineeAttive(), senzaConsole:false, cavoXlr:false, tronchi:[], splitter:[], linee:[]};
+  if(!out.on) return out;
+  out.cavoXlr=dmxCavoXlr();
+  var P=dmxPatch(), per={}, us=[];
+  P.righe.forEach(function(r){ if(r.u==null || r.ch==null) return; if(!per[r.u]){ per[r.u]=[]; us.push(r.u); } per[r.u].push(r); });
+  if(!us.length) return out;
+  us.sort(function(a, b){ return a-b; });
+  var desk=dmxConsole(); if(!desk){ out.senzaConsole=true; out.consoleInRack=dmxConsoleInRack(); return out; }
+  var OBS=obstacleRects(), idx=0, mappa={};
+  dmxSplitterList().forEach(function(sp){   /* gli ingressi dello splitter prendono gli universi in ordine */
+    var nIn=Math.max(1, Math.min(4, Math.round(sp.dmxIn||1))), nOut=Math.max(1, Math.min(16, Math.round(sp.dmxOut||8)));
+    var mine=[]; while(mine.length<Math.min(nIn, nOut) && idx<us.length) mine.push(us[idx++]);
+    if(!mine.length) return;
+    var per1=Math.max(1, Math.floor(nOut/mine.length));
+    out.splitter.push({it:sp, universi:mine, uscite:nOut, perUniverso:per1, termInterna:sp.dmxT===true});
+    mine.forEach(function(u){ mappa[u]={sp:sp, k:per1}; });
+  });
+  us.forEach(function(u){
+    var righe=per[u], m=mappa[u], origine=m ? m.sp : desk, tronco=null;
+    if(m){ tronco=dmxTratta(desk, m.sp, OBS); tronco.u=u; out.tronchi.push(tronco); }
+    var catena=dmxOrdina(origine, righe);
+    var b=m ? Math.min(m.k, Math.max(1, Math.ceil(righe.length/DMX_LINEA_MAX))) : 1, dim=Math.ceil(catena.length/b);
+    for(var i=0;i<b;i++){
+      var seg=catena.slice(i*dim, (i+1)*dim); if(!seg.length) continue;
+      if(b>1) seg=dmxOrdina(origine, seg);   /* ogni ramo parte dal SUO apparecchio più vicino allo splitter, non da dove finiva il ramo prima */
+      var ramo=b>1 ? i+1 : null, L={key:"u"+u+(ramo ? "b"+ramo : ""), nome:"U"+u+(ramo ? "·"+ramo : ""), u:u, ramo:ramo, sp:m ? m.sp : null, tronco:tronco, righe:seg, tratte:[], n:seg.length};
+      var prev=origine; seg.forEach(function(r){ L.tratte.push(dmxTratta(prev, r.it, OBS)); prev=r.it; });
+      L.lenM=(tronco ? tronco.lenM : 0)+L.tratte.reduce(function(s, t){ return s+t.lenM; }, 0);
+      L.ultimo=seg[seg.length-1];
+      L.term=!!(dmxDati(L.ultimo.it) && dmxDati(L.ultimo.it).t===true);
+      L.termInterna=!!(L.sp && L.sp.dmxT===true);
+      L.termMezzo=seg.slice(0, -1).filter(function(r){ var d=dmxDati(r.it); return !!(d && d.t===true); });
+      out.linee.push(L);
+    }
+  });
+  return out;
+}
+function dmxNumCavi(D){ D=D||dmxLinee(); return D.tronchi.length+D.linee.reduce(function(s, L){ return s+L.tratte.length; }, 0); }
+function dmxLineeReali(){ return dmxLineeAttive() && dmxLinee().linee.length>0; }
+/* terminatori: sull'ultimo apparecchio di ogni linea che lo chiede, via quelli a metà linea. Ritorna quanti ne ha cambiati. */
+function dmxTerminatoriSistema(){
+  var D=dmxLinee(), n=0;
+  D.linee.forEach(function(L){
+    L.termMezzo.forEach(function(r){ dmxImposta(r.it, {t:null}); n++; });
+    if(!L.term && !L.termInterna){ dmxImposta(L.ultimo.it, {t:true}); n++; }
+  });
+  return n;
+}
+/* accende le linee (con i terminatori al loro posto: un gesto solo) o le spegne (i terminatori sugli apparecchi restano, come la patch) */
+function dmxLineeAccendi(on){
+  if(!dmxAttiva()) return 0;
+  if(on){ state.dmx.linee=true; return dmxTerminatoriSistema(); }
+  delete state.dmx.linee; delete state.dmx.cavo; return 0;
+}
+/* le voci per «Cosa manca?» sulle linee (famiglia Luci). Come quelle della patch: fuori dal voto, non fermano l'export. */
+function cosaMancaDmxLinee(){
+  var out=[], D=dmxLinee(); if(!D.on) return out;
+  function mostra(L){ return {label:"Mostra", run:function(){ auditFixMostraDoppioni(L.filter(function(it){ return (state.items||[]).indexOf(it)>=0; })); }}; }
+  function sistema(fn, msg){ return {label:"Sistema", run:function(){
+    if(typeof soloLetturaProgetto==="function" && soloLetturaProgetto()) return;
+    primaDiAgire(); fn(); render(); save(); if(typeof renderProps==="function") renderProps();
+    if(msg && typeof showToast==="function") showToast(msg, "ok"); }}; }
+  function voce(id, rule, grav, msg, perche, azioni){ out.push({id:"dmx:"+id, fonte:"dmx", grav:grav, lvl:grav==="rosso" ? "err" : "warn", fam:"Luci", rule:rule, msg:msg, perche:perche, azioni:azioni}); }
+  function nomi(L){ return L.map(function(x){ return x.nome; }).join(", "); }
+  function ultimi(L){ return L.map(function(x){ return x.ultimo.it; }); }
+  function chi(L){ return (L.sp ? "ramo " : "linea ")+L.nome; }
+  if(D.senzaConsole)
+    voce("linee:console", "dmx-console", "giallo", D.consoleInRack ? "La console luci è dentro un rack: le linee DMX partono da una console fuori dal rack." : "Le linee DMX partono dalla console luci, e non c'è.",
+      D.consoleInRack ? "Mettine una fuori dal rack (o tira fuori questa): da lì si disegna il cavo di ogni universo fino all'ultimo apparecchio."
+                      : "Aggiungila dal catalogo (Console luci): da lì si disegna il cavo di ogni universo fino all'ultimo apparecchio.", []);
+  var troppe=D.linee.filter(function(L){ return L.n>DMX_LINEA_MAX; });
+  troppe.slice(0, DMX_MANCA_MAX).forEach(function(L){
+    voce("oltre:"+L.key, "dmx-linea", "giallo", chi(L).charAt(0).toUpperCase()+chi(L).slice(1)+": "+L.n+" apparecchi. Una linea DMX ne regge "+DMX_LINEA_MAX+".",
+      L.sp ? (function(nU, nI){ return "Lo splitter «"+dmxNome(L.sp)+"» ha "+nU+(nU===1 ? " uscita" : " uscite")+" per "+nI+(nI===1 ? " ingresso" : " ingressi")+" e ogni uscita regge "+DMX_LINEA_MAX+" apparecchi. Aggiungi uno splitter o sposta degli apparecchi su un altro universo."; })((D.splitter.filter(function(s){ return s.it===L.sp; })[0] || {uscite:0}).uscite, L.sp.dmxIn||1)
+           : "Oltre il "+DMX_LINEA_MAX+"° il segnale diventa instabile (32 carichi: alcuni apparecchi ne valgono mezzo o un quarto, lo dice il manuale). Aggiungi uno splitter (ogni sua uscita è una linea nuova) oppure sposta degli apparecchi su un altro universo.",
+      [mostra(L.righe.map(function(r){ return r.it; }))]); });
+  if(troppe.length>DMX_MANCA_MAX)
+    voce("oltre:altre", "dmx-linea", "giallo", "Altre "+(troppe.length-DMX_MANCA_MAX)+" linee DMX hanno più di "+DMX_LINEA_MAX+" apparecchi.", "Le trovi nel foglio «Cavi DMX». Serve uno splitter o un altro universo.",
+      [mostra(troppe.slice(DMX_MANCA_MAX).reduce(function(a, L){ return a.concat(L.righe.map(function(r){ return r.it; })); }, []))]);
+  var senzaD=D.linee.filter(function(L){ return !L.sp && !L.term; }), senzaR=D.linee.filter(function(L){ return L.sp && !L.termInterna && !L.term; });
+  var mezzo=D.linee.filter(function(L){ return L.termMezzo.length; });
+  function termTutti(){ dmxTerminatoriSistema(); }
+  if(senzaD.length)
+    voce("term:linee", "dmx-term", "giallo", senzaD.length===1 ? "La linea "+senzaD[0].nome+" non ha il terminatore." : "Mancano i terminatori su "+senzaD.length+" linee DMX ("+nomi(senzaD)+").",
+      "Va un terminatore da 120 Ω sull'ultimo apparecchio di ogni linea"+(senzaD.length===1 ? " ("+senzaD[0].ultimo.code+")" : "")+": senza, il segnale rimbalza e le luci scattano o sfarfallano.",
+      [sistema(termTutti, "Terminatori messi sull'ultimo apparecchio di ogni linea."), mostra(ultimi(senzaD))]);
+  if(senzaR.length)
+    voce("term:rami", "dmx-term-ramo", "giallo", senzaR.length===1 ? "Il ramo "+senzaR[0].nome+" dopo lo splitter «"+dmxNome(senzaR[0].sp)+"» non ha il terminatore." : "Mancano i terminatori su "+senzaR.length+" rami dopo lo splitter ("+nomi(senzaR)+").",
+      "Ogni uscita di uno splitter è una linea nuova e va terminata sull'ultimo apparecchio. Se il manuale dello splitter dice che termina da solo, spunta «Le uscite terminano da sole» nel suo pannello.",
+      [sistema(termTutti, "Terminatori messi sull'ultimo apparecchio di ogni ramo."), mostra(ultimi(senzaR))]);
+  if(mezzo.length)
+    voce("term:mezzo", "dmx-term-mezzo", "giallo", mezzo.length===1 ? "Terminatore a metà della linea "+mezzo[0].nome+" ("+mezzo[0].termMezzo.map(function(r){ return r.code; }).join(", ")+")." : "Terminatori a metà linea su "+mezzo.length+" linee DMX ("+nomi(mezzo)+").",
+      "Il terminatore va solo sull'ultimo apparecchio: in mezzo alla catena carica la linea e chi sta dopo può sfarfallare o restare senza segnale.",
+      [sistema(termTutti, "Terminatori a metà linea tolti."), mostra(mezzo.reduce(function(a, L){ return a.concat(L.termMezzo.map(function(r){ return r.it; })); }, []))]);
+  var lunghe=D.linee.filter(function(L){ return L.lenM>DMX_LINEA_GIALLO_M; });
+  lunghe.slice(0, DMX_MANCA_MAX).forEach(function(L){ var rosso=L.lenM>DMX_LINEA_ROSSO_M, m=Math.round(L.lenM);
+    voce("lunga:"+L.key, "dmx-lunga", rosso ? "rosso" : "giallo", (chi(L).charAt(0).toUpperCase()+chi(L).slice(1))+": "+m+" m di cavo. "+(rosso ? "Oltre ~"+DMX_LINEA_ROSSO_M+" m il DMX non è affidabile." : "È lunga per il DMX."),
+      rosso ? "Per tratte così lunghe conviene portare il segnale in rete (Art-Net o sACN) e riconvertirlo vicino agli apparecchi, o mettere uno splitter a metà."
+            : "Fino a ~"+DMX_LINEA_ROSSO_M+" m regge con cavo DMX e terminatore, ma conviene stare sotto i "+DMX_LINEA_GIALLO_M+" m: uno splitter a metà o un'altra linea.",
+      [mostra([L.ultimo.it])]); });
+  if(lunghe.length>DMX_MANCA_MAX)
+    voce("lunga:altre", "dmx-lunga", "giallo", "Altre "+(lunghe.length-DMX_MANCA_MAX)+" linee DMX sono oltre i "+DMX_LINEA_GIALLO_M+" m.", "Le lunghezze sono nel foglio «Cavi DMX».", []);
+  if(D.cavoXlr){
+    var xl=D.linee.filter(function(L){ return L.lenM>DMX_XLR_MAX_M; });
+    if(xl.length)
+      voce("xlr", "dmx-xlr", "giallo", xl.length===1 ? "Cavo XLR audio su "+chi(xl[0])+": "+Math.round(xl[0].lenM)+" m, oltre i "+DMX_XLR_MAX_M+" m." : "Cavo XLR audio su "+xl.length+" linee DMX oltre i "+DMX_XLR_MAX_M+" m ("+nomi(xl)+").",
+        "Il cavo microfonico (40-70 Ω) regge il DMX solo su tratte brevi, 10-15 m con pochi apparecchi: oltre dà guasti a intermittenza. Meglio un cavo DMX da 110-120 Ω.",
+        [sistema(function(){ delete state.dmx.cavo; }, "Cavo DMX da 110 Ω.")]); }
+  return out;
+}
 /* le voci per «Cosa manca?» (famiglia Luci). Non entrano nel voto dell'audit e non fermano l'export, come la caduta di tensione. */
 var DMX_MANCA_MAX=4;
 function cosaMancaDmx(P){
@@ -8263,11 +8417,12 @@ function cosaMancaDmx(P){
       perche:"Nel pannello dell'apparecchio (DMX) scegli la modalità o scrivi quanti canali occupa; se non è comandato in DMX, segna «Senza DMX».",
       azioni:[mostra(P.senzaCanali)]}); }
   /* una linea DMX regge 32 apparecchi (fonti F1-F3): con le linee non ancora disegnate si conta per universo, e si tace se c'è uno splitter */
-  if(!(state.items||[]).some(function(x){ return x.type==="dmxsplit"; }))
+  if(!dmxLineeAttive() && !(state.items||[]).some(function(x){ return x.type==="dmxsplit"; }))   /* con le linee disegnate (C5) lo dice ogni linea, col suo nome */
     P.universi.filter(function(o){ return o.n>DMX_LINEA_MAX; }).forEach(function(o){
       out.push({id:"dmx:linea:"+o.u, fonte:"dmx", grav:"giallo", lvl:"warn", fam:"Luci", rule:"dmx-linea",
         msg:"Universo "+o.u+": "+o.n+" apparecchi. Una linea DMX ne regge "+DMX_LINEA_MAX+".",
         perche:"Oltre il "+DMX_LINEA_MAX+"° il segnale diventa instabile. Serve uno splitter (ogni sua uscita è una linea nuova) oppure un secondo universo.", azioni:[]}); });
+  if(dmxLineeAttive()){ try{ cosaMancaDmxLinee().forEach(function(v){ out.push(v); }); }catch(_e){} }
   return out;
 }
 /* ── Foglio A4 «Patch luci»: una riga per universo in alto, poi una riga per apparecchio nell'ordine della patch. Solo a patch accesa. ── */
@@ -8322,6 +8477,76 @@ function patchLuciPdf(doc){
   note.push(L("Promemoria: una linea DMX regge "+DMX_LINEA_MAX+" apparecchi; terminatore da 120 ohm sull'ultimo; cavo DMX da 110-120 ohm, non microfonico.","Reminder: one DMX line carries "+DMX_LINEA_MAX+" fixtures; 120 ohm terminator on the last one; 110-120 ohm DMX cable, not microphone cable."));   /* «ohm» per esteso: il carattere Ω non è nel font standard del PDF (usciva «?») */
   y+=3; doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#555555");
   note.forEach(function(t){ doc.splitTextToSize(t, R-M).forEach(function(riga){ if(y>FONDO){ nuova(); doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#555555"); } doc.text(riga, M, y); y+=4; }); });
+  return true;
+}
+/* ── Foglio A4 «Cavi DMX» (C5): la scheda per chi posa i cavi. Una sezione per linea (o ramo): da chi a chi, lunghezza disegnata e taglio da prendere,
+   il terminatore sull'ultimo; in testa il riepilogo («cavi per taglio» e terminatori). Solo con le linee disegnate. ── */
+function schedaDmxDisponibile(){ return dmxLineeReali(); }
+function schedaDmxPdf(doc){
+  var D=dmxLinee(); if(!D.on || !D.linee.length) return false;
+  var en=docEn(), L=function(it,e){ return en ? e : it; };
+  var M=16, R=194, FONDO=272, y, COL="#db2777";
+  var cN=M, cDa=M+8, cA=M+71, cL=M+147, cT=R;
+  var codice={}, desk=dmxConsole();
+  D.linee.forEach(function(Lx){ Lx.righe.forEach(function(r){ codice[r.it.id]=r.code; }); });
+  function nm(it, w){ var t=(codice[it.id] ? codice[it.id]+" · " : "")+docTesto(dmxNome(it)), r=doc.splitTextToSize(t, w)[0]; while(r.length>1 && doc.getTextWidth(r)>w) r=r.slice(0, -1); return r; }   /* una parola sola più larga della colonna si taglia, non esce */
+  function lung(m){ return docLen(m*100, docNum(m, 1)+" m"); }
+  var oltre=cabOltreTxt(); if(en) oltre=oltre.replace("oltre","over");
+  function taglio(t){ var c=cabCutTxt(t); return c || oltre; }
+  var tutte=D.tronchi.slice(); D.linee.forEach(function(Lx){ tutte=tutte.concat(Lx.tratte); });
+  var nApp=D.linee.reduce(function(a, Lx){ return a+Lx.n; }, 0), totM=tutte.reduce(function(a, t){ return a+t.lenM; }, 0);
+  var nTerm=D.linee.filter(function(Lx){ return !Lx.termInterna; }).length;
+  /* larghezza della colonna «A»: dalla sua partenza fino a 3 mm prima della lunghezza più lunga (misurata, non stimata): il nome non finisce mai sopra «LUNGHEZZA» */
+  doc.setFont("helvetica","normal"); doc.setFontSize(9.5);
+  var maxLW=0; tutte.forEach(function(t){ maxLW=Math.max(maxLW, doc.getTextWidth(lung(t.lenM))); });
+  var wA=Math.max(30, cL-maxLW-3-cA);
+  doc.addPage("a4","portrait");
+  pdfTestata(doc, COL, "STAGE PLOT — "+L("Cavi DMX","DMX cables"), docTesto(dataDocumento()), M, 210);
+  y=PDF_Y0;
+  if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
+  function nuova(){ doc.addPage("a4","portrait"); y=PDF_TOP+7; }
+  function riga(t, grassetto, col, passo){ doc.setFont("helvetica", grassetto ? "bold" : "normal"); doc.setFontSize(9.5); doc.setTextColor(col||"#555555");
+    doc.splitTextToSize(t, R-M).forEach(function(r){ if(y>FONDO) nuova(); doc.text(r, M, y); y+=(passo||5); }); }
+  riga(D.linee.length+" "+L(D.linee.length===1?"linea":"linee", D.linee.length===1?"line":"lines")+" · "+nApp+" "+L(nApp===1?"apparecchio":"apparecchi", nApp===1?"fixture":"fixtures")+" · "+tutte.length+" "+L(tutte.length===1?"cavo":"cavi", tutte.length===1?"cable":"cables")+" · "+L("totale","total")+" "+lung(totM));
+  riga(D.cavoXlr ? L("Cavo dichiarato: XLR microfonico (regge solo tratte brevi, 10-15 m).","Declared cable: XLR microphone cable (short runs only, 10-15 m).") : L("Cavo: DMX da 110-120 ohm schermato, non microfonico.","Cable: shielded 110-120 ohm DMX cable, not a microphone cable."));
+  riga(L("Terminatori da 120 ohm: ","120 ohm terminators: ")+nTerm+(D.splitter.length ? " · "+L("splitter","splitters")+": "+D.splitter.map(function(sp){ return docTesto(dmxNome(sp.it))+" ("+sp.uscite+" "+L("uscite","outputs")+(sp.termInterna ? ", "+L("terminano da sole","self-terminating") : "")+")"; }).join(", ") : ""));
+  riga(L("Cavi per taglio: ","Cables by length: ")+cabTaglioTesto(_tagliConta(tutte, function(t){ return cabCutKey(t); }), oltre), true, "#111827");
+  y+=3;
+  var COLONNE=function(segue){
+    doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor("#9d174d");
+    doc.text("N.", cN, y); doc.text(L("DA","FROM")+(segue ? " ("+L("segue","cont.")+")" : ""), cDa, y); doc.text(L("A","TO"), cA, y); doc.text(L("LUNGHEZZA","LENGTH"), cL, y, {align:"right"}); doc.text(L("TAGLIO","CUT"), cT, y, {align:"right"});
+    doc.setDrawColor(COL); doc.setLineWidth(0.4); doc.line(M, y+1.6, R, y+1.6); y+=6; };
+  function tratta(n, t, nota, segui){
+    if(y+(nota ? 4.6 : 0)>FONDO){ nuova(); COLONNE(true); }
+    doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#111827");
+    doc.text(String(n), cN, y); doc.text(t.da===desk ? doc.splitTextToSize(docTesto(dmxNome(t.da)), 60)[0] : nm(t.da, 60), cDa, y);
+    doc.text(nm(t.a, wA), cA, y);
+    doc.text(lung(t.lenM), cL, y, {align:"right"}); doc.setFont("helvetica","bold"); doc.text(taglio(t), cT, y, {align:"right"}); y+=5.2;
+    if(nota){   /* il terminatore sta su una riga sua, sotto il nome: il nome non si accorcia e niente si sovrappone */
+      doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor("#db2777"); doc.text(nota, cA, y-0.6); y+=4.6; } }
+  if(D.tronchi.length){
+    if(y+14>FONDO) nuova();
+    doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor("#9d174d"); doc.text(L("Dalla console agli splitter","From the console to the splitters"), M, y); y+=5.5;
+    COLONNE(false);
+    D.tronchi.forEach(function(t, i){ tratta("U"+t.u, t, "", false); });
+    y+=3;
+  }
+  D.linee.forEach(function(Lx){
+    var testa=(Lx.sp ? L("Ramo","Branch") : L("Linea","Line"))+" "+Lx.nome+" · "+Lx.n+" "+L(Lx.n===1?"apparecchio":"apparecchi", Lx.n===1?"fixture":"fixtures")+" · "+lung(Lx.lenM)
+      +(Lx.sp ? " · "+L("da","from")+" "+docTesto(dmxNome(Lx.sp))+(Lx.ramo ? ", "+L("uscita","output")+" "+Lx.ramo : "") : "");
+    if(y+22>FONDO) nuova();
+    doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor("#9d174d"); doc.text(doc.splitTextToSize(testa, R-M)[0], M, y); y+=5.5;
+    COLONNE(false);
+    Lx.tratte.forEach(function(t, i){ tratta(i+1, t, (i===Lx.tratte.length-1 && !Lx.termInterna) ? L("terminatore 120 ohm","120 ohm terminator") : "", false); });
+    if(Lx.n>DMX_LINEA_MAX){ doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor("#b45309"); doc.text(L("Attenzione: oltre "+DMX_LINEA_MAX+" apparecchi su una linea.","Warning: more than "+DMX_LINEA_MAX+" fixtures on one line."), cDa, y); y+=4.6; }
+    y+=3;
+  });
+  var note=[L("Lunghezza = percorso disegnato × 1,10 + 0,6 m di scorta per cavo; il taglio è il più vicino sopra"+(docUnita()==="ft" ? "." : " (3, 5, 10, 15, 20, 30, 50 m)."),"Length = drawn path × 1.10 + 0.6 m slack per cable; the cut is the nearest size above"+(docUnita()==="ft" ? "." : " (3, 5, 10, 15, 20, 30, 50 m)."))];
+  note.push(L("Una linea DMX regge "+DMX_LINEA_MAX+" apparecchi in catena, senza Y; terminatore da 120 ohm sull'ultimo apparecchio di ogni linea o ramo; connettori XLR a 5 poli (3 poli solo se l'apparecchio lo prevede).","One DMX line carries "+DMX_LINEA_MAX+" fixtures in a daisy chain, no Y splits; 120 ohm terminator on the last fixture of every line or branch; 5-pin XLR connectors (3-pin only if the fixture needs it)."));
+  var av=0; try{ av=cosaMancaDmxLinee().length; }catch(_e){ av=0; }
+  if(av) note.push(L("Attenzione: ci sono avvisi sulle linee DMX (vedi «Cosa manca?»).","Warning: there are notes on the DMX lines (see the \"What is missing?\" panel)."));
+  y+=1; doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#555555");
+  note.forEach(function(t){ doc.splitTextToSize(t, R-M).forEach(function(r){ if(y>FONDO){ nuova(); doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#555555"); } doc.text(r, M, y); y+=4; }); });
   return true;
 }
 /* VISTA A UN TOCCO: Palco · Luci e truss · Tutto. È un modo di VEDERE e di prendere, non un dato: non si
@@ -9607,6 +9832,7 @@ function normalizeState(s){
     if(it.type==="testo" && (+it.w||0)<=20){ it.w=200; it.d=70; }   /* 11/07: il testo libero è diventato un box (era un punto 10×10) */
     if((it.type==="ciabatta"||DIMMER_DEF[it.type]) && it.prese!=null) it.prese=Math.max(1,Math.min(48,Math.round(it.prese)));   /* prese della multipresa / canali del dimmer */
     if(it.type==="dmxsplit"){ if(it.dmxIn!=null) it.dmxIn=Math.max(1,Math.min(4,Math.round(it.dmxIn))); if(it.dmxOut!=null) it.dmxOut=Math.max(1,Math.min(16,Math.round(it.dmxOut))); }   /* ingressi/uscite DMX dello splitter */
+    if(it.dmxT!=null && !(it.type==="dmxsplit" && it.dmxT===true)) delete it.dmxT;   /* C5: «le uscite terminano da sole», solo sullo splitter e solo se vero */
   });
   if(s.elec && s.elec.manual && typeof s.elec.manual==="object"){   /* F4: linea/connettore sanificati */
     Object.keys(s.elec.manual).forEach(function(k){ var m=s.elec.manual[k]; if(!m||typeof m!=="object") return;
@@ -9671,7 +9897,7 @@ function normalizeState(s){
   s.items.forEach(function(x){ if(x.type==="custom" && x.cust && x.cust.modelId && !_cm.some(function(q){ return q.id===x.cust.modelId; })) delete x.cust.modelId; });
   s.status = (["bozza","revisione","approvato","superato"].indexOf(s.status)>=0) ? s.status : "bozza";   /* T5: stato di approvazione */
   if(s.status==="bozza" || !/^\d{4}-\d{2}-\d{2}$/.test(String(s.statusAt==null?"":s.statusAt))) delete s.statusAt;   /* Versioni (24/11): la data in cui lo stato è cambiato; una Bozza non ne ha */
-  if(s.dmx && typeof s.dmx==="object" && s.dmx.on===true) s.dmx={on:true}; else delete s.dmx;   /* Patch DMX (C3): solo «accesa»; un progetto che non la usa non porta la chiave */
+  if(s.dmx && typeof s.dmx==="object" && s.dmx.on===true){ var _dx={on:true}; if(s.dmx.linee===true){ _dx.linee=true; if(s.dmx.cavo==="xlr") _dx.cavo="xlr"; } s.dmx=_dx; } else delete s.dmx;   /* Patch DMX (C3): solo «accesa»; un progetto che non la usa non porta la chiave */
   var _cbn=cambiNorm(s.cambi); if(_cbn.length) s.cambi=_cbn; else delete s.cambi;   /* Cambi di palco (L3): solo se ce n'è almeno uno valido; un progetto senza cambi non porta nemmeno la chiave */
   s.approval = (s.approval && typeof s.approval==="object") ? {by:String(s.approval.by||"").slice(0,80), at:String(s.approval.at||"").slice(0,10)} : {by:"",at:""};
   s.namesMode = (["auto","on","off"].indexOf(s.namesMode)>=0) ? s.namesMode : "auto";   /* K: visibilità nomi strumenti */
@@ -23081,7 +23307,8 @@ function renderProps(){
   else if(mpw && it.type==="ciabatta"){ var _pl2=mpw.querySelector("label"); if(_pl2) _pl2.textContent="Prese"; }
   var dxw=document.getElementById("pDmxWrap");   /* splitter DMX: quanti ingressi e quante uscite */
   if(dxw){ var isDx=it.type==="dmxsplit"; dxw.style.display=isDx?"block":"none";
-    if(isDx){ document.getElementById("pDmxInVal").textContent=(it.dmxIn||1); document.getElementById("pDmxOutVal").textContent=(it.dmxOut||8); } }
+    if(isDx){ document.getElementById("pDmxInVal").textContent=(it.dmxIn||1); document.getElementById("pDmxOutVal").textContent=(it.dmxOut||8);
+      var tw=document.getElementById("pDmxTermWrap"); if(tw){ tw.style.display=dmxLineeAttive() ? "" : "none"; document.getElementById("pDmxTerm").checked=(it.dmxT===true); } } }
   var mnw=document.getElementById("pMountWrap");   /* INSTALLAZIONE: solo i campi della modalità scelta */
   if(mnw){ var canMnt=isMountable(it); mnw.style.display=canMnt?"block":"none";
     if(canMnt){
@@ -24728,10 +24955,26 @@ function dmxRenderPannello(it){
     g("pDxAvviso").style.display=av.length?"block":"none"; g("pDxAvviso").textContent=av.join(" ");
     g("pDxLibero").style.display=(r && r.fix)?"":"none";
   }
+  dmxLineeRenderPannello(it, senza);
   var bt=g("pDxTutti"), altri=dim ? [] : dmxStessoTipo(it).filter(function(x){ return dmxScelta(x)!==dmxScelta(it); });
   var haScelta=!!(d.m || d.ch || d.no===true);
   bt.style.display=(haScelta && altri.length)?"":"none";
   if(haScelta && altri.length) bt.textContent="Usa anche per "+(altri.length===1 ? "l'altro" : "gli altri "+altri.length)+" «"+((TYPES[it.type] && TYPES[it.type].nome) || it.type)+"»";
+}
+/* il blocco «linee» del pannello: un pulsante finché sono spente; accese, il terminatore di questo apparecchio (e dove sta nella linea), il cavo, «Spegni» */
+function dmxLineeRenderPannello(it, senza){
+  var g=function(id){ return document.getElementById(id); }, on=dmxLineeAttive();
+  g("pDxLineeOff").style.display=on?"none":"block"; g("pDxLineeOn").style.display=on?"block":"none";
+  if(!on) return;
+  var D=dmxLinee(), Lx=null; D.linee.forEach(function(x){ if(x.righe.some(function(r){ return r.it===it; })) Lx=x; });
+  var d=dmxDati(it)||{}, ultimo=!!(Lx && Lx.ultimo.it===it);
+  g("pDxTermWrap").style.display=(senza || !Lx) ? "none" : ""; g("pDxTerm").checked=(d.t===true);
+  var info;
+  if(D.senzaConsole) info="Manca la console luci: le linee partono da lei.";
+  else if(!Lx) info=senza ? "" : "Senza canali e indirizzo non sta su nessuna linea.";
+  else info=(ultimo ? "È l'ultimo della linea " : "Sta sulla linea ")+Lx.nome+" ("+Lx.n+" apparecchi, "+Math.round(Lx.lenM)+" m)"+(ultimo ? ": il terminatore va qui"+(Lx.termInterna ? " (lo splitter termina da sé)." : ".") : ": il terminatore va solo sull'ultimo.");
+  g("pDxLineeInfo").textContent=info; g("pDxLineeInfo").style.display=info?"block":"none";
+  g("pDxCavo").value=dmxCavoXlr() ? "xlr" : "dmx";
 }
 function dmxGesto(fn){
   if(typeof soloLetturaProgetto==="function" && soloLetturaProgetto()) return;
@@ -24763,7 +25006,7 @@ document.getElementById("pDxCh").addEventListener("change", function(){
 });
 document.getElementById("pDxNo").addEventListener("change", function(){
   var si=document.getElementById("pDxNo").checked;
-  dmxGesto(function(it){ if(it) dmxImposta(it, si ? {no:true, u:null, a:null, fix:null} : {no:null}); });
+  dmxGesto(function(it){ if(it) dmxImposta(it, si ? {no:true, u:null, a:null, fix:null, t:null} : {no:null}); });
 });
 ["pDxU","pDxA"].forEach(function(id){
   document.getElementById(id).addEventListener("change", function(){
@@ -24795,8 +25038,29 @@ document.getElementById("pDxTutti").addEventListener("click", function(){
 document.getElementById("pDxRiassegna").addEventListener("click", function(){
   dmxGesto(function(){ var n=dmxRiassegna(); return "Indirizzi rimessi in ordine: "+n+". Quelli scritti a mano restano dove sono."; });
 });
+document.getElementById("pDxLineeAttiva").addEventListener("click", function(){
+  dmxGesto(function(){ dmxLineeAccendi(true); var D=dmxLinee();
+    if(D.senzaConsole) return "Linee DMX accese, ma manca la console luci: le linee partono da lei.";
+    return D.linee.length ? "Linee DMX: "+D.linee.length+(D.linee.length===1 ? " linea" : " linee")+", con il terminatore sull'ultimo apparecchio. Le vedi nella vista «Tutti i cavi»." : "Linee DMX accese: appena ci sono apparecchi con indirizzo, si disegnano."; });
+});
+document.getElementById("pDxLineeSpegni").addEventListener("click", function(){
+  dmxGesto(function(){ dmxLineeAccendi(false); return "Linee DMX spente. I terminatori sugli apparecchi restano: puoi riaccenderle."; });
+});
+document.getElementById("pDxTerm").addEventListener("change", function(){
+  var si=document.getElementById("pDxTerm").checked;
+  dmxGesto(function(it){ if(it) dmxImposta(it, {t:si ? true : null}); });
+});
+document.getElementById("pDxCavo").addEventListener("change", function(){
+  var v=document.getElementById("pDxCavo").value;
+  dmxGesto(function(){ if(!dmxLineeAttive()) return; if(v==="xlr") state.dmx.cavo="xlr"; else delete state.dmx.cavo; });
+});
 document.getElementById("pDxSpegni").addEventListener("click", function(){
   dmxGesto(function(){ dmxAccendi(false); return "Patch DMX spenta. I dati sugli apparecchi restano: puoi riaccenderla."; });
+});
+document.getElementById("pDmxTerm").addEventListener("change", function(){
+  var si=document.getElementById("pDmxTerm").checked;
+  mutSel(function(it){ if(it.type!=="dmxsplit") return; if(si) it.dmxT=true; else delete it.dmxT; });
+  renderProps();
 });
 /* AMERICANA NUMERATA (A4, 15/11/2026): numero, trim, lunghezza e «Numera tutte». Tutto passa da mutSel (annulla/ripeti). */
 document.getElementById("pRigOn").addEventListener("click", function(e){
@@ -33666,7 +33930,7 @@ function caviFamiglie(){
   try{ n.audio+=rfChain().links.length; }catch(_e){}
   try{ if(state.mond && state.mond.on) n.rete+=((mondResult()||{}).links||[]).length; }catch(_e){}
   try{ if(state.elec && state.elec.on){ var E=elecResult()||{}; n.corrente+=(E.feeds||[]).length+(E.uplinks||[]).length+(E.loadLinks||[]).length; } }catch(_e){}
-  try{ if(caviDmxTratto()) n.dmx=1; }catch(_e){}
+  try{ if(dmxLineeReali()) n.dmx=dmxNumCavi(); else if(caviDmxTratto()) n.dmx=1; }catch(_e){}   /* C5: con le linee disegnate i cavi DMX sono le tratte vere (tronchi dello splitter compresi) */
   return CAVI_FAM.map(function(f){ return {k:f[0], sigla:f[1], nome:f[2], n:n[f[0]]}; });
 }
 function caviFamiglieConCavi(){ return caviFamiglie().filter(function(f){ return f.n>0; }); }
@@ -33675,7 +33939,7 @@ function caviFamiglieConCavi(){ return caviFamiglie().filter(function(f){ return
 function caviUnitiDisponibile(){
   if(!state || !state.cab || !state.elec || !state.mond) return false;
   if(paloTemporaneoAttivo() || soloLetturaProgetto() || !connessioniVisibili(false)) return false;
-  return caviFamiglieConCavi().length>=2;
+  return caviFamiglieConCavi().length>=2 || dmxLineeReali();   /* C5: le linee DMX non stanno in nessun layer: da sole bastano a offrire la vista */
 }
 function caviUnitiImposta(on){
   var cu=caviUnitiStato();
@@ -33686,8 +33950,26 @@ function caviUnitiImposta(on){
 }
 /* a ogni ridisegno: una lista aperta o un solo scelti DOPO spengono la vista, e così un progetto che non ha più due famiglie */
 function caviUnitiSync(){ var cu=caviUnitiStato(); if(cu.on && (inListMode() || !caviUnitiDisponibile())) cu.on=false; }
+/* C5: le linee vere. Una tratta per cavo (stesso percorso, stessa cache di quello che ne dà la lunghezza), il nome della linea sul primo
+   tratto (solo sul foglio) e, dove l'utente l'ha messo, il segno del terminatore: una barretta di traverso sull'ultimo apparecchio. */
+function dmxLineeMarkup(D){
+  var OBS=obstacleRects(), st=cabStyle(), s='<g class="dmx-layer dmx-linee">';
+  function tratta(t, nome, term){
+    var rp=cabRoutePts(t.pts, OBS, t.ex), d=cabDrawD(t.pts, rp, st), ep=(st==="dir" ? t.pts : orthExpand(rp));
+    var g='<g class="cabgrp" data-own="'+esc(t.da.id+' '+t.a.id)+'"><path class="dmx-line" d="'+d+'"/>';
+    if(nome && window.__cabStatic){ var mid=cabMidpoint(ep); g+='<text class="dmx-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(nome)+'</text>'; }
+    if(term && ep.length>=2){
+      var b=ep[ep.length-1], a=ep[ep.length-2], dx=b[0]-a[0], dy=b[1]-a[1], l=Math.hypot(dx, dy)||1, nx=-dy/l*12, ny=dx/l*12;
+      g+='<path class="dmx-term" d="M '+(b[0]+nx).toFixed(1)+' '+(b[1]+ny).toFixed(1)+' L '+(b[0]-nx).toFixed(1)+' '+(b[1]-ny).toFixed(1)+'"/>'; }
+    return g+'</g>';
+  }
+  D.tronchi.forEach(function(t){ s+=tratta(t, "U"+t.u, false); });
+  D.linee.forEach(function(L){ L.tratte.forEach(function(t, i){ s+=tratta(t, (i===0 && (!L.sp || L.ramo)) ? L.nome : null, i===L.tratte.length-1 && L.term); }); });
+  return s+'</g>';
+}
 function caviDmxMarkup(){
   if(!caviUnitiAttiva() || !caviFamAccesa("dmx")) return '';
+  if(dmxLineeAttive()){ var D=null; try{ D=dmxLinee(); }catch(_e){ D=null; } if(D && D.linee.length) return dmxLineeMarkup(D); }
   var t; try{ t=caviDmxTratto(); }catch(_e){ t=null; }
   if(!t) return '';
   var ex={}; ex[t.da.id]=1; ex[t.a.id]=1;
@@ -33701,7 +33983,7 @@ function caviDmxMarkup(){
 function caviLegendaSvg(){
   var rows=caviFamiglieConCavi(); if(!rows.length) return '';
   var k=(window.__sceneTextK>0 ? window.__sceneTextK : 1);   /* il testo sul foglio cresce con la scala (scaleSvgFonts): il riquadro lo segue */
-  var txt=rows.map(function(r){ return r.sigla+" · "+r.nome+" · "+r.n+(r.k==="dmx" ? " · indicativo" : ""); });
+  var txt=rows.map(function(r){ return r.sigla+" · "+r.nome+" · "+r.n+(r.k==="dmx" && !dmxLineeReali() ? " · indicativo" : ""); });
   var lung=txt.reduce(function(m, t){ return Math.max(m, t.length); }, 0);
   var D=state.stage.d, lh=13*k, pad=6, h=rows.length*lh+pad*2, w=46+lung*4.9*k, x=6, y=D-6-h;
   var s='<g class="cab-legend cavi-legenda"><rect class="cab-legend-bg" x="'+x+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="6"/>';
@@ -33735,7 +34017,7 @@ function pdfTitoloVista(doc, L, t){
 function titoloVistaPdf(t){ return (docEn() && PDF_TITOLO_EN.hasOwnProperty(t)) ? PDF_TITOLO_EN[t] : t; }
 function caviTestataPdf(doc, L, N){
   var fam=caviFamiglieConCavi(), k=10/(N>0 ? N : 100), y0=18.9, x0=L.M, xMax=L.pw-L.M, camp=9, passo=4.6;
-  var voci=fam.map(function(f){ return {f:f, t:f.nome+" · "+f.n+(f.k==="dmx" ? " · indicativo" : "")}; });
+  var voci=fam.map(function(f){ return {f:f, t:f.nome+" · "+f.n+(f.k==="dmx" && !dmxLineeReali() ? " · indicativo" : "")}; });
   doc.setFont("helvetica","bold"); doc.setFontSize(10); var tit="TUTTI I CAVI", wTit=doc.getTextWidth(tit);
   doc.setFontSize(8);
   voci.forEach(function(v){ doc.setFont("helvetica","bold"); v.ws=doc.getTextWidth(v.f.sigla); doc.setFont("helvetica","normal"); v.wt=doc.getTextWidth(v.t); v.w=camp+1.5+v.ws+1.2+v.wt; });
@@ -33768,7 +34050,7 @@ function caviLegendaHtml(){
   var cu=caviUnitiStato(), fam=caviFamiglieConCavi();
   var h='<span class="cu-tit">Tutti i cavi</span>';
   fam.forEach(function(f){ var on=cu.off[f.k]!==true;
-    h+='<button type="button" class="cu-fam" data-fam="'+f.k+'" aria-pressed="'+(on?"true":"false")+'" title="'+(on?"Nascondi":"Mostra")+' i cavi «'+f.nome+'»'+(f.k==="dmx"?" (DMX: tratto indicativo dalla console alla prima luce)":"")+'">'+
+    h+='<button type="button" class="cu-fam" data-fam="'+f.k+'" aria-pressed="'+(on?"true":"false")+'" title="'+(on?"Nascondi":"Mostra")+' i cavi «'+f.nome+'»'+(f.k==="dmx"?(dmxLineeReali()?" (DMX: le linee dalla console agli apparecchi)":" (DMX: tratto indicativo dalla console alla prima luce)"):"")+'">'+
        '<svg viewBox="0 0 30 8" aria-hidden="true"><path class="cu-tratto cu-'+f.k+'" d="M1 4H29"/></svg><b>'+f.sigla+'</b> '+esc(f.nome)+' <span class="cu-n">'+f.n+'</span></button>'; });
   return h+'<button type="button" class="cu-esci" id="caviEsci" aria-label="Chiudi la vista Tutti i cavi" title="Torna ai layer di sempre"><span class="cu-esci-t">Chiudi</span><span class="cu-esci-x" aria-hidden="true">\u2715</span></button>';
 }
@@ -43684,7 +43966,7 @@ function lightsList(){
    catena che costruisce il PDF (buildPdfDoc) — e le due copie erano già divergenti: la Lista luci
    usciva dopo la Lista monitor nel PDF e dopo la Lista rack in anteprima. Chi diceva al service
    «guarda a pagina 2» lo mandava sul foglio sbagliato. Chi aggiunge una pagina tocca SOLO qui. */
-var PDF_TECH_ORDER=["rider","organico","responsabilita","cambi","inputlist","monitorlist","lightslist","patchluci","loadlist",
+var PDF_TECH_ORDER=["rider","organico","responsabilita","cambi","inputlist","monitorlist","lightslist","patchluci","cavidmx","loadlist",
   "eleclines","backline","rf","notelist","pmlist","racklist","dantepatch","netlist","outputlist",
   "cabmap","elecmap","todefine"];
 function pdfTechRank(key){ var i=PDF_TECH_ORDER.indexOf(key); return i<0?-1:i; }
@@ -45747,6 +46029,7 @@ function buildPdfDoc(paperKey, N, orient, header, foglio){   /* foglio (lotto 2)
         monitorlist:function(){ if(!window.__consultMode) monitorListPdf(doc); },
         lightslist:function(){ lightsListPdf(doc); },
         patchluci:function(){ patchLuciPdf(doc); },                 /* C3: la patch DMX, solo a patch accesa */
+        cavidmx:function(){ schedaDmxPdf(doc); },                   /* C5: la scheda cavi DMX, solo con le linee disegnate */
         loadlist:function(){ loadListPdf(doc); },
         eleclines:function(){ elecLinesPdf(doc); },
         backline:function(){ backlineListPdf(doc); },
@@ -45829,7 +46112,7 @@ function riassuntoDocumento(){
 }
 /* Impronta di CIASCUN documento del pacchetto (S10, richiesta di Simone 13/11: «cambiato / invariato da vN-1» accanto a ogni file): un hash breve del
    contenuto che quel documento stampa (non del progetto intero: un'asta in più non cambia il rider). Dentro il riassunto, quindi nello storico. */
-var DOC_NOMI={stageplot:"stage plot", inputlist:"channel list", outputlist:"output list", rider:"rider", organico:"organico", backline:"backline", lightslist:"lista luci", patchluci:"patch luci", scaletta:"scaletta", cambi:"cambi di palco"};
+var DOC_NOMI={stageplot:"stage plot", inputlist:"channel list", outputlist:"output list", rider:"rider", organico:"organico", backline:"backline", lightslist:"lista luci", patchluci:"patch luci", cavidmx:"cavi dmx", scaletta:"scaletta", cambi:"cambi di palco"};
 /* ═══ CONTROLLI DI COERENZA 2 (13/11/2026, specifica S14) ═══ «Allegati richiesti»: elenco libero (≤30 voci) con stato «ricevuto» / «da chiedere»;
    se resta qualcosa «da chiedere» lo dice «Prima di esportare». Solo se l'utente lo usa (assente di serie). */
 function allegatiPuliti(l){
@@ -45857,6 +46140,7 @@ function impronteDocumenti(){
   out.backline=g(function(){ return backlineList().rows; });
   out.lightslist=g(function(){ return state.lights; });
   out.scaletta=g(function(){ return state.scaletta; });
+  if(dmxLineeReali()) out.cavidmx=g(function(){ var D=dmxLinee(); return [D.linee.map(function(Lx){ return [Lx.nome, Lx.sp && Lx.sp.id, Lx.termInterna, Lx.term, Lx.righe.map(function(r){ return r.code; }), Lx.tratte.map(function(t){ return [t.lenM.toFixed(1), t.cut]; })]; }), D.tronchi.map(function(t){ return [t.u, t.lenM.toFixed(1), t.cut]; }), D.cavoXlr]; });   /* C5: solo con le linee disegnate — i progetti vecchi hanno impronte identiche */
   if(dmxAttiva()) out.patchluci=g(function(){ var P=dmxPatch(); return [P.righe.map(function(r){ return [r.code, r.nome, r.modo, r.ch, r.u, r.a, r.fix]; }), P.senzaDmx.map(function(r){ return r.code; })]; });   /* C3: solo a patch accesa — i progetti vecchi hanno impronte identiche */
   if(Array.isArray(state.cambi) && state.cambi.length) out.cambi=g(function(){ return state.cambi; });   /* L3: solo se ci sono cambi — i progetti vecchi hanno impronte identiche */
   Object.keys(out).forEach(function(k){ if(!out[k]) delete out[k]; });
@@ -46078,7 +46362,7 @@ function pdfGateErrori(run){
    CRC32, nomi in UTF-8. Fase 1: solo la variante corrente (col suo nome nei file se il progetto ne ha più d'una). Il marcatore «cambiato da vN-1»
    verrà con la differenza fra versioni (S10): qui solo il punto d'aggancio, `pacchettoCostruisci(…, opz)`. Solo PDF; niente PDP, hospitality, camerini. */
 function pacchettoDocumentiTutti(){
-  return [["stageplot","stage plot"],["piantapalco","pianta palco"],["piantaluci","pianta luci"],["programmaluci","programma luci"],["patchluci","patch luci"],["inputlist","channel list"],["outputlist","output list"],["rider","rider"],["organico","organico"],["backline","backline"],["lightslist","lista luci"],["scaletta","scaletta"],["cambi","cambi di palco"]];
+  return [["stageplot","stage plot"],["piantapalco","pianta palco"],["piantaluci","pianta luci"],["programmaluci","programma luci"],["patchluci","patch luci"],["cavidmx","cavi dmx"],["inputlist","channel list"],["outputlist","output list"],["rider","rider"],["organico","organico"],["backline","backline"],["lightslist","lista luci"],["scaletta","scaletta"],["cambi","cambi di palco"]];
 }
 function pacchettoDocumenti(chiaviPillole, haScaletta, haPalco, haLuci){   /* haLuci (lotto 2): fari o truss → anche i fogli «pianta palco» e «pianta luci»; senza, non escono (sarebbero doppione o vuoti) */
   var have={}; (chiaviPillole||[]).forEach(function(k){ have[k]=true; });
@@ -46150,7 +46434,7 @@ function pacchettoProduci(chiave, ctx){
       return buildPdfDoc(ctx.paper, ctx.N, ctx.orient, ctx.header, chiave==="piantapalco" ? "palco" : chiave==="piantaluci" ? "luci" : null).then(function(doc){ ripristina(); return doc; }, function(e){ ripristina(); throw e; });
     }
     var doc=new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true});
-    var F={ programmaluci:function(){ programmaLuciPdf(doc); }, patchluci:function(){ patchLuciPdf(doc); }, inputlist:function(){ patchListServicePdf(doc, {perPagina:ctx.perPagina===48?48:32}); }, outputlist:function(){ outputListPdf(doc); }, rider:function(){ riderPdf(doc); },
+    var F={ programmaluci:function(){ programmaLuciPdf(doc); }, patchluci:function(){ patchLuciPdf(doc); }, cavidmx:function(){ schedaDmxPdf(doc); }, inputlist:function(){ patchListServicePdf(doc, {perPagina:ctx.perPagina===48?48:32}); }, outputlist:function(){ outputListPdf(doc); }, rider:function(){ riderPdf(doc); },
             organico:function(){ organicoPdf(doc); }, backline:function(){ backlineListPdf(doc); }, lightslist:function(){ lightsListPdf(doc); }, scaletta:function(){ scalettaPdf(doc); }, cambi:function(){ cambiFoglioPdf(doc); } };
     if(!F[chiave]) throw new Error("documento sconosciuto: "+chiave);
     F[chiave]();
@@ -47125,7 +47409,7 @@ function pdfChannelPage(doc, L, paperKey){
     if(state.cab && state.cab.on && (state.items||[]).some(function(x){return OUT_SET[x.type]!=null;})){ pages.push({key:"view-cabout", label:"Vista: Monitor"}); }
     if(state.mond && state.mond.on){ pages.push({key:"view-mond", label:"Vista: Personal monitor"}); }
     if(state.elec && state.elec.on){ pages.push({key:"view-elec", label:"Vista: Elettrico"}); }
-    try{ if(caviFamiglieConCavi().length>=2) pages.push({key:"view-cavi", label:"Vista: Tutti i cavi"}); }catch(_e){}   /* C4: il foglio unico dei cavi, solo con almeno due famiglie; mai fra le suggerite */
+    try{ if(caviFamiglieConCavi().length>=2 || dmxLineeReali()) pages.push({key:"view-cavi", label:"Vista: Tutti i cavi"}); }catch(_e){}   /* C4: il foglio unico dei cavi, solo con almeno due famiglie; mai fra le suggerite */
     if((state.items||[]).some(function(x){return x.type==="miczone";})){ pages.push({key:"view-sectionmic", label:"Vista: Mic zone"}); }
     if(((state.lights&&state.lights.rows)||[]).length){ pages.push({key:"view-luci", label:"Vista: Luci"}); }
     if((state.items||[]).length){ pages.push({key:"rider", label:nomeDocumento()}); }   /* T2: rider generato dai dati */
@@ -47148,6 +47432,7 @@ function pdfChannelPage(doc, L, paperKey){
     if((state.items||[]).some(function(x){ return x.type==="rack"; })){ pages.push({key:"racklist", label:"Lista rack"}); }
     if(((state.lights&&state.lights.rows)||[]).length){ pages.push({key:"lightslist", label:"Lista luci"}); }
     if(typeof patchLuciDisponibile==="function" && patchLuciDisponibile()){ pages.push({key:"patchluci", label:"Patch luci (DMX)"}); }   /* C3: solo a patch accesa; senza, nessuna pillola */
+    if(typeof schedaDmxDisponibile==="function" && schedaDmxDisponibile()){ pages.push({key:"cavidmx", label:"Cavi DMX"}); }   /* C5: solo con le linee DMX disegnate */
     try{ var bb=Rc.boxes||[];
       if(bb.length>1 || bb.some(function(b){ return b.sbId||b.res.length||Object.keys(b.pins).length; })) pages.push({key:"dantepatch", label:"Patch stage box"});
     }catch(_e){}

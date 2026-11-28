@@ -43994,6 +43994,446 @@ t("Quota 15 mm: le quote di jsPDF fuori dal palco non escono mai dall'area sicur
   ok(!/pdfQuoteFuoriDalDisegno\(box\)/.test(corpo("buildPdfPalcoEsterni")) && !/boxQ/.test(appjs), "palco per esterni: le quote si giudicano sul box spostato sotto la fascia (b2), non su quello senza fascia");
 });
 
+/* ════ LINEE DMX (27/11/2026, lotto C5 dello studio cablaggi) ════
+   Gradino 2 del DMX: la patch (universo e indirizzo) diventa linee vere, in catena, dalla console. Chiuse di serie: servono la patch accesa E
+   `state.dmx.linee`. Daisy-chain da 32, terminatore sull'ultimo, splitter con uscite («le uscite terminano da sole» sì/no), lunghezza, scheda «Cavi DMX». */
+console.log("\nLinee DMX (C5):");
+const lnReset = () => { cuReset(); delete A.state.dmx; };
+/* console luci a sinistra, una truss e n PAR appesi in fila (passo 60 cm), ognuno con `ch` canali; patch accesa; con `linee` anche le linee */
+function lnScena(n, o = {}) {
+  lnReset();
+  const r = { fari: [] };
+  r.desk = add("consolaluci", 100, 700); r.truss = add("truss", 150 + (n * (o.passo || 60)) / 2, 100, { w: n * (o.passo || 60) + 200 });
+  for (let i = 0; i < n; i++) { const f = add("parluci", 150 + i * (o.passo || 60), 100); A.mountSet(f, { mode: "hung" }); A.dmxImposta(f, { ch: o.ch || 4 }); r.fari.push(f); }
+  A.dmxAccendi(true);
+  if (o.linee !== false) A.dmxLineeAccendi(true);
+  return r;
+}
+const lnVoci = (rule) => A.cosaMancaDmx().filter((v) => !rule || v.rule === rule);
+t("Linee DMX · chiusa di serie: a linee spente niente cambia (nessun calcolo, nessuna voce, nessun foglio, documento identico)", () => {
+  const r = lnScena(4, { linee: false });
+  eq(A.dmxLineeAttive(), false); const D = A.dmxLinee(); eq([D.on, D.linee.length, D.tronchi.length], [false, 0, 0], "spente = vuote");
+  eq(A.state.dmx, { on: true }, "nel progetto resta la sola patch");
+  A.save(); ok(!/"linee"|"cavo"|"dmxT"|"t":true/.test(A.docToJSON()), "nel documento salvato non c'è niente delle linee");
+  eq(lnVoci().filter((v) => /^dmx-(term|lunga|xlr|console|linea)/.test(v.rule)).length, 0, "nessuna voce nuova");
+  ok(!A.schedaDmxDisponibile() && !A.window.__pdfChiaviTecniche().includes("cavidmx"), "nessun foglio, nessuna pillola");
+  ok(!("cavidmx" in A.impronteDocumenti()), "impronte dei documenti identiche a prima");
+  eq(A.caviFamiglie().find((f) => f.k === "dmx").n, 1, "in «Tutti i cavi» il DMX è ancora il tratto indicativo");
+  A.caviUnitiImposta(true); ok(!/dmx-linee|dmx-term/.test(A.sceneMarkup()), "e a schermo non ci sono le linee"); A.caviUnitiImposta(false);
+  /* accese e spente: il documento torna quello di prima (i terminatori restano sugli apparecchi, come i dati della patch) */
+  const prima = A.docToJSON(); A.dmxLineeAccendi(true); A.dmxLineeAccendi(false); A.save();
+  eq(A.state.dmx, { on: true }, "spente di nuovo: `linee` e `cavo` sono tolti");
+  lnReset();
+});
+t("Linee DMX · una linea per universo: parte dalla console, passa in catena dal più vicino, con la lunghezza di ogni tratta", () => {
+  const r = lnScena(5); const D = A.dmxLinee();
+  eq([D.on, D.senzaConsole, D.linee.length, D.tronchi.length], [true, false, 1, 0]);
+  const L = D.linee[0]; eq([L.nome, L.u, L.ramo, L.n, L.tratte.length], ["U1", 1, null, 5, 5]);
+  eq(L.righe.map((x) => x.it.id), r.fari.map((f) => f.id), "la catena segue il disegno: da sinistra, dal più vicino alla console");
+  eq([L.tratte[0].da.id, L.tratte[0].a.id], [r.desk.id, r.fari[0].id], "la prima tratta parte dalla console");
+  eq(L.tratte.slice(1).map((t, i) => [t.da.id, t.a.id]), r.fari.slice(1).map((f, i) => [r.fari[i].id, f.id]), "le altre da apparecchio ad apparecchio");
+  ok(L.tratte.every((t) => t.lenM > 0.6 && Number.isFinite(t.lenM) && (t.cut == null || t.cut >= t.lenM)), "ogni tratta ha lunghezza e taglio");
+  ok(Math.abs(L.lenM - L.tratte.reduce((s, t) => s + t.lenM, 0)) < 1e-9, "la linea è la somma delle tratte");
+  eq(L.tratte[1].pathM, 0.6, "tra due PAR a 60 cm: 0,6 m di percorso disegnato");
+  ok(Math.abs(L.tratte[1].lenM - (0.6 * 1.1 + 0.6)) < 1e-9, "lunghezza = percorso × 1,10 + 0,6 m di scorta, come ogni altro cavo");
+  eq(L.tratte[1].cut, 3, "taglio XLR/DMX: il più vicino sopra");
+  A.state.items.splice(A.state.items.indexOf(r.desk), 1);
+  eq([A.dmxLinee().senzaConsole, A.dmxLinee().linee.length], [true, 0], "senza console non si disegna niente");
+  ok(lnVoci("dmx-console").length === 1 && lnVoci("dmx-console")[0].grav === "giallo", "e «Cosa manca?» dice che manca la console");
+  lnReset();
+});
+t("Linee DMX · 32 apparecchi vanno bene, il 33° no (e il numero si legge per linea, non per universo)", () => {
+  lnScena(32, { ch: 1 });
+  eq(A.dmxLinee().linee.map((l) => l.n), [32], "32 canali da 1 = 1 universo, 32 apparecchi");
+  eq(lnVoci("dmx-linea").length, 0, "32: nessun avviso");
+  A.dmxLineeAccendi(false); A.dmxAccendi(false); lnScena(33, { ch: 1 });
+  const D = A.dmxLinee(); eq(D.linee.map((l) => l.n), [33], "33 apparecchi: una sola linea (senza splitter)");
+  const v = lnVoci("dmx-linea"); eq(v.length, 1, "33: un avviso"); eq([v[0].grav, v[0].fam], ["giallo", "Luci"]);
+  ok(/Linea U1: 33 apparecchi\. Una linea DMX ne regge 32\./.test(v[0].msg), v[0].msg);
+  eq(v[0].azioni.map((a) => a.label), ["Mostra"], "nessun «Sistema»: aggiungere uno splitter non è una correzione certa");
+  ok(!lnVoci().some((x) => x.id === "dmx:linea:1"), "e la voce per universo di prima non si ripete");
+  lnReset();
+});
+t("Linee DMX · universo pieno: 33 apparecchi da 16 canali fanno due universi e due linee, la prima piena", () => {
+  lnScena(33, { ch: 16 });
+  const D = A.dmxLinee(); eq(D.linee.map((l) => [l.nome, l.n]), [["U1", 32], ["U2", 1]]);
+  eq(A.dmxPatch().universi.map((u) => [u.u, u.canali]), [[1, 512], [2, 16]], "il primo universo è esattamente pieno (512)");
+  eq(lnVoci("dmx-linea").length, 0, "nessuna linea oltre 32");
+  eq(D.linee[1].tratte[0].da.type, "consolaluci", "ogni universo parte dalla console"); eq(D.linee[1].tratte[0].a.id, D.linee[1].righe[0].it.id, "e arriva al primo apparecchio della sua linea");
+  lnReset();
+});
+t("Linee DMX · terminatore: lo accende il gesto, va solo sull'ultimo, «Sistema» lo mette e lo toglie dove non va", () => {
+  const r = lnScena(4, { linee: false });
+  A.dmxLineeAccendi(true);
+  let L = A.dmxLinee().linee[0]; eq([L.term, L.termMezzo.length], [true, 0], "accendere le linee mette il terminatore sull'ultimo");
+  eq(A.dmxDati(r.fari[3]).t, true); ok(!r.fari.slice(0, 3).some((f) => A.dmxDati(f).t), "e solo lì");
+  eq(lnVoci("dmx-term").length, 0, "terminata: nessuna voce");
+  A.dmxImposta(r.fari[3], { t: null });
+  let v = lnVoci("dmx-term"); eq(v.length, 1, "tolto: manca"); ok(/La linea U1 non ha il terminatore\./.test(v[0].msg), v[0].msg);
+  eq(v[0].azioni.map((a) => a.label), ["Sistema", "Mostra"]);
+  v[0].azioni[0].run(); eq(A.dmxDati(r.fari[3]).t, true, "«Sistema» lo rimette sull'ultimo"); eq(lnVoci("dmx-term").length, 0);
+  A.dmxImposta(r.fari[1], { t: true });
+  L = A.dmxLinee().linee[0]; eq(L.termMezzo.map((x) => x.it.id), [r.fari[1].id], "uno a metà linea");
+  v = lnVoci("dmx-term-mezzo"); eq(v.length, 1); ok(/Terminatore a metà della linea U1/.test(v[0].msg), v[0].msg);
+  v[0].azioni[0].run(); eq([A.dmxDati(r.fari[1]), A.dmxDati(r.fari[3]).t], [{ ch: 4, u: 1, a: 5 }, true], "«Sistema» toglie quello a metà e tiene l'ultimo");
+  eq(lnVoci().filter((x) => /^dmx-term/.test(x.rule)).length, 0);
+  lnReset();
+});
+t("Linee DMX · splitter: i rami sono quanti servono per stare sotto 32; i rami chiedono il terminatore, salvo «le uscite terminano da sole»", () => {
+  const r = lnScena(40, { ch: 1, linee: false });
+  const sp = add("dmxsplit", 100, 400); sp.dmxOut = 8; A.dmxLineeAccendi(true);
+  let D = A.dmxLinee();
+  eq(D.splitter.map((s) => [s.it.id, s.universi, s.uscite, s.perUniverso, s.termInterna]), [[sp.id, [1], 8, 8, false]]);
+  eq(D.tronchi.map((t) => [t.u, t.da.id, t.a.id]), [[1, r.desk.id, sp.id]], "il tronco: console → splitter");
+  eq(D.linee.map((l) => [l.nome, l.ramo, l.n]), [["U1·1", 1, 20], ["U1·2", 2, 20]], "40 apparecchi su 2 uscite, 20 + 20");
+  eq(D.linee[0].tratte[0].da.id, sp.id, "ogni ramo parte dallo splitter");
+  ok(D.linee.every((l) => l.lenM > D.tronchi[0].lenM), "la lunghezza di un ramo include il tronco");
+  eq(lnVoci("dmx-linea").length, 0, "sotto 32 per ramo: nessun avviso");
+  eq(lnVoci("dmx-term").length, 0, "i terminatori li ha messi il gesto");
+  A.dmxImposta(D.linee[0].ultimo.it, { t: null }); A.dmxImposta(D.linee[1].ultimo.it, { t: null });
+  let v = lnVoci("dmx-term-ramo"); eq(v.length, 1, "due rami non terminati: una voce"); ok(/Mancano i terminatori su 2 rami dopo lo splitter \(U1·1, U1·2\)/.test(v[0].msg), v[0].msg);
+  sp.dmxT = true; eq(lnVoci("dmx-term-ramo").length, 0, "lo splitter termina da sé: i rami non chiedono niente");
+  eq(A.dmxLinee().splitter[0].termInterna, true); delete sp.dmxT;
+  eq(lnVoci("dmx-term-ramo").length, 1); lnVoci("dmx-term-ramo")[0].azioni[0].run();
+  eq(A.dmxLinee().linee.every((l) => l.term), true, "«Sistema» termina i due rami");
+  sp.dmxOut = 1; v = lnVoci("dmx-linea"); eq(v.length, 1, "con una sola uscita i 40 apparecchi non ci stanno: un solo ramo da 40");
+  ok(/Ramo U1: 40 apparecchi/.test(v[0].msg) && /ha 1 uscita per 1 ingresso e/.test(v[0].perche) && !/undefined/.test(v[0].perche), v[0].msg + " | " + v[0].perche);
+  lnReset();
+});
+t("Linee DMX · splitter a più ingressi: prende gli universi in ordine, uno per ingresso; gli altri vanno dritti dalla console", () => {
+  const r = lnScena(60, { ch: 16, linee: false });   /* 60 × 16 = 960 canali: universi 1 (32) e 2 (28) */
+  const sp = add("dmxsplit", 100, 400); sp.dmxIn = 1; sp.dmxOut = 4; A.dmxLineeAccendi(true);
+  let D = A.dmxLinee(); eq(A.dmxPatch().universi.map((u) => u.u), [1, 2]);
+  eq(D.splitter[0].universi, [1], "con un ingresso prende solo l'universo 1");
+  eq(D.linee.map((l) => [l.nome, !!l.sp]), [["U1", true], ["U2", false]], "l'universo 2 va dritto dalla console");
+  sp.dmxIn = 2; D = A.dmxLinee(); eq([D.splitter[0].universi, D.splitter[0].perUniverso], [[1, 2], 2], "con due ingressi li prende tutti e due, 2 uscite a testa");
+  eq(D.tronchi.map((t) => t.u), [1, 2]);
+  lnReset();
+});
+t("Linee DMX · lunghezza: giallo oltre 150 m, rosso oltre 300 m; il cavo XLR dichiarato oltre 15 m", () => {
+  const r = lnScena(3, { ch: 4, passo: 4500 });   /* 3 PAR a 45 m uno dall'altro: ~110 m */
+  A.state.stage = { w: 20000, d: 800, blocks: [{ x: 0, y: 0, w: 20000, d: 800 }] };
+  let L = A.dmxLinee().linee[0]; ok(L.lenM > 80 && L.lenM < 150, "lunghezza " + L.lenM.toFixed(1));
+  eq(lnVoci("dmx-lunga").length, 0);
+  r.fari[2].x += 4000; L = A.dmxLinee().linee[0]; ok(L.lenM > 150 && L.lenM < 300, "lunghezza " + L.lenM.toFixed(1));
+  let v = lnVoci("dmx-lunga"); eq([v.length, v[0].grav, v[0].lvl], [1, "giallo", "warn"]); ok(/Linea U1: \d+ m di cavo\. È lunga per il DMX\./.test(v[0].msg), v[0].msg);
+  r.fari[2].x += 20000; L = A.dmxLinee().linee[0]; ok(L.lenM > 300, "lunghezza " + L.lenM.toFixed(1));
+  v = lnVoci("dmx-lunga"); eq([v[0].grav, v[0].lvl], ["rosso", "err"]); ok(/Oltre ~300 m il DMX non è affidabile/.test(v[0].msg), v[0].msg);
+  eq(lnVoci("dmx-xlr").length, 0, "cavo DMX di serie: niente avviso XLR");
+  A.state.dmx.cavo = "xlr"; eq(A.dmxCavoXlr(), true); v = lnVoci("dmx-xlr"); eq(v.length, 1, "XLR dichiarato e linea oltre 15 m"); eq(v[0].azioni.map((a) => a.label), ["Sistema"]);
+  v[0].azioni[0].run(); eq([A.state.dmx.cavo, lnVoci("dmx-xlr").length], [undefined, 0], "«Sistema» torna al cavo DMX da 110 Ω");
+  const brevi = lnScena(3, { ch: 4 }); A.state.dmx.cavo = "xlr"; eq(lnVoci("dmx-xlr").length, 0, "XLR su una linea corta (< 15 m): va bene");
+  const medie = lnScena(3, { ch: 4, passo: 1500 }); A.state.dmx.cavo = "xlr"; const Lm = A.dmxLinee().linee[0];
+  ok(Lm.lenM > 15 && Lm.lenM < 100, "linea media: " + Lm.lenM.toFixed(1) + " m"); const vm = lnVoci("dmx-xlr");
+  eq(vm.length, 1, "XLR dichiarato su una linea di " + Math.round(Lm.lenM) + " m (oltre 15, ben sotto i 150 di un cavo DMX): l'avviso c'è"); eq(lnVoci("dmx-lunga").length, 0, "e la linea non è «lunga»: è il cavo, non la lunghezza");
+  lnReset();
+});
+
+/* la scena di C4 (console luci e due PAR su una truss, più audio e corrente) con le linee DMX accese; i PAR hanno canali */
+function lnCuScena(linee = true) {
+  const o = cuScena(); A.dmxImposta(o.p1, { ch: 4 }); A.dmxImposta(o.p2, { ch: 4 }); A.dmxAccendi(true); if (linee) A.dmxLineeAccendi(true); return o;
+}
+t("Linee DMX · «Tutti i cavi»: la famiglia DMX diventa le linee vere (non più «indicativo»), a schermo e nel foglio", () => {
+  const o = lnCuScena();
+  eq(A.caviFamiglie().find((f) => f.k === "dmx").n, 2, "i cavi DMX sono le due tratte: console → p1 → p2");
+  A.caviUnitiImposta(true);
+  let m = A.caviDmxMarkup();
+  eq([cuConta(m, /class="dmx-line"/g), cuConta(m, /class="dmx-term"/g), cuConta(m, /dmx-lbl/g)], [2, 1, 0], "a schermo: 2 tratti, il segno del terminatore sull'ultimo, nessuna scritta");
+  ok(/class="dmx-layer dmx-linee"/.test(m), "gruppo suo");
+  const own = [...m.matchAll(/<g class="cabgrp" data-own="([^"]+)">/g)].map((x) => x[1]);
+  eq(own, [o.desk.id + " " + o.p1.id, o.p1.id + " " + o.p2.id], "ogni tratta sfuma insieme ai suoi due capi");
+  A.__cabStatic = true; try { m = A.caviDmxMarkup(); } finally { A.__cabStatic = false; }
+  eq([...m.matchAll(/<text class="dmx-lbl"[^>]*>([^<]*)<\/text>/g)].map((x) => x[1]), ["U1"], "nel foglio: il nome della linea, una volta sola");
+  const s = A.stageSceneSvg(null, { focus: "cavi" });
+  eq([cuConta(s, /class="dmx-line"/g), cuConta(s, /class="dmx-term"/g)], [2, 1], "nel foglio «Tutti i cavi» le stesse linee");
+  const righe = [...s.matchAll(/<line class="cu-tratto cu-(\w+)"[^>]*\/><text class="cab-legend-t"[^>]*>([^<]*)<\/text>/g)].map((x) => [x[1], x[2]]);
+  eq(righe.find((r) => r[0] === "dmx"), ["dmx", "D · DMX · 2"], "legenda: due cavi, e non più «indicativo»: " + JSON.stringify(righe));
+  ok(/Le linee dalla console|le linee dalla console/.test(A.caviLegendaHtml()) && !/indicativo/.test(A.caviLegendaHtml()), "e il suggerimento della pastiglia lo dice");
+  A.caviUnitiStato().off = { dmx: true }; ok(!/dmx-line/.test(A.caviDmxMarkup()), "la pastiglia DMX spegne le linee");
+  lnReset();
+});
+t("Linee DMX · da sole bastano a offrire «Tutti i cavi» (le linee non stanno in nessun layer); a linee spente la vista di solo DMX resta vietata", () => {
+  lnReset(); add("consolaluci", 100, 700); const f = add("parluci", 400, 80); A.dmxImposta(f, { ch: 4 }); A.dmxAccendi(true);
+  eq([A.caviFamiglieConCavi().map((x) => x.k), A.caviUnitiDisponibile()], [["dmx"], false], "linee spente: una famiglia sola, niente vista");
+  A.dmxLineeAccendi(true); eq(A.caviUnitiDisponibile(), true, "linee accese: la vista c'è anche con il solo DMX");
+  eq(A.caviUnitiImposta(true), true); ok(/dmx-line/.test(A.sceneMarkup()), "e mostra le linee"); ok(A.window.__pdfChiaviTecniche().includes("view-cavi"), "e la pillola dell'Esporta ci sta");
+  A.state.items = A.state.items.filter((x) => x.type !== "consolaluci"); A.caviUnitiSync(); eq(A.caviUnitiStato().on, false, "senza console non ci sono più linee: la vista si spegne");
+  lnReset();
+});
+t("Linee DMX · i fogli di sempre non cambiano con le linee accese: solo la pagina «Tutti i cavi» e la scheda nuova", () => {
+  lnCuScena(false);
+  const f = () => [A.stageSceneSvg(null, {}), A.stageSceneSvg(null, { focus: "cabin" }), A.stageSceneSvg(null, { focus: "elec" }), A.stageSceneSvg(null, { focus: "cabaudio" }), A.buildExportSvg().svgStr, A.sceneMarkup()];
+  const prima = f(), cavi0 = A.stageSceneSvg(null, { focus: "cavi" });
+  A.dmxLineeAccendi(true);
+  const dopo = f();
+  prima.forEach((x, i) => ok(x === dopo[i], "scena " + i + " identica a linee spente"));
+  ok(A.stageSceneSvg(null, { focus: "cavi" }) !== cavi0, "la pagina «Tutti i cavi» invece cambia: ha le linee vere");
+  eq(A.stageSceneSvg(null, { focus: "cavi" }).replace(/<g class="dmx-layer[\s\S]*?<\/g><\/g><\/g>/, "").length > 1000, true);
+  lnReset();
+});
+t("Linee DMX · «Cosa manca?»: le voci stanno nella famiglia Luci e fuori dal voto dell'audit; con le linee spente non ci sono", () => {
+  lnScena(34, { ch: 1, linee: false });
+  const v0 = A.auditEngine().score ?? A.auditEngine().punti, c0 = A.cosaManca();
+  A.dmxLineeAccendi(true); const c1 = A.cosaManca();
+  ok(c1.voci.some((x) => x.rule === "dmx-linea" && x.fam === "Luci"), "la voce delle 34 luci c'è");
+  eq((A.auditEngine().score ?? A.auditEngine().punti), v0, "il voto dell'audit non cambia: le voci DMX sono fuori dal voto");
+  eq(c1.voci.filter((x) => x.fonte !== "dmx").map((x) => x.id), c0.voci.filter((x) => x.fonte !== "dmx").map((x) => x.id), "le altre voci sono quelle di prima");
+  ok(c1.voci.every((x, i, a) => !x.id.startsWith("dmx:") || a.filter((y) => y.id === x.id).length === 1), "nessun id doppio");
+  ok(c1.voci.filter((x) => x.fonte === "dmx" && x.rule === "dmx-linea").length === 1 && c0.voci.filter((x) => x.rule === "dmx-linea").length === 1, "un avviso prima (per universo) e un avviso dopo (per linea): mai due insieme");
+  A.__projLocked = true; const t0 = A.dmxDati(A.dmxLinee().linee[0].ultimo.it); A.dmxImposta(A.dmxLinee().linee[0].ultimo.it, { t: null });
+  const vt = A.cosaMancaDmx().filter((x) => x.rule === "dmx-term"); vt[0].azioni[0].run(); eq(A.dmxDati(A.dmxLinee().linee[0].ultimo.it).t, undefined, "progetto bloccato: «Sistema» non scrive niente");
+  A.__projLocked = false; lnReset();
+});
+t("Linee DMX · salvataggio: `linee` e `cavo` stanno nel documento solo se accesi; terminatore e «terminano da sole» ci stanno solo se veri; un progetto vecchio non cambia", () => {
+  const r = lnScena(3, { linee: false });
+  A.save(); const v0 = A.docToJSON(); ok(!/linee|cavo/.test(v0), "senza linee il documento è quello di prima");
+  A.loadDoc(JSON.parse(v0)); A.save(); const vecchio = A.docToJSON(); A.loadDoc(JSON.parse(vecchio)); A.save(); eq(A.docToJSON(), vecchio, "round-trip di un progetto C3: identico, byte per byte");
+  ok(!/linee|cavo|dmxT/.test(vecchio));
+  eq(A.state.dmx, { on: true });
+  const sp = add("dmxsplit", 100, 400); A.dmxLineeAccendi(true); A.state.dmx.cavo = "xlr"; sp.dmxT = true; A.save();
+  const doc = JSON.parse(A.docToJSON()), SD = (d) => d.variants[0].state; eq(SD(doc).dmx, { on: true, linee: true, cavo: "xlr" }); ok(SD(doc).items.some((x) => x.type === "dmxsplit" && x.dmxT === true), "dmxT sullo splitter");
+  eq(SD(doc).items.filter((x) => x.dmx && x.dmx.t === true).length, 1, "un solo terminatore salvato: l'ultimo");
+  A.loadDoc(doc); A.save(); const doc2 = JSON.parse(A.docToJSON()); const doc2s = JSON.stringify(doc2); A.loadDoc(JSON.parse(doc2s)); A.save(); eq(JSON.parse(A.docToJSON()), JSON.parse(doc2s), "round-trip con le linee: identico");
+  eq([SD(doc2).dmx, SD(doc2).items.filter((x) => x.dmxT === true || (x.dmx && x.dmx.t === true)).length], [{ on: true, linee: true, cavo: "xlr" }, 2], "e dopo la lettura ci sono ancora tutte le chiavi: linee, cavo, dmxT, terminatore");
+  const sporco = JSON.parse(JSON.stringify(doc)), SS = SD(sporco);
+  SS.dmx = { on: true, linee: true, cavo: "boh" }; SS.items.forEach((x) => { if (x.type === "dmxsplit") x.dmxT = "si"; else if (x.type === "consolaluci") x.dmxT = true; else if (x.dmx) x.dmx.t = "yes"; });
+  A.loadDoc(sporco); A.save(); const pulito = SD(JSON.parse(A.docToJSON()));
+  eq(pulito.dmx, { on: true, linee: true }, "cavo sconosciuto: via; linee tiene");
+  ok(pulito.items.every((x) => x.dmxT === undefined) && pulito.items.every((x) => !x.dmx || x.dmx.t === undefined), "valori non veri o su elementi sbagliati: via");
+  SS.dmx = { on: false, linee: true, cavo: "xlr" }; A.loadDoc(sporco); A.save(); ok(!("dmx" in SD(JSON.parse(A.docToJSON()))), "patch spenta: le linee non esistono da sole");
+  SS.dmx = { linee: true }; A.loadDoc(sporco); A.save(); ok(!("dmx" in SD(JSON.parse(A.docToJSON()))), "e senza «on» nemmeno");
+  lnReset();
+});
+t("Linee DMX · copia di un apparecchio: non porta il terminatore; «Senza DMX» lo toglie; spegnere la patch spegne anche le linee", () => {
+  const r = lnScena(3); const ult = A.dmxLinee().linee[0].ultimo.it; eq(A.dmxDati(ult).t, true);
+  const c = JSON.parse(JSON.stringify(ult)); A.dmxCopiaPulita(c); eq(c.dmx && c.dmx.t, undefined, "la copia non è l'ultima: niente terminatore");
+  A.dmxImposta(ult, { no: true, u: null, a: null, fix: null, t: null }); eq(A.dmxDati(ult), { ch: 4, no: true }, "«Senza DMX»: niente t, niente indirizzo");
+  A.dmxImposta(ult, { no: null }); A.dmxImposta(r.fari[0], { t: true, no: true }); ok(!A.dmxDati(r.fari[0]).t, "una t su un «Senza DMX» non resta");
+  A.dmxAccendi(false); eq(A.state.dmx, undefined, "patch spenta: via anche `linee`"); eq(A.dmxLinee().on, false);
+  lnReset();
+});
+t("Linee DMX · 120 apparecchi: la costruzione resta veloce e deterministica", () => {
+  lnScena(120, { ch: 4, passo: 25, linee: false }); A.dmxLineeAccendi(true);
+  const t0 = Date.now(); const D = A.dmxLinee(); const ms = Date.now() - t0;
+  eq(D.linee.map((l) => [l.nome, l.n]), [["U1", 120]], "480 canali: un universo");
+  ok(ms < 800, "120 apparecchi in " + ms + " ms");
+  const sig = (D) => JSON.stringify(D.linee.map((l) => [l.nome, l.righe.map((r) => r.it.id), l.tratte.map((t) => t.lenM.toFixed(3))]));
+  eq(sig(A.dmxLinee()), sig(D), "stesso progetto, stessa catena");
+  const ordine = D.linee[0].righe.map((r) => r.it.id); A.state.items.reverse();   /* davvero: l'ordine dell'elenco cambia (rilettura 243, D6) */
+  const D2 = A.dmxLinee(); eq(D2.linee[0].righe.map((r) => r.it.id), ordine, "la catena non dipende dall'ordine in cui gli elementi stanno nell'elenco");
+  lnReset();
+});
+
+/* ═══ Correzioni della rilettura Opus della #243 (28/11/2026): D2 foglio, D3 testi, D5 console in rack, D6 mutazioni vive, D7 rami ═══ */
+t("Linee DMX · D2: nel foglio «Cavi DMX» il nome dell'apparecchio non arriva mai sulla lunghezza (nomi lunghissimi, terminatore, EN, ft-in)", () => {
+  const nomeLungo = "Robe Robin MegaPointe Spot Wash Beam Extra Lungo Fantasia";
+  const prova = (etichetta) => {
+    const r = lnFoglio({ n: 6 }); r.fari.forEach((f, i) => { f.label = nomeLungo + " " + i; });
+    const doc = docFintoPL(); A.schedaDmxPdf(doc);
+    const lung = doc.testi.filter((x) => x.a === "right" && x.x > 150 && x.x < 170 && /\d/.test(x.t));
+    ok(lung.length === 6, etichetta + ": 6 lunghezze (" + lung.length + ")");
+    for (const l of lung) {
+      const nome = doc.testi.find((x) => x.p === l.p && x.y === l.y && x.x === 87);
+      ok(nome, etichetta + ": nome sulla stessa riga della lunghezza");
+      const fine = nome.x + doc.getTextWidth(nome.t), inizioLung = l.x - doc.getTextWidth(l.t);
+      ok(fine < inizioLung - 2, etichetta + ": «" + nome.t + "» finisce a " + fine.toFixed(1) + " mm, la lunghezza «" + l.t + "» comincia a " + inizioLung.toFixed(1));
+      ok(!/terminatore|terminator/.test(nome.t), etichetta + ": la nota non sta nella riga del nome");
+    }
+    const note = doc.testi.filter((x) => /^(terminatore 120 ohm|120 ohm terminator)$/.test(x.t));
+    eq(note.length, 1, etichetta + ": una sola nota del terminatore, su una riga sua");
+    ok(doc.testi.every((x) => x.a === "right" ? x.x <= 195 : (x.x <= 194 && x.x >= 15.9)), etichetta + ": dentro i margini");
+    ok(doc.testi.every((x) => x.y <= 272.01), etichetta + ": niente sotto il fondo");
+    lnReset();
+  };
+  prova("italiano");
+  A.state.docLang = "en"; try { prova("inglese"); A.state.docUnits = "ft"; prova("inglese ft-in"); } finally { delete A.state.docLang; delete A.state.docUnits; }
+});
+t("Linee DMX · D2: la nota del terminatore non sporge dal fondo pagina (ultima tratta sul bordo → pagina nuova con l'intestazione)", () => {
+  lnScena(60, { ch: 4, passo: 25 });
+  const doc = docFintoPL(); A.schedaDmxPdf(doc);
+  ok(doc.testi.every((x) => x.y <= 272.01), "max " + Math.max(...doc.testi.map((x) => x.y)));
+  const n = doc.testi.find((x) => x.t === "terminatore 120 ohm"), ult = doc.testi.filter((x) => /^\d+$/.test(x.t) && x.x < 20).pop();
+  ok(n && n.p === ult.p && n.y > ult.y, "la nota è sulla stessa pagina dell'ultima tratta");
+  lnReset();
+});
+t("Linee DMX · D3: lo splitter appena preso dal catalogo (senza dmxIn) dice «1 uscita per 1 ingresso», mai «undefined»; plurale giusto", () => {
+  const r = lnScena(33, { ch: 1, linee: false }); const sp = add("dmxsplit", 100, 400); sp.dmxOut = 1; delete sp.dmxIn; A.dmxLineeAccendi(true);
+  let v = lnVoci("dmx-linea"); eq(v.length, 1); ok(/Lo splitter «[^»]*» ha 1 uscita per 1 ingresso e ogni uscita regge 32/.test(v[0].perche) && !/undefined/.test(v[0].perche), v[0].perche);
+  lnReset(); lnScena(70, { ch: 1, linee: false }); const s2 = add("dmxsplit", 100, 400); s2.dmxOut = 2; A.dmxLineeAccendi(true);
+  v = lnVoci("dmx-linea"); ok(v.length >= 1 && /ha 2 uscite per 1 ingresso/.test(v[0].perche), (v[0] || {}).perche);
+  s2.dmxIn = 2; v = lnVoci("dmx-linea"); ok(!v.length || /ingress/.test(v[0].perche), "più ingressi: plurale");
+  lnReset();
+});
+t("Linee DMX · D5: una console che c'è ma sta in un rack non è «non c'è»; non fa da origine; una console fuori dal rack vince", () => {
+  const r = lnScena(3); r.desk.rackId = "rack-prova";
+  const D = A.dmxLinee(); eq([D.senzaConsole, D.consoleInRack, D.linee.length], [true, true, 0], "solo in rack: niente linee, ma lo sa");
+  let v = lnVoci("dmx-console"); eq(v.length, 1); ok(/dentro un rack/.test(v[0].msg) && !/e non c'è/.test(v[0].msg), v[0].msg);
+  ok(/fuori dal rack/.test(v[0].perche), v[0].perche);
+  const fuori = add("consolaluci", 100, 760);
+  const D2 = A.dmxLinee(); eq([D2.senzaConsole, D2.linee.length, D2.linee[0].tratte[0].da.id], [false, 1, fuori.id], "con una console fuori dal rack le linee partono da quella, non da quella nel rack");
+  A.state.items = A.state.items.filter((x) => x !== r.desk && x !== fuori);
+  eq([A.dmxLinee().senzaConsole, A.dmxLinee().consoleInRack], [true, false], "nessuna console: «non c'è»"); ok(/e non c'è/.test(lnVoci("dmx-console")[0].msg));
+  lnReset();
+});
+t("Linee DMX · D6a: la catena segue il DISEGNO (il più vicino), non l'ordine degli indirizzi della patch", () => {
+  const r = lnScena(5, { linee: false }); r.desk.x = 1000; A.dmxLineeAccendi(true);   /* console a DESTRA: il più vicino è l'ultimo della patch (che va da sinistra a destra) */
+  const ordPatch = A.dmxPatch().righe.map((x) => x.it.id);
+  ok(ordPatch.length === 5 && ordPatch.join() !== r.fari.slice().reverse().map((f) => f.id).join(), "premessa: la patch NON è in ordine di vicinanza alla console");
+  eq(A.dmxLinee().linee[0].righe.map((x) => x.it.id), r.fari.slice().reverse().map((f) => f.id), "la catena va dal più vicino alla console, qualunque sia l'ordine della patch");
+  eq(A.dmxLinee().linee[0].righe.map((x) => x.it.id), A.dmxLinee().linee[0].tratte.map((t) => t.a.id), "e le tratte la seguono");
+  lnReset();
+});
+t("Linee DMX · D6b: con lo splitter la lunghezza di un ramo = tronco + somma delle sue tratte, e i tronchi contano nei cavi DMX (D6g)", () => {
+  const r = lnFoglio({ n: 40, ch: 1, splitter: true }); const D = A.dmxLinee(), tr = D.tronchi[0].lenM;
+  ok(tr > 0.6, "il tronco ha una lunghezza: " + tr);
+  for (const L of D.linee) ok(Math.abs(L.lenM - (tr + L.tratte.reduce((s2, x) => s2 + x.lenM, 0))) < 1e-9, L.nome + ": " + L.lenM + " = tronco " + tr + " + tratte");
+  eq(A.caviFamiglie().find((f) => f.k === "dmx").n, 1 + 40, "cavi DMX nella legenda: 1 tronco + 40 tratte");
+  eq(A.dmxNumCavi(), 41); lnReset();
+});
+t("Linee DMX · D6c-d: `cavo` si salva solo con le linee accese; spegnendo le linee il cavo torna di serie", () => {
+  lnScena(3, { linee: false }); A.state.dmx.cavo = "xlr"; A.save();
+  const SD = (d) => d.variants[0].state; A.loadDoc(JSON.parse(A.docToJSON())); A.save(); const doc = JSON.parse(A.docToJSON());
+  eq(SD(doc).dmx, { on: true }, "cavo dichiarato ma linee spente: alla lettura non resta");
+  A.dmxLineeAccendi(true); A.state.dmx.cavo = "xlr"; A.dmxLineeAccendi(false); eq(A.state.dmx, { on: true }, "spente: via `linee` e via `cavo`");
+  A.dmxLineeAccendi(true); eq(A.dmxCavoXlr(), false, "riaccese: il cavo è quello di serie, non quello di prima");
+  lnReset();
+});
+t("Linee DMX · D6f: il segno del terminatore sta sull'ULTIMO apparecchio, non sul primo", () => {
+  const o = lnCuScena(); A.caviUnitiImposta(true);
+  const m = A.caviDmxMarkup(); const segni = [...m.matchAll(/<path class="dmx-term" d="M ([\d.-]+) ([\d.-]+) L ([\d.-]+) ([\d.-]+)"\/>/g)];
+  eq(segni.length, 1, "un segno");
+  const [x1, y1, x2, y2] = segni[0].slice(1).map(Number), cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+  const dist = (f) => Math.hypot(cx - f.x, cy - f.y);
+  ok(dist(o.p2) < 1.5 && dist(o.p1) > 20, "il segno è sull'ultimo PAR (a " + dist(o.p2).toFixed(1) + " cm), non sul primo (a " + dist(o.p1).toFixed(1) + " cm)");
+  A.caviUnitiImposta(false); lnReset();
+});
+t("Linee DMX · D7: ogni ramo dello splitter parte dal SUO apparecchio più vicino, non da dove finiva il ramo prima", () => {
+  lnReset(); add("consolaluci", 100, 700); const sp = add("dmxsplit", 100, 400); sp.dmxOut = 4;
+  const g1 = [], g2 = [];
+  for (let i = 0; i < 20; i++) for (const [y, g] of [[400, g1], [480, g2]]) { const f = add("parluci", 200 + i * 60, y); A.mountSet(f, { mode: "hung" }); A.dmxImposta(f, { ch: 1 }); g.push(f); }
+  A.dmxAccendi(true); A.dmxLineeAccendi(true);
+  const D = A.dmxLinee(); eq(D.linee.map((l) => [l.nome, l.n]), [["U1·1", 20], ["U1·2", 20]]);
+  eq(D.linee[0].righe.map((x) => x.it.id), g1.map((f) => f.id), "ramo 1 = la fila vicina, dal più vicino");
+  eq(D.linee[1].righe.map((x) => x.it.id).sort(), g2.map((f) => f.id).sort(), "ramo 2 = la fila lontana");
+  eq(D.linee[1].tratte[0].da.id, sp.id); eq(D.linee[1].tratte[0].a.id, g2[0].id, "la prima tratta del ramo 2 va al PAR più vicino allo splitter (non a quello dove la catena è arrivata: sarebbe l'ultimo)");
+  ok(D.linee[1].tratte[0].lenM < 3, "ed è corta: " + D.linee[1].tratte[0].lenM.toFixed(1) + " m");
+  eq(D.linee[1].righe.map((x) => x.it.x), g2.map((f) => f.x), "e il ramo prosegue in ordine crescente di distanza");
+  eq(D.linee[1].ultimo.it.id, g2[19].id, "l'ultimo è il più lontano: lì va il terminatore");
+  lnReset();
+});
+t("Linee DMX · D8: le frasi del terminatore a metà linea e del 33° apparecchio", () => {
+  const r = lnScena(4); A.dmxImposta(r.fari[1], { t: true });
+  const v = lnVoci("dmx-term-mezzo"); eq(v.length, 1); eq(v[0].perche, "Il terminatore va solo sull'ultimo apparecchio: in mezzo alla catena carica la linea e chi sta dopo può sfarfallare o restare senza segnale.");
+  ok(!/toglie il segnale/.test(v[0].perche));
+  lnReset(); lnScena(33, { ch: 1 }); const w = lnVoci("dmx-linea");
+  ok(/Oltre il 32° il segnale diventa instabile \(32 carichi: alcuni apparecchi ne valgono mezzo o un quarto, lo dice il manuale\)\./.test(w[0].perche), w[0].perche);
+  lnReset();
+});
+
+/* una scena per il foglio: 2 universi (36 PAR da 16 canali + uno splitter con 4 uscite), un nome dell'utente */
+function lnFoglio(o = {}) {
+  const r = lnScena(o.n || 6, { ch: o.ch || 4, linee: false }); r.fari[0].label = "PAR blu";
+  if (o.splitter) { r.sp = add("dmxsplit", 100, 400); r.sp.dmxOut = 4; }
+  A.dmxLineeAccendi(true); return r;
+}
+t("Linee DMX · foglio «Cavi DMX»: riepilogo, una sezione per linea con tratta, lunghezza, taglio e terminatore; dentro i margini, senza caratteri fuori font", () => {
+  lnFoglio(); A.state.titolo = "Concerto di prova";
+  const doc = docFintoPL(); eq(A.schedaDmxPdf(doc), true);
+  const tx = doc.testi.map((r) => r.t), tutto = tx.join("\n");
+  ok(/STAGE PLOT — Cavi DMX/.test(tutto), "testata"); ok(tx.includes("Concerto di prova"), "titolo del progetto");
+  ok(tx.includes("1 linea · 6 apparecchi · 6 cavi · totale " + A.docNum(A.dmxLinee().tratteTutte ? 0 : A.dmxLinee().linee[0].lenM, 1) + " m") || tx.some((x) => /^1 linea · 6 apparecchi · 6 cavi · totale [\d,]+ m$/.test(x)), "riepilogo: " + tx.slice(3, 8).join(" | "));
+  ok(tx.some((x) => /^Cavo: DMX da 110-120 ohm schermato, non microfonico\.$/.test(x)), "il cavo");
+  ok(tx.some((x) => /^Terminatori da 120 ohm: 1$/.test(x)), "terminatori"); ok(tx.some((x) => /^Cavi per taglio: .*×? ?\d+× \d+ m/.test(x) || /^Cavi per taglio: \d+× \d+ m/.test(x)), "cavi per taglio: " + tx.find((x) => /Cavi per taglio/.test(x)));
+  ["N.", "DA", "A", "LUNGHEZZA", "TAGLIO"].forEach((h) => ok(tx.includes(h), "colonna " + h));
+  ok(tx.some((x) => /^Linea U1 · 6 apparecchi · [\d,]+ m$/.test(x)), "sezione della linea: " + tx.filter((x) => /^Linea/.test(x)).join("|"));
+  const riga = (n) => { const r = doc.testi.find((x) => x.t === String(n) && x.x < 20); return doc.testi.filter((x) => x.p === r.p && x.y === r.y).map((x) => x.t); };
+  const r1 = riga(1), r6 = riga(6);
+  eq([r1[1], r1[2]], ["Console luci", "T1.1 · PAR blu"], "prima tratta: dalla console al primo PAR (col nome dell'utente)");
+  ok(/^\d+,\d m$/.test(r1[3]) && /^\d+ m$/.test(r1[4]), "lunghezza e taglio: " + r1.join("|"));
+  ok(!/terminatore/.test(r6[2]) && r6.length === 5, "rilettura 243 (D2): il nome dell'ultima tratta resta intero, senza la nota: " + r6.join("|"));
+  { const n6 = doc.testi.find((x) => x.t === "terminatore 120 ohm"), r6y = doc.testi.find((x) => x.t === "6" && x.x < 20);
+    ok(n6 && n6.p === r6y.p && n6.y > r6y.y && n6.y - r6y.y < 6 && n6.x === 87, "il terminatore sta su una riga sua, sotto l'ultima tratta, nella colonna «A»"); }
+  ok(!/[Ω≤≥→“”’]/.test(tutto), "solo caratteri del font standard del PDF");
+  ok(doc.testi.every((r) => r.x >= 15.9 && r.y <= 272.01 && r.y >= 15), "nessun testo oltre i margini (15 mm) né sotto il fondo (272)");
+  ok(doc.testi.filter((r) => r.a !== "right").every((r) => r.x <= 194), "niente parte oltre il margine destro");
+  ok(doc.testi.filter((r) => r.a === "right").every((r) => r.x <= 195 && r.x >= 100), "e le colonne a destra (lunghezza, taglio) finiscono a 195 mm al massimo (15 mm dal bordo)");
+  ok(tx.some((x) => /Una linea DMX regge 32 apparecchi in catena, senza Y/.test(x)), "promemoria"); ok(!tx.some((x) => /Attenzione/.test(x)), "nessun avviso = nessuna nota di attenzione");
+  lnReset();
+});
+t("Linee DMX · foglio con splitter: i tronchi in testa, i rami con l'uscita, i terminatori che servono; con «terminano da sole» non si chiedono", () => {
+  const r = lnFoglio({ n: 40, ch: 1, splitter: true }); r.sp.label = "Splitter palco";
+  let doc = docFintoPL(); A.schedaDmxPdf(doc); let tx = doc.testi.map((x) => x.t);
+  ok(tx.includes("Dalla console agli splitter"), "sezione dei tronchi"); ok(tx.some((x) => /^Ramo U1·1 · 20 apparecchi · [\d,]+ m · da Splitter palco, uscita 1$/.test(x)), "ramo 1: " + tx.filter((x) => /^Ramo/.test(x)).join("|"));
+  ok(tx.some((x) => /^Ramo U1·2 .* uscita 2$/.test(x))); ok(tx.some((x) => /^Terminatori da 120 ohm: 2 · splitter: Splitter palco \(4 uscite\)$/.test(x)), "riepilogo: " + tx.find((x) => /^Terminatori/.test(x)));
+  eq(tx.filter((x) => /terminatore 120 ohm$/.test(x)).length, 2, "uno per ramo");
+  r.sp.dmxT = true; doc = docFintoPL(); A.schedaDmxPdf(doc); tx = doc.testi.map((x) => x.t);
+  ok(tx.some((x) => /^Terminatori da 120 ohm: 0 · splitter: Splitter palco \(4 uscite, terminano da sole\)$/.test(x)), "terminano da sole: " + tx.find((x) => /^Terminatori/.test(x)));
+  eq(tx.filter((x) => /terminatore 120 ohm$/.test(x)).length, 0, "e nessuna riga lo chiede");
+  lnReset();
+});
+t("Linee DMX · foglio con molte tratte: pagina nuova con l'intestazione delle colonne ripetuta, mai sotto il fondo né sopra i margini", () => {
+  lnScena(80, { ch: 4, passo: 25 });
+  const doc = docFintoPL(); A.schedaDmxPdf(doc);
+  ok(doc.pagine >= 2, "più pagine: " + doc.pagine); ok(doc.testi.every((r) => r.y <= 272.01), "niente oltre 272 mm: max " + Math.max(...doc.testi.map((r) => r.y)));
+  ok(doc.testi.filter((r) => r.p > 2).every((r) => r.y >= 22), "dalla seconda pagina del foglio niente sopra 22 mm");
+  ok(doc.testi.some((r) => r.p === 3 && /^DA \(segue\)$/.test(r.t)), "la testata delle colonne si ripete");
+  ok(doc.testi.filter((r) => /^\d+$/.test(r.t) && r.x < 20).length === 80, "80 tratte, una riga ciascuna");
+  lnReset();
+});
+t("Linee DMX · foglio in inglese e in piedi: titoli, colonne, note tradotti; nessuna parola italiana; le lunghezze in ft", () => {
+  lnFoglio({ n: 4 }); A.state.docLang = "en";
+  try {
+    let doc = docFintoPL(); A.schedaDmxPdf(doc); let tutto = doc.testi.map((r) => r.t).join("\n");
+    ok(/DMX cables/.test(tutto) && /1 line · 4 fixtures · 4 cables · total/.test(tutto) && /FROM/.test(tutto) && /LENGTH/.test(tutto) && /CUT/.test(tutto) && /120 ohm terminator/.test(tutto) && /Line U1 · 4 fixtures/.test(tutto), tutto.slice(0, 400));
+    ok(/Cables by length: /.test(tutto) && /Cable: shielded 110-120 ohm DMX cable, not a microphone cable\./.test(tutto) && /Length = drawn path/.test(tutto), "righe in inglese");
+    ok(!/Cavi DMX|Linea U|apparecch|LUNGHEZZA|TAGLIO|terminatore|Cavo:|Promemoria|Una linea DMX regge/.test(tutto), "nessun testo italiano: " + tutto.split("\n").filter((x) => /Cavi|apparecch|terminat/.test(x)).join("|"));
+    A.state.docUnits = "ft"; doc = docFintoPL(); A.schedaDmxPdf(doc); tutto = doc.testi.map((r) => r.t).join("\n");
+    ok(/\d+' ?\d*"?/.test(tutto) && /\d+ ft/.test(tutto), "in piedi: lunghezze in ft-in e tagli in ft: " + doc.testi.filter((r) => r.x > 150).map((r) => r.t).slice(0, 8).join("|"));
+  } finally { delete A.state.docLang; delete A.state.docUnits; }
+  lnReset();
+});
+t("Linee DMX · foglio: oltre 32 apparecchi lo dice, il cavo XLR dichiarato lo dice; senza linee o senza console non stampa niente", () => {
+  lnScena(33, { ch: 1 }); let doc = docFintoPL(); A.schedaDmxPdf(doc);
+  ok(doc.testi.some((r) => /^Attenzione: oltre 32 apparecchi su una linea\.$/.test(r.t)), "avviso nella sezione"); ok(doc.testi.some((r) => /ci sono avvisi sulle linee DMX \(vedi «Cosa manca\?»\)/.test(r.t)), "nota in fondo");
+  A.state.dmx.cavo = "xlr"; doc = docFintoPL(); A.schedaDmxPdf(doc); ok(doc.testi.some((r) => /^Cavo dichiarato: XLR microfonico/.test(r.t)), "cavo dichiarato");
+  A.dmxLineeAccendi(false); doc = docFintoPL(); eq([A.schedaDmxPdf(doc), A.schedaDmxDisponibile(), doc.pagine], [false, false, 1], "linee spente: niente, nemmeno una pagina vuota");
+  A.dmxLineeAccendi(true); A.state.items = A.state.items.filter((x) => x.type !== "consolaluci"); eq([A.schedaDmxPdf(docFintoPL()), A.schedaDmxDisponibile()], [false, false], "senza console: niente");
+  lnReset();
+});
+t("Linee DMX · Esporta e Pacchetto: la pillola e la voce ci sono solo con le linee accese, dopo la patch luci; gli altri documenti non cambiano", () => {
+  lnScena(4, { linee: false });
+  const senza = A.window.__pdfChiaviTecniche(); ok(senza.includes("patchluci") && !senza.includes("cavidmx"), "a linee spente la pillola non c'è");
+  A.dmxLineeAccendi(true); const con = A.window.__pdfChiaviTecniche();
+  ok(con.includes("cavidmx"), "a linee accese c'è"); ok(con.includes("view-cavi") && !senza.includes("view-cavi"), "e con lei la pagina «Tutti i cavi» (con un solo reparto di cavi: le linee non stanno in nessun layer)"); eq(con.filter((k) => k !== "cavidmx" && k !== "view-cavi"), senza, "le altre pagine sono quelle di prima, nello stesso ordine");
+  eq(A.PDF_TECH_ORDER.indexOf("cavidmx"), A.PDF_TECH_ORDER.indexOf("patchluci") + 1, "ordine unico: subito dopo la patch luci"); eq(new Set(A.PDF_TECH_ORDER).size, A.PDF_TECH_ORDER.length);
+  const nomi = (k) => A.pacchettoDocumenti(k, false, true, true).map((d) => d.chiave);
+  eq(nomi(["patchluci", "cavidmx"]), ["stageplot", "piantapalco", "piantaluci", "programmaluci", "patchluci", "cavidmx"], "nel pacchetto: subito dopo la patch luci");
+  eq(nomi(["patchluci"]), ["stageplot", "piantapalco", "piantaluci", "programmaluci", "patchluci"], "senza la pillola: identico a prima");
+  eq(A.pacchettoDocumenti(["cavidmx"], false, true, true).find((d) => d.chiave === "cavidmx").nome, "cavi dmx", "nome del file");
+  ok(/cavidmx:function\(\)\{ schedaDmxPdf\(doc\); \}/.test(A.pacchettoProduci.toString()), "pacchettoProduci sa produrlo");
+  ok(/cavidmx:function\(\)\{ schedaDmxPdf\(doc\); \}/.test(appjs.slice(appjs.indexOf("var STAMPA={"), appjs.indexOf("PDF_TECH_ORDER.forEach(function(k){ if(want(k)"))), "e il PDF completo pure");
+  eq(A.DOC_NOMI.cavidmx, "cavi dmx");
+  const h0 = A.impronteDocumenti(); ok(h0.cavidmx, "impronta del foglio, per «cambiato da vN»");
+  { const rr = A.dmxLinee().linee[0].righe; rr[rr.length - 1].it.x += 100; } const h1 = A.impronteDocumenti();
+  ok(h1.cavidmx !== h0.cavidmx, "cambia quando cambia una lunghezza"); eq(Object.keys(h1).filter((k) => k !== "cavidmx" && k !== "stageplot" && h1[k] !== h0[k]), [], "e nessun altro documento cambia (a parte il disegno del palco, che ha le posizioni)");
+  A.dmxLineeAccendi(false); ok(!("cavidmx" in A.impronteDocumenti()), "spente: l'impronta sparisce");
+  lnReset();
+});
+t("Linee DMX · pannello: un solo pulsante a linee spente, ogni gesto è un passo di Annulla, i campi nuovi solo dove servono; lo splitter ha la sua spunta", () => {
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/<div id="pDxLineeOff">[\s\S]*?<button type="button" class="btn" id="pDxLineeAttiva"[^>]*>Disegna le linee DMX<\/button>/.test(html), "a linee spente: spiegazione e un pulsante");
+  ok(/<div id="pDxLineeOn" style="display:none">/.test(html), "i campi partono nascosti");
+  ok(/<label class="chk" id="pDxTermWrap" style="display:none[^"]*"[^>]*><input type="checkbox" id="pDxTerm"> Terminatore da 120 Ω su questo apparecchio<\/label>/.test(html), "spunta del terminatore");
+  ok(/<select id="pDxCavo"><option value="dmx">Cavo DMX 110 Ω \(schermato\)<\/option><option value="xlr">XLR microfonico<\/option><\/select>/.test(html), "il cavo: DMX di serie");
+  ok(/<label class="chk" id="pDmxTermWrap" style="display:none[^"]*"[^>]*><input type="checkbox" id="pDmxTerm"> Le uscite terminano da sole<\/label>/.test(html), "spunta dello splitter, nascosta di serie");
+  ok(/tw\.style\.display=dmxLineeAttive\(\) \? "" : "none"/.test(appjs), "e compare solo a linee accese");
+  for (const id of ["pDxLineeAttiva", "pDxLineeSpegni", "pDxTerm", "pDxCavo"]) ok(new RegExp('getElementById\\("' + id + '"\\)\\.addEventListener\\("(click|change)", function\\(\\)\\{\\s*(var [^;]*;\\s*)?dmxGesto\\(').test(appjs), id + ": passa da dmxGesto (un passo di Annulla, salva, ridisegna)");
+  ok(/getElementById\("pDmxTerm"\)\.addEventListener\("change", function\(\)\{[^}]*mutSel\(function\(it\)\{ if\(it\.type!=="dmxsplit"\) return;/.test(appjs), "la spunta dello splitter passa da mutSel (Annulla)");
+  ok(/body:not\(\.f-opzioni\) #selProps \.pgrp\[data-grp="dmx"\]\{display:none !important\}/.test(stylesCss), "tutto il blocco sta nel gruppo «DMX», dietro «Opzioni complete»");
+  ok(/\.dmx-term\{[^}]*stroke:#db2777/.test(stylesCss), "il segno del terminatore ha il suo colore");
+  ok(/dmxLineeRenderPannello\(it, senza\);/.test(appjs), "il pannello si riscrive con i dati della linea");
+});
+
 await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
