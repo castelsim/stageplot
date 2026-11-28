@@ -44539,6 +44539,17 @@ t("Altezza appesi D4 · corrente: altezza del trim e altezza del faro, caduta di
   (R.feeds || []).forEach((f) => ok(!f.salitaM && Math.abs(f.lenM - (f.pathM * 1.1 + 0.6)) < 1e-9, "feed: solo pianta"));
   reset();
 });
+t("Altezza appesi D4 · corrente: dimmer a terra → ognuno dei PAR appesi sale; la linea principale (feed) esiste e non sale (i distro non si appendono)", () => {
+  reset(); const tr = add("truss", 520, 300, { w: 400 }), dim = add("dimmerluci", 520, 600), gen = add("gen20", 100, 700);
+  const a = add("parluci", 420, 300), b = add("parluci", 620, 300); [a, b].forEach((f) => A.mountSet(f, { mode: "hung" }));
+  ok(!A.isMountable(dim) && !A.isMountable(gen), "dimmer e generatore non si appendono: restano a terra");
+  A.state.elec.on = true; A.state.elec.mode = "auto"; A.__elecRes = null; const R = A.elecResult(true);
+  const alDim = R.loadLinks.filter((l) => l.distro.it && l.distro.it.id === dim.id); eq(alDim.length, 2, "i due PAR sono al dimmer");
+  eq(alDim.map((l) => l.salitaM), [4, 4], "dimmer a terra → PAR appeso a 4 m: sale");
+  ok(R.feeds.length > 0, "la linea principale c'è (generatore sul palco)"); eq(R.feeds.map((f) => f.salitaM), R.feeds.map(() => 0), "feed: solo pianta");
+  ok(R.feeds.every((f) => Math.abs(f.lenM - (f.pathM * 1.1 + 0.6)) < 1e-9), "e la lunghezza è quella di sempre");
+  reset();
+});
 t("Altezza appesi D4 · due PAR appesi alla stessa americana alimentati dalla stessa ciabatta appesa: solo pianta; ciabatta a terra: ognuno sale", () => {
   reset(); const tr = add("truss", 520, 300, { w: 400 }); const a = add("parluci", 420, 300), b = add("parluci", 620, 300), q = add("distro32", 100, 300);
   [a, b].forEach((f) => A.mountSet(f, { mode: "hung" })); A.state.elec.on = true; A.state.elec.mode = "auto"; A.__elecRes = null;
@@ -44582,7 +44593,7 @@ function docFintoFont() {   /* come docFintoPL, ma la larghezza del testo dipend
   return d;
 }
 t("Linee DMX · O1: la colonna «A» si misura col corpo giusto (9,5 pt): con lunghezze lunghe (oltre 100 m, ft-in, EN) il nome non tocca mai la lunghezza", () => {
-  const nomeLungo = "Robe Robin MegaPointe Spot Wash Beam Extra Lungo Fantasia";
+  const nomeLungo = "a b c d e f g h i j k l m n o p q r s t u v w x y z a b c d e f g h i j";   /* parole da una lettera: il nome si taglia quasi al millimetro e la colonna si riempie fino in fondo (il jsPDF finto taglia sulle parole) */
   const prova = (etichetta, lingua, unita) => {
     lnReset(); const r = lnScena(6, { ch: 4, passo: 9000, linee: false }); r.fari.forEach((f, i) => { f.label = nomeLungo + " " + i; }); A.dmxLineeAccendi(true);
     if (lingua) A.state.docLang = lingua; if (unita) A.state.docUnits = unita;   /* DOPO la scena: lnReset azzera lo stato */
@@ -44592,9 +44603,8 @@ t("Linee DMX · O1: la colonna «A» si misura col corpo giusto (9,5 pt): con lu
     ok(lung.length === 6, etichetta + ": 6 lunghezze (" + lung.length + ")");
     for (const l of lung) {
       const nome = doc.testi.find((x) => x.p === l.p && x.y === l.y && x.x === 87); ok(nome, etichetta + ": nome sulla stessa riga");
-      const fine = nome.x + doc.getTextWidth.call(null, nome.t) * nome.fs / doc.testi[0].fs;
       const w = (r) => String(r.t).length * 1.6 * r.fs / 9.5, inizio = l.x - w(l);
-      ok(nome.x + w(nome) < inizio - 2, etichetta + ": «" + nome.t.slice(0, 20) + "…» finisce a " + (nome.x + w(nome)).toFixed(1) + " mm, la lunghezza «" + l.t + "» comincia a " + inizio.toFixed(1));
+      ok(nome.x + w(nome) <= inizio - 2.9, etichetta + ": «" + nome.t.slice(0, 20) + "…» finisce a " + (nome.x + w(nome)).toFixed(1) + " mm, la lunghezza «" + l.t + "» comincia a " + inizio.toFixed(1));
     }
   };
   try { prova("italiano"); prova("inglese", "en"); prova("inglese ft-in", "en", "ft"); } finally { delete A.state.docLang; delete A.state.docUnits; }
