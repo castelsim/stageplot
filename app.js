@@ -8244,7 +8244,8 @@ function dmxUsaPerTutti(it){
      sole», e allora i suoi rami non chiedono il terminatore. Senza il campo si chiede (è il guasto più comune: fonti F4, F7).
    · TERMINATORE 120 Ω: `it.dmx.t===true` sull'ULTIMO apparecchio di ogni linea o ramo; a metà linea è un errore.
    · cavo: `state.dmx.cavo==="xlr"` = cavo microfonico XLR dichiarato (di serie il cavo DMX da 110 Ω); oltre 15 m è un avviso (F5).
-   · lunghezza: Σ delle tratte DISEGNATE, con la funzione dei cavi audio e di corrente (Manhattan del percorso × 1,10 + 0,6 m, poi il taglio);
+   · lunghezza: Σ delle tratte DISEGNATE, con la funzione dei cavi audio e di corrente (Manhattan del percorso × 1,10 + 0,6 m, poi il taglio),
+     più la salita/discesa dei fari appesi (D4, 28/11: cabSalitaM);
      la tratta è un cavo vero, con la sua scorta. Giallo oltre 150 m, rosso oltre 300 m (F2: ~300 m pianificabili).
    Pura: `dmxLinee()` non scrive niente. Regole e fonti: analisi/2026-11-24_STUDIO_CABLAGGI/fonti/DMX.md (fuori dal repo). */
 var DMX_LINEA_GIALLO_M=150, DMX_LINEA_ROSSO_M=300, DMX_XLR_MAX_M=15;
@@ -8256,21 +8257,44 @@ function dmxConsole(){ var L=(state.items||[]).filter(function(x){ return LIGHT_
 /* console luci che ci sono ma stanno solo dentro un rack: le linee non partono da lì (le voci lo dicono, non dicono «non c'è») */
 function dmxConsoleInRack(){ return (state.items||[]).some(function(x){ return LIGHT_DESKS[x.type] && x.rackId; }); }
 function dmxSplitterList(){ return (state.items||[]).filter(function(x){ return x.type==="dmxsplit"; }).sort(dmxOrdXY); }
-/* catena a vicino più vicino da `da` (distanza Manhattan, come i cavi): a parità vince chi viene prima nella patch */
+/* catena a vicino più vicino da `da` (distanza Manhattan, come i cavi): a parità vince chi viene prima nella patch.
+   D2 (28/11): un GRUPPO alla volta, perché la lunghezza ora comprende la salita: struttura · fila di appesi senza struttura (stessa altezza, |Δy| ≤ 50 cm) · a terra/stativo.
+   Si entra nel gruppo col faro più vicino e lo si percorre tutto, sempre dal più vicino, poi si passa al gruppo del faro più vicino fra quelli rimasti:
+   il tecnico finisce un'americana prima di passare alla successiva, e non si paga discesa + risalita a ogni salto fra americane e terra. */
+function dmxGruppiChiavi(righe){
+  var key={}, fila={};
+  righe.forEach(function(r){
+    var it=r.it, s=hangSupportOf(it);
+    if(s){ key[it.id]="S"+s.id; return; }
+    var z=cabQuotaCm(it);
+    if(z && mountModeOf(it)==="hung"){ (fila[z]=fila[z]||[]).push(it); return; }
+    key[it.id]="F";   /* a terra o su stativo */
+  });
+  Object.keys(fila).forEach(function(z){
+    var l=fila[z].slice().sort(function(a, b){ return ((a.y||0)-(b.y||0)) || dmxOrdXY(a, b); }), g=0, y0=null;
+    l.forEach(function(it){ if(y0==null || (it.y||0)-y0>CAB_FILA_CM){ g++; y0=it.y||0; } key[it.id]="H"+z+":"+g; });
+  });
+  return key;
+}
 function dmxOrdina(da, righe){
-  var left=righe.slice(), cx=da.x, cy=da.y, out=[];
-  while(left.length){
+  var left=righe.slice(), cx=da.x, cy=da.y, out=[], key=dmxGruppiChiavi(righe);
+  function piuVicino(l){
     var bi=0, bd=Infinity;
-    for(var i=0;i<left.length;i++){ var d=Math.abs(left[i].it.x-cx)+Math.abs(left[i].it.y-cy); if(d<bd-1e-9){ bd=d; bi=i; } }
-    var r=left.splice(bi, 1)[0]; out.push(r); cx=r.it.x; cy=r.it.y;
+    for(var i=0;i<l.length;i++){ var d=Math.abs(l[i].it.x-cx)+Math.abs(l[i].it.y-cy); if(d<bd-1e-9){ bd=d; bi=i; } }
+    return bi;
+  }
+  while(left.length){
+    var k=key[left[piuVicino(left)].it.id], grp=left.filter(function(r){ return key[r.it.id]===k; });
+    left=left.filter(function(r){ return key[r.it.id]!==k; });
+    while(grp.length){ var r=grp.splice(piuVicino(grp), 1)[0]; out.push(r); cx=r.it.x; cy=r.it.y; }
   }
   return out;
 }
 /* una tratta = un cavo vero fra due capi: percorso e lunghezza dalla stessa funzione che li disegna (_cabDisegnata ↔ cabRoutePts) */
 function dmxTratta(da, a, OBS){
   var pts=[[Math.round(da.x), Math.round(da.y)], [Math.round(a.x), Math.round(a.y)]], ex={}; ex[da.id]=1; ex[a.id]=1;
-  var cm=_cabDisegnata(pts, OBS, ex), lenM=cabLenFinale(cm);
-  return {da:da, a:a, pts:pts, ex:ex, pathM:cm/100, lenM:lenM, cut:cabCut(lenM)};
+  var cm=_cabDisegnata(pts, OBS, ex), salita=cabSalitaM(da, a), lenM=cabLenFinale(cm, salita);   /* D4: + salita/discesa dei fari appesi */
+  return {da:da, a:a, pts:pts, ex:ex, pathM:cm/100, salitaM:salita, lenM:lenM, cut:cabCut(lenM)};
 }
 /* → {on, senzaConsole, cavoXlr, tronchi:[tratta + u], splitter:[{it, universi, uscite, perUniverso, termInterna}],
       linee:[{key, nome, u, ramo, sp, tronco, righe, tratte, n, lenM, ultimo, term, termInterna, termMezzo:[riga]}]}
@@ -8532,16 +8556,20 @@ function schedaDmxPdf(doc){
     y+=3;
   }
   D.linee.forEach(function(Lx){
-    var testa=(Lx.sp ? L("Ramo","Branch") : L("Linea","Line"))+" "+Lx.nome+" · "+Lx.n+" "+L(Lx.n===1?"apparecchio":"apparecchi", Lx.n===1?"fixture":"fixtures")+" · "+lung(Lx.lenM)
-      +(Lx.sp ? " · "+L("da","from")+" "+docTesto(dmxNome(Lx.sp))+(Lx.ramo ? ", "+L("uscita","output")+" "+Lx.ramo : "") : "");
+    var capo=(Lx.sp ? L("Ramo","Branch") : L("Linea","Line"))+" "+Lx.nome+" · "+Lx.n+" "+L(Lx.n===1?"apparecchio":"apparecchi", Lx.n===1?"fixture":"fixtures")+" · "+lung(Lx.lenM)
+      +(Lx.sp ? " · "+L("da","from")+" " : ""), nomeSp=Lx.sp ? docTesto(dmxNome(Lx.sp)) : "", coda=(Lx.sp && Lx.ramo) ? ", "+L("uscita","output")+" "+Lx.ramo : "";
     if(y+22>FONDO) nuova();
-    doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor("#9d174d"); doc.text(doc.splitTextToSize(testa, R-M)[0], M, y); y+=5.5;
+    doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor("#9d174d");
+    /* O2 (28/11): se la riga non sta si accorcia il NOME dello splitter, mai «, uscita N» in fondo (prima splitTextToSize(...)[0] la perdeva) */
+    if(nomeSp && doc.getTextWidth(capo+nomeSp+coda)>R-M){ while(nomeSp.length>1 && doc.getTextWidth(capo+nomeSp+"…"+coda)>R-M) nomeSp=nomeSp.slice(0, -1); nomeSp+="…"; }
+    var testa=capo+nomeSp+coda;
+    doc.text(doc.splitTextToSize(testa, R-M)[0], M, y); y+=5.5;
     COLONNE(false);
     Lx.tratte.forEach(function(t, i){ tratta(i+1, t, (i===Lx.tratte.length-1 && !Lx.termInterna) ? L("terminatore 120 ohm","120 ohm terminator") : "", false); });
     if(Lx.n>DMX_LINEA_MAX){ doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor("#b45309"); doc.text(L("Attenzione: oltre "+DMX_LINEA_MAX+" apparecchi su una linea.","Warning: more than "+DMX_LINEA_MAX+" fixtures on one line."), cDa, y); y+=4.6; }
     y+=3;
   });
-  var note=[L("Lunghezza = percorso disegnato × 1,10 + 0,6 m di scorta per cavo; il taglio è il più vicino sopra"+(docUnita()==="ft" ? "." : " (3, 5, 10, 15, 20, 30, 50 m)."),"Length = drawn path × 1.10 + 0.6 m slack per cable; the cut is the nearest size above"+(docUnita()==="ft" ? "." : " (3, 5, 10, 15, 20, 30, 50 m)."))];
+  var note=[L("Lunghezza = percorso disegnato × 1,10 + 0,6 m di scorta per cavo, più la salita agli apparecchi appesi o su stativo (altezza dichiarata; appesi senza altezza: 4 m di serie; fra americane diverse, discesa e risalita); il taglio è il più vicino sopra"+(docUnita()==="ft" ? "." : " (3, 5, 10, 15, 20, 30, 50 m)."),"Length = drawn path × 1.10 + 0.6 m slack per cable, plus the rise to hung or stand-mounted fixtures (declared height; hung without one: 4 m by default; between different trusses, down and up again); the cut is the nearest size above"+(docUnita()==="ft" ? "." : " (3, 5, 10, 15, 20, 30, 50 m)."))];
   note.push(L("Una linea DMX regge "+DMX_LINEA_MAX+" apparecchi in catena, senza Y; terminatore da 120 ohm sull'ultimo apparecchio di ogni linea o ramo; connettori XLR a 5 poli (3 poli solo se l'apparecchio lo prevede).","One DMX line carries "+DMX_LINEA_MAX+" fixtures in a daisy chain, no Y splits; 120 ohm terminator on the last fixture of every line or branch; 5-pin XLR connectors (3-pin only if the fixture needs it)."));
   var av=0; try{ av=cosaMancaDmxLinee().length; }catch(_e){ av=0; }
   if(av) note.push(L("Attenzione: ci sono avvisi sulle linee DMX (vedi «Cosa manca?»).","Warning: there are notes on the DMX lines (see the \"What is missing?\" panel)."));
@@ -17411,6 +17439,37 @@ var MIC_REACH=2;   /* metri */
    più MIC_REACH dove il cavo arriva a un microfono su asta; poi arrotondata al taglio commerciale. Una funzione sola per tutti i cavi (segnale, ritorni, multicore, corrente). */
 var CAB_LEN_K=1.10, CAB_LEN_SCORTA=0.6;
 function cabLenFinale(pathCm, extraM){ return pathCm/100*CAB_LEN_K+CAB_LEN_SCORTA+(extraM||0); }
+/* D4 (28/11/2026) — ALTEZZA DEGLI APPESI nelle lunghezze, solo per i cavi DMX e di corrente (l'audio ha già i suoi 2 m al microfono).
+   Il percorso disegnato è in PIANTA: un faro appeso a 4 m ha bisogno di quei 4 m di cavo in più, che il disegno non mostra. Regola:
+   · apparecchio appeso ↔ pavimento (console, distro, splitter, faro a terra o su stativo) = la sua altezza di montaggio, una volta;
+   · due appesi alla STESSA americana/truss = niente (il cavo corre lungo la struttura: solo pianta);
+   · due appesi a strutture DIVERSE (o senza struttura sotto: non si sa se sono sulla stessa barra) = discesa + risalita (somma delle due);
+   · due appesi SENZA struttura sotto, alla stessa altezza e nella stessa fila (|Δy| ≤ 50 cm) = la stessa barra, non disegnata (è il caso più comune nei progetti
+     veri: americane del teatro non disegnate): niente salita, come sulla stessa americana (correzione D1 della rilettura);
+   · un faro su stativo conta la sua altezza come un appeso (salita dal pavimento all'altezza scritta sul faro/stativo); se l'altezza non c'è, niente salita
+     (decisione della regia 28/11, Simone può cambiarla); due stativi = giù e su.
+   L'altezza è il TRIM dell'americana/truss a cui il faro è appeso (`rig.h`: il cavo sale lungo la struttura), altrimenti l'altezza scritta sul faro
+   (campo Montaggio), altrimenti MOUNT_H_DEF.hung (4 m, il «Appeso» di serie del pannello Montaggio): niente viene scritto nel progetto, i file
+   vecchi restano identici. Entra in cabLenFinale come `extraM`: il 10 % di margine vale per il percorso in pianta, non per la salita. */
+var CAB_FILA_CM=50;   /* due appesi senza struttura entro 50 cm in profondità = la stessa fila (la stessa barra) */
+function cabQuotaCm(it){
+  if(!it || !isMountable(it)) return 0;
+  var mo=mountModeOf(it);
+  if(mo==="stand") return (it.mount && it.mount.h!=null && isFinite(+it.mount.h)) ? mountHOf(it) : 0;   /* stativo: solo l'altezza scritta */
+  if(mo!=="hung") return 0;
+  var st=hangSupportOf(it), r=st ? rigOf(st) : null, h=r ? rigHPulita(r.h) : 0;
+  return h || mountHOf(it);   /* trim della struttura → altezza del faro (scritta, o i 4 m di serie di mountHOf) */
+}
+function cabSalitaM(a, b){
+  var za=cabQuotaCm(a), zb=cabQuotaCm(b);
+  if(za && zb){
+    var sa=hangSupportOf(a), sb=hangSupportOf(b);
+    if(sa || sb) return sa===sb ? 0 : (za+zb)/100;   /* stessa struttura: solo pianta; strutture diverse, o una sola con struttura: giù e su */
+    if(mountModeOf(a)==="hung" && mountModeOf(b)==="hung" && za===zb && Math.abs((a.y||0)-(b.y||0))<=CAB_FILA_CM) return 0;   /* senza struttura, stessa altezza, stessa fila = stessa barra */
+    return (za+zb)/100;
+  }
+  return (za||zb)/100;
+}
 /* tagli del multicore / del cavo di rete (m): i multicore di service si vendono a tagli più lunghi dell'XLR; oltre 100 m = rete o fibra (R17-R18) */
 var CAB_MC_CUTS=[10,15,20,30,40,50,60,80,100];
 function cabCutMc(m){ for(var i=0;i<CAB_MC_CUTS.length;i++){ if(CAB_MC_CUTS[i]>=m-1e-9) return CAB_MC_CUTS[i]; } return null; }
@@ -17773,11 +17832,11 @@ function cabAllineaLunghezze(links, returnLinks, snakes){
 function elecAllineaLunghezze(loadLinks, uplinks, feeds){
   var orto=!!(state.cab && state.cab.on && cabRouteMode()==="orto"), OBS=orto?obstacleRects():null;
   (loadLinks||[]).forEach(function(l){ var ex={}; if(l.load&&l.load.it) ex[l.load.it.id]=1; if(l.distro&&l.distro.it) ex[l.distro.it.id]=1;
-    var cm=_cabDisegnata(l.pts, OBS, ex, "pwr"); l.pathM=cm/100; l.lenM=cabLenFinale(cm); l.cut=cabCut(l.lenM); });
+    var cm=_cabDisegnata(l.pts, OBS, ex, "pwr"); l.pathM=cm/100; l.salitaM=cabSalitaM(l.distro&&l.distro.it, l.load&&l.load.it); l.lenM=cabLenFinale(cm, l.salitaM); l.cut=cabCut(l.lenM); });   /* D4: + salita dei carichi appesi */
   (uplinks||[]).forEach(function(u){ var ex={}; if(u.from&&u.from.it) ex[u.from.it.id]=1; if(u.to&&u.to.it) ex[u.to.it.id]=1;
-    var cm=_cabDisegnata(u.pts, OBS, ex, "pwr"); u.pathM=cm/100; u.lenM=cabLenFinale(cm); u.cut=cabCut(u.lenM); });
+    var cm=_cabDisegnata(u.pts, OBS, ex, "pwr"); u.pathM=cm/100; u.salitaM=cabSalitaM(u.from&&u.from.it, u.to&&u.to.it); u.lenM=cabLenFinale(cm, u.salitaM); u.cut=cabCut(u.lenM); });
   (feeds||[]).forEach(function(f){ var ex={}; if(f.distro&&f.distro.it) ex[f.distro.it.id]=1;
-    var cm=_cabDisegnata(f.pts||[[f.x1,f.y1],[f.x2,f.y2]], OBS, ex, "pwr"); f.pathM=cm/100; f.lenM=cabLenFinale(cm); f.cut=cabCut(f.lenM); });
+    var cm=_cabDisegnata(f.pts||[[f.x1,f.y1],[f.x2,f.y2]], OBS, ex, "pwr"); f.pathM=cm/100; f.salitaM=cabSalitaM(f.distro&&f.distro.it, null); f.lenM=cabLenFinale(cm, f.salitaM); f.cut=cabCut(f.lenM); });
 }
 /* L6 — «cavi per taglio»: quanti XLR da 5 m, da 10 m…, i multicore/le reti, i cavi di corrente. Una fonte sola per il pannello Stato e per il PDF del cablaggio
    (la stessa che ha già i tagli dell'audit): si legge da cabResult()/elecResult(), che si riusano se lo stato non cambia → nessun ricalcolo a ogni ridisegno. */
@@ -42319,8 +42378,8 @@ function elecDropBloccoPdf(doc, R, M, getY, setY){
   var incompleto=T.some(function(x){ return x.d.pct!=null && x.d.completo===false; });
   doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor("#6b7280");
   var nota=doc.splitTextToSize(en
-    ? "Calculation: copper, power factor 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (conservative values: about +/-3,5 % from the CEI UNEL tables). Limit 4 % from the supply point to the load (CEI 64-8), yellow above 3 %. Current (A) = estimated connected load on the most loaded phase, not the board rating; loads still to be connected and loads without power are left out; three-phase boards with single-phase loads: neutral included. \u2020 = size estimated from the current (1,5 mm2 up to 16 A, 4 mm2 up to 32 A): load cables have no size written in the project."+(incompleto?" ° = run up to "+elecDropQuadriTesta(T,true)+": the run from the supply is not calculated (supply not set or manual mode).":"")+" Estimate: to be verified by the designer."
-    : "Calcolo: rame, fattore di potenza 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (valori prudenti: scarto di circa ±3,5 % dalle tabelle CEI UNEL). Limite 4 % dal punto di consegna al carico (CEI 64-8), giallo oltre il 3 %. Corrente (A) = carico stimato collegato sulla fase più carica, non la portata del quadro; esclusi i carichi da collegare e quelli senza potenza; quadri trifase con carichi monofase: neutro compreso. \u2020 = sezione stimata dalla corrente (1,5 mm² fino a 16 A, 4 mm² fino a 32 A): i cavi dei carichi non hanno una sezione scritta nel progetto."+(incompleto?" ° = percorso fino "+elecDropQuadriTesta(T,false)+": tratta dall'ingresso non calcolata (ingresso non definito o modalità manuale).":"")+" Stima: la verifica spetta al progettista.", 176);
+    ? "Calculation: copper, power factor 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (conservative values: about +/-3,5 % from the CEI UNEL tables). Limit 4 % from the supply point to the load (CEI 64-8), yellow above 3 %. m = cable length"+(docUnita()==="ft" ? " in metres" : "")+": drawn path × 1.10 + 0.6 m slack, plus the rise to hung or stand-mounted fixtures (declared height; hung without one: 4 m by default). Current (A) = estimated connected load on the most loaded phase, not the board rating; loads still to be connected and loads without power are left out; three-phase boards with single-phase loads: neutral included. \u2020 = size estimated from the current (1,5 mm2 up to 16 A, 4 mm2 up to 32 A): load cables have no size written in the project."+(incompleto?" ° = run up to "+elecDropQuadriTesta(T,true)+": the run from the supply is not calculated (supply not set or manual mode).":"")+" Estimate: to be verified by the designer."
+    : "Calcolo: rame, fattore di potenza 0,9, R = 25/S ohm/km, X = 0,1 ohm/km (valori prudenti: scarto di circa ±3,5 % dalle tabelle CEI UNEL). Limite 4 % dal punto di consegna al carico (CEI 64-8), giallo oltre il 3 %. m = lunghezza del cavo: percorso disegnato × 1,10 + 0,6 m di scorta, più la salita agli apparecchi appesi o su stativo (altezza dichiarata; appesi senza altezza: 4 m di serie). Corrente (A) = carico stimato collegato sulla fase più carica, non la portata del quadro; esclusi i carichi da collegare e quelli senza potenza; quadri trifase con carichi monofase: neutro compreso. \u2020 = sezione stimata dalla corrente (1,5 mm² fino a 16 A, 4 mm² fino a 32 A): i cavi dei carichi non hanno una sezione scritta nel progetto."+(incompleto?" ° = percorso fino "+elecDropQuadriTesta(T,false)+": tratta dall'ingresso non calcolata (ingresso non definito o modalità manuale).":"")+" Stima: la verifica spetta al progettista.", 176);
   if(y+nota.length*3.4>280){ doc.addPage(); y=22; }
   doc.text(nota, M, y); y+=nota.length*3.4+2;
   setY(y);
