@@ -44641,6 +44641,18 @@ t("Altezza appesi D4 · D2: la catena DMX percorre un gruppo alla volta (struttu
   eq(corse(L), distinti, "ogni gruppo (2 americane + terra) è percorso in una sola corsa: " + gs.join(" "));
   lnReset();
 });
+t("Altezza appesi D4 · D2: appesi senza struttura = una fila alla volta (file a 60 cm con fari alternati; stessa y ma altezze diverse = barre diverse, ognuna percorsa per intero)", () => {
+  lnReset(); const desk = add("consolaluci", 100, 700);
+  [[300, 200], [400, 260], [500, 200], [600, 260], [700, 200], [800, 260]].forEach(([x, y]) => d4Appeso(x, y)); A.dmxAccendi(true); A.dmxLineeAccendi(true);
+  let L = A.dmxLinee().linee[0]; eq(L.tratte.map((t) => t.salitaM), [4, 0, 0, 8, 0, 0], "due file a 60 cm (diverse: Δy > 50): prima tutta la fila davanti (200), poi quella dietro (260): un solo giù e su");
+  eq(L.righe.map((r) => r.it.y), [200, 200, 200, 260, 260, 260], "l'ordine è per fila, non a zig-zag");
+  lnReset(); add("consolaluci", 100, 700);
+  [[300, 200, 400], [400, 200, 500], [500, 200, 400], [600, 200, 500], [700, 200, 400], [800, 200, 500]].forEach(([x, y, h]) => d4Appeso(x, y, { h })); A.dmxAccendi(true); A.dmxLineeAccendi(true);
+  L = A.dmxLinee().linee[0];
+  eq(L.righe.map((r) => A.cabQuotaCm(r.it)), [400, 400, 400, 500, 500, 500], "stessa y, altezze diverse (4 m e 5 m): prima tutte le barre a 4 m, poi quelle a 5 m");
+  eq(L.tratte.map((t) => t.salitaM), [4, 0, 0, 9, 0, 0], "un solo passaggio fra le due barre (4 + 5 = 9 m)");
+  lnReset();
+});
 t("Altezza appesi D4 · D2: senza altezze (tutto a terra) l'ordine è quello di sempre (vicino più vicino, a parità la patch)", () => {
   lnReset(); const desk = add("consolaluci", 100, 700); const p = [add("parluci", 600, 300), add("parluci", 200, 600), add("parluci", 400, 450)]; p.forEach((f) => A.dmxImposta(f, { ch: 4 }));
   A.dmxAccendi(true); A.dmxLineeAccendi(true);
