@@ -44122,7 +44122,7 @@ t("Linee DMX · lunghezza: giallo oltre 150 m, rosso oltre 300 m; il cavo XLR di
   eq(lnVoci("dmx-xlr").length, 0, "cavo DMX di serie: niente avviso XLR");
   A.state.dmx.cavo = "xlr"; eq(A.dmxCavoXlr(), true); v = lnVoci("dmx-xlr"); eq(v.length, 1, "XLR dichiarato e linea oltre 15 m"); eq(v[0].azioni.map((a) => a.label), ["Sistema"]);
   v[0].azioni[0].run(); eq([A.state.dmx.cavo, lnVoci("dmx-xlr").length], [undefined, 0], "«Sistema» torna al cavo DMX da 110 Ω");
-  const brevi = lnScena(3, { ch: 4 }); A.state.dmx.cavo = "xlr"; eq(lnVoci("dmx-xlr").length, 0, "XLR su una linea corta (< 15 m): va bene");
+  const brevi = lnScena(3, { ch: 4 }); brevi.desk.y = 150; A.state.dmx.cavo = "xlr"; eq(lnVoci("dmx-xlr").length, 0, "XLR su una linea corta (< 15 m, console vicina ai PAR appesi: la salita di 4 m conta, D4): va bene");
   const medie = lnScena(3, { ch: 4, passo: 1500 }); A.state.dmx.cavo = "xlr"; const Lm = A.dmxLinee().linee[0];
   ok(Lm.lenM > 15 && Lm.lenM < 100, "linea media: " + Lm.lenM.toFixed(1) + " m"); const vm = lnVoci("dmx-xlr");
   eq(vm.length, 1, "XLR dichiarato su una linea di " + Math.round(Lm.lenM) + " m (oltre 15, ben sotto i 150 di un cavo DMX): l'avviso c'è"); eq(lnVoci("dmx-lunga").length, 0, "e la linea non è «lunga»: è il cavo, non la lunghezza");
@@ -44227,9 +44227,11 @@ t("Linee DMX · 120 apparecchi: la costruzione resta veloce e deterministica", (
 /* ═══ Correzioni della rilettura Opus della #243 (28/11/2026): D2 foglio, D3 testi, D5 console in rack, D6 mutazioni vive, D7 rami ═══ */
 t("Linee DMX · D2: nel foglio «Cavi DMX» il nome dell'apparecchio non arriva mai sulla lunghezza (nomi lunghissimi, terminatore, EN, ft-in)", () => {
   const nomeLungo = "Robe Robin MegaPointe Spot Wash Beam Extra Lungo Fantasia";
-  const prova = (etichetta) => {
+  const prova = (etichetta, lingua, unita) => {
     const r = lnFoglio({ n: 6 }); r.fari.forEach((f, i) => { f.label = nomeLungo + " " + i; });
+    if (lingua) A.state.docLang = lingua; if (unita) A.state.docUnits = unita;   /* DOPO la scena: lnFoglio → lnReset azzera lo stato, e l'inglese era in realtà italiano (O1) */
     const doc = docFintoPL(); A.schedaDmxPdf(doc);
+    ok(doc.testi.some((x) => x.t === (lingua === "en" ? "120 ohm terminator" : "terminatore 120 ohm")), etichetta + ": la lingua del foglio è davvero quella");
     const lung = doc.testi.filter((x) => x.a === "right" && x.x > 150 && x.x < 170 && /\d/.test(x.t));
     ok(lung.length === 6, etichetta + ": 6 lunghezze (" + lung.length + ")");
     for (const l of lung) {
@@ -44245,8 +44247,7 @@ t("Linee DMX · D2: nel foglio «Cavi DMX» il nome dell'apparecchio non arriva 
     ok(doc.testi.every((x) => x.y <= 272.01), etichetta + ": niente sotto il fondo");
     lnReset();
   };
-  prova("italiano");
-  A.state.docLang = "en"; try { prova("inglese"); A.state.docUnits = "ft"; prova("inglese ft-in"); } finally { delete A.state.docLang; delete A.state.docUnits; }
+  try { prova("italiano"); prova("inglese", "en"); prova("inglese ft-in", "en", "ft"); } finally { delete A.state.docLang; delete A.state.docUnits; }
 });
 t("Linee DMX · D2: la nota del terminatore non sporge dal fondo pagina (ultima tratta sul bordo → pagina nuova con l'intestazione)", () => {
   lnScena(60, { ch: 4, passo: 25 });
@@ -44316,7 +44317,7 @@ t("Linee DMX · D7: ogni ramo dello splitter parte dal SUO apparecchio più vici
   eq(D.linee[0].righe.map((x) => x.it.id), g1.map((f) => f.id), "ramo 1 = la fila vicina, dal più vicino");
   eq(D.linee[1].righe.map((x) => x.it.id).sort(), g2.map((f) => f.id).sort(), "ramo 2 = la fila lontana");
   eq(D.linee[1].tratte[0].da.id, sp.id); eq(D.linee[1].tratte[0].a.id, g2[0].id, "la prima tratta del ramo 2 va al PAR più vicino allo splitter (non a quello dove la catena è arrivata: sarebbe l'ultimo)");
-  ok(D.linee[1].tratte[0].lenM < 3, "ed è corta: " + D.linee[1].tratte[0].lenM.toFixed(1) + " m");
+  ok(D.linee[1].tratte[0].lenM - D.linee[1].tratte[0].salitaM < 3, "ed è corta in pianta: " + (D.linee[1].tratte[0].lenM - D.linee[1].tratte[0].salitaM).toFixed(1) + " m (più la salita di 4 m del PAR appeso, D4)");
   eq(D.linee[1].righe.map((x) => x.it.x), g2.map((f) => f.x), "e il ramo prosegue in ordine crescente di distanza");
   eq(D.linee[1].ultimo.it.id, g2[19].id, "l'ultimo è il più lontano: lì va il terminatore");
   lnReset();
@@ -44434,6 +44435,205 @@ t("Linee DMX · pannello: un solo pulsante a linee spente, ogni gesto è un pass
   ok(/dmxLineeRenderPannello\(it, senza\);/.test(appjs), "il pannello si riscrive con i dati della linea");
 });
 
+/* ═══ D4 · altezza degli apparecchi appesi nelle lunghezze dei cavi (28/11/2026), DMX e corrente insieme ═══
+   Regola: la lunghezza di una tratta = percorso in pianta × 1,10 + 0,6 m + SALITA. Salita: apparecchio appeso ↔ pavimento = la sua altezza di montaggio;
+   due appesi sulla STESSA americana/truss = niente (solo pianta); due appesi su strutture DIVERSE = discesa + risalita (somma delle due altezze).
+   Altezza: il trim dell'americana a cui è appeso (`rig.h`: il cavo sale lungo la struttura), poi quella scritta sul faro, poi 4 m di serie (il «Appeso» del pannello Montaggio). */
+const d4Cut = (m) => A.cabCut(m);
+function d4Fari(...mod) {   /* console in (100,700); per ogni modifica un PAR su una truss sua, in pianta a `d` cm dalla console */
+  lnReset(); const out = { desk: add("consolaluci", 100, 700), fari: [], truss: [] };
+  mod.forEach((m, i) => { const x = 100 + m.d, y = 700 + (m.dy || 0); const tr = add("truss", x, y, { w: 200 }); if (m.rig) tr.rig = { h: m.rig };
+    const f = add("parluci", x, y); A.mountSet(f, Object.assign({ mode: m.mode || "hung" }, m.h != null ? { h: m.h } : {})); A.dmxImposta(f, { ch: 4 }); out.fari.push(f); out.truss.push(tr); });
+  A.dmxAccendi(true); A.dmxLineeAccendi(true); return out;
+}
+t("Altezza appesi D4 · l'altezza di un apparecchio: a terra e su stativo niente; appeso = trim dell'americana, poi quella scritta sul faro, poi 4 m di serie", () => {
+  lnReset();
+  const desk = add("consolaluci", 100, 700), tr = add("truss", 600, 80, { w: 400 }), f = add("parluci", 3000, 3000);   /* il faro nasce lontano: a terra */
+  eq(A.cabQuotaCm(null), 0, "niente = 0"); eq(A.cabQuotaCm(desk), 0, "una console non si appende");
+  eq(A.cabQuotaCm(f), 0, "a terra (di serie): 0");
+  A.mountSet(f, { mode: "stand", h: 250 }); eq(A.cabQuotaCm(f), 0, "su stativo: il cavo non sale (resta com'è, vedi i dubbi)");
+  A.mountSet(f, { mode: "hung", h: null }); eq(A.cabQuotaCm(f), 400, "appeso, senza altezza né struttura: 4 m di serie");
+  A.mountSet(f, { h: 550 }); eq(A.cabQuotaCm(f), 550, "appeso senza struttura: l'altezza scritta sul faro");
+  f.x = 600; f.y = 80; eq(A.cabQuotaCm(f), 550, "sotto una americana senza trim: ancora l'altezza del faro");
+  tr.rig = { h: 700 }; eq(A.cabQuotaCm(f), 700, "il trim dell'americana vince (il cavo sale lungo la struttura)");
+  A.mountSet(f, { h: null }); eq(A.cabQuotaCm(f), 700, "e vale anche per il faro senza altezza scritta");
+  tr.rig = { n: "A1" }; eq(A.cabQuotaCm(f), 400, "americana numerata ma senza trim: 4 m di serie");
+  lnReset();
+});
+t("Altezza appesi D4 · la salita di una tratta: pavimento↔appeso = altezza; stessa americana = niente; americane diverse = discesa + risalita; a terra = niente", () => {
+  lnReset();
+  const desk = add("consolaluci", 100, 700), q = add("distro32", 100, 600);
+  const t1 = add("truss", 500, 80, { w: 400 }), t2 = add("truss", 500, 300, { w: 400 }); t1.rig = { h: 700 }; t2.rig = { h: 500 };
+  const a = add("parluci", 400, 80), b = add("parluci", 600, 80), c = add("parluci", 500, 300), g = add("parluci", 900, 700);
+  [a, b, c].forEach((f) => A.mountSet(f, { mode: "hung", h: null })); A.mountSet(g, { mode: "floor", h: null });
+  eq(A.cabSalitaM(desk, a), 7, "console → appeso a 7 m: 7 m"); eq(A.cabSalitaM(a, desk), 7, "e al contrario");
+  eq(A.cabSalitaM(a, b), 0, "due appesi alla stessa americana: solo pianta");
+  eq(A.cabSalitaM(a, c), 12, "americane diverse (7 m e 5 m): discesa + risalita = 12 m");
+  eq(A.cabSalitaM(g, desk), 0, "a terra con una console: niente"); eq(A.cabSalitaM(g, a), 7, "a terra con un appeso: l'altezza dell'appeso");
+  eq(A.cabSalitaM(q, c), 5, "una ciabatta (non appesa) con un appeso: l'altezza dell'appeso"); eq(A.cabSalitaM(null, a), 7, "capo senza elemento (ingresso corrente): l'altezza dell'appeso");
+  eq(A.cabSalitaM(null, null), 0);
+  c.x = 5000; a.x = 5200; eq(A.cabSalitaM(a, c), 8, "due appesi senza struttura (4 m + 4 m): non si sa se sono sulla stessa barra → discesa + risalita");
+  lnReset();
+});
+t("Altezza appesi D4 · DMX, gli esempi di Simone: PAR appeso a 4 m e console a 4,2 m in pianta → taglio da 10 m; a 8 m in pianta → taglio da 15 m (prima 10 in tutti e due)", () => {
+  /* due salti da 15 cm (uscita dalla console e arrivo al faro: il percorso disegnato gira attorno agli ingombri) → d + 30 cm */
+  let r = d4Fari({ d: 390 }); let T = A.dmxLinee().linee[0].tratte[0];
+  eq(T.pathM, 4.2, "percorso in pianta 4,2 m"); eq(T.salitaM, 4, "salita 4 m (altezza di serie)");
+  ok(Math.abs(T.lenM - (4.2 * 1.1 + 0.6 + 4)) < 1e-9, "lunghezza = 4,2 × 1,10 + 0,6 + 4 = " + T.lenM.toFixed(2));
+  ok(T.lenM >= 8.2 + 0.6, "almeno 8,2 m + scorta"); eq(T.cut, 10, "taglio da 10 m");
+  r = d4Fari({ d: 770 }); T = A.dmxLinee().linee[0].tratte[0];
+  eq([T.pathM, T.salitaM], [8, 4]); ok(T.lenM >= 12.6, "almeno 12 m + scorta: " + T.lenM.toFixed(2)); eq(T.cut, 15, "8 m in pianta: taglio da 15 m, non da 10");
+  r.fari[0].mount.mode = "floor"; T = A.dmxLinee().linee[0].tratte[0];
+  eq([T.salitaM, T.cut], [0, 10], "a terra il PAR non sale: 9,4 m, taglio da 10 (come prima)");
+  lnReset();
+});
+t("Altezza appesi D4 · DMX: stessa americana = solo pianta; americane diverse = discesa + risalita; la linea è la somma e l'altezza del trim vale", () => {
+  lnReset(); const desk = add("consolaluci", 100, 700), tr = add("truss", 600, 80, { w: 800 }); tr.rig = { h: 650 };
+  const p = [add("parluci", 400, 80), add("parluci", 600, 80), add("parluci", 800, 80)];
+  p.forEach((f) => { A.mountSet(f, { mode: "hung" }); A.dmxImposta(f, { ch: 4 }); }); A.dmxAccendi(true); A.dmxLineeAccendi(true);
+  let L = A.dmxLinee().linee[0];
+  eq(L.tratte.map((t) => t.salitaM), [6.5, 0, 0], "console → primo: sale al trim (6,5 m); fra i fari della stessa americana: niente");
+  ok(Math.abs(L.tratte[1].lenM - (L.tratte[1].pathM * 1.1 + 0.6)) < 1e-9, "fra due fari della stessa americana: solo pianta");
+  ok(Math.abs(L.lenM - L.tratte.reduce((s, t) => s + t.lenM, 0)) < 1e-9, "la linea è la somma delle tratte, salita compresa");
+  const t2 = add("truss", 600, 300, { w: 800 }); t2.rig = { h: 500 }; p[2].y = 300; A.__elecRes = null;
+  L = A.dmxLinee().linee[0]; const fra = L.tratte.find((t) => t.da.id === p[1].id && t.a.id === p[2].id) || L.tratte[2];
+  eq(L.righe.map((r) => r.it.id), [p[0].id, p[1].id, p[2].id], "stessa catena"); eq(fra.salitaM, 11.5, "fra americane diverse (6,5 + 5 m): discesa + risalita = 11,5 m");
+  ok(Math.abs(fra.lenM - (fra.pathM * 1.1 + 0.6 + 11.5)) < 1e-9, "e la lunghezza la comprende");
+  lnReset();
+});
+t("Altezza appesi D4 · DMX con splitter: console → splitter in pianta (lo splitter sta a terra), splitter → primo faro appeso sale", () => {
+  lnReset(); const desk = add("consolaluci", 100, 700), sp = add("dmxsplit", 100, 600); sp.dmxOut = 4;
+  const tr = add("truss", 600, 80, { w: 600 }), p = [add("parluci", 500, 80), add("parluci", 700, 80)];
+  p.forEach((f) => { A.mountSet(f, { mode: "hung" }); A.dmxImposta(f, { ch: 4 }); }); A.dmxAccendi(true); A.dmxLineeAccendi(true);
+  const D = A.dmxLinee(); eq(D.tronchi.length, 1, "un tronco"); eq(D.tronchi[0].salitaM, 0, "console → splitter: niente salita");
+  eq(D.linee[0].tratte.map((t) => t.salitaM), [4, 0], "splitter → primo PAR: 4 m; fra i due PAR: niente");
+  ok(Math.abs(D.linee[0].lenM - (D.tronchi[0].lenM + D.linee[0].tratte.reduce((s, t) => s + t.lenM, 0))) < 1e-9, "il ramo = tronco + tratte");
+  lnReset();
+});
+function d4Elec(opz = {}) {   /* un quadro a sinistra e due PAR; il primo appeso su una truss, il secondo a terra */
+  reset(); const q = add("distro32", 100, 300), tr = add("truss", 520, 300, { w: 200 }); if (opz.rig) tr.rig = { h: opz.rig };
+  const a = add("parluci", 520, 300), b = add("parluci", 520, 700); A.mountSet(a, Object.assign({ mode: "hung" }, opz.h != null ? { h: opz.h } : {}));
+  A.state.elec.on = true; A.state.elec.mode = "auto"; A.__elecRes = null; return { q, tr, a, b };
+}
+t("Altezza appesi D4 · corrente: il cavo dal distro all'apparecchio appeso comprende la salita; a terra e fra distro no; progetti senza altezza = 4 m di serie", () => {
+  const { q, a, b } = d4Elec(); const R = A.elecResult(true);
+  const la = R.loadLinks.find((l) => l.load.it.id === a.id), lb = R.loadLinks.find((l) => l.load.it.id === b.id);
+  ok(la && lb, "i due cavi ci sono"); eq(la.pathM, 4.2, "in pianta 4,2 m"); eq(la.salitaM, 4, "salita 4 m");
+  ok(Math.abs(la.lenM - (4.2 * 1.1 + 0.6 + 4)) < 1e-9, "9,22 m"); eq(la.cut, 10, "taglio da 10 m");
+  eq(lb.salitaM || 0, 0, "il PAR a terra: niente salita"); ok(Math.abs(lb.lenM - (lb.pathM * 1.1 + 0.6)) < 1e-9, "solo pianta");
+  q.x = 100 - 400; A.__elecRes = null; const R2 = A.elecResult(true), la2 = R2.loadLinks.find((l) => l.load.it.id === a.id);
+  eq([la2.pathM, la2.salitaM, la2.cut], [8.2, 4, 15], "più lontano (8,2 m in pianta): taglio da 15 m, non da 10"); ok(la2.lenM >= 12.2 + 0.6);
+  reset();
+});
+t("Altezza appesi D4 · corrente: altezza del trim e altezza del faro, caduta di tensione sulla lunghezza vera, fra appesi della stessa americana niente", () => {
+  let { a } = d4Elec({ rig: 700 }); let R = A.elecResult(true); let l = R.loadLinks.find((x) => x.load.it.id === a.id);
+  eq(l.salitaM, 7, "il trim dell'americana"); const dropAlto = l.drop && l.drop.pct;
+  ({ a } = d4Elec({ rig: 700, h: 500 })); R = A.elecResult(true); l = R.loadLinks.find((x) => x.load.it.id === a.id); eq(l.salitaM, 7, "il trim vince sull'altezza scritta sul faro (il cavo sale lungo la struttura)");
+  ({ a } = d4Elec({ h: 500 })); R = A.elecResult(true); l = R.loadLinks.find((x) => x.load.it.id === a.id); eq(l.salitaM, 5, "senza trim: l'altezza scritta sul faro");
+  ({ a } = d4Elec({})); R = A.elecResult(true); l = R.loadLinks.find((x) => x.load.it.id === a.id);
+  if (dropAlto != null && l.drop && l.drop.pct != null) ok(dropAlto > l.drop.pct, "più alto = cavo più lungo = caduta maggiore (" + dropAlto + " > " + l.drop.pct + ")");
+  /* ciabatta fra distro (uplink) e linea principale (feed): nessuno è appeso → identici a prima */
+  reset(); const q = add("quadro", 100, 100), c1 = add("ciabatta", 400, 300); A.state.elec.on = true; A.state.elec.mode = "auto"; A.state.elec.uplinks = {}; A.state.elec.uplinks[c1.id] = { to: q.id };
+  const p = add("parluci", 400, 330); A.__elecRes = null; R = A.elecResult(true);
+  (R.uplinks || []).forEach((u) => ok(!u.salitaM && Math.abs(u.lenM - (u.pathM * 1.1 + 0.6)) < 1e-9, "uplink: solo pianta"));
+  (R.feeds || []).forEach((f) => ok(!f.salitaM && Math.abs(f.lenM - (f.pathM * 1.1 + 0.6)) < 1e-9, "feed: solo pianta"));
+  reset();
+});
+t("Altezza appesi D4 · due PAR appesi alla stessa americana alimentati dalla stessa ciabatta appesa: solo pianta; ciabatta a terra: ognuno sale", () => {
+  reset(); const tr = add("truss", 520, 300, { w: 400 }); const a = add("parluci", 420, 300), b = add("parluci", 620, 300), q = add("distro32", 100, 300);
+  [a, b].forEach((f) => A.mountSet(f, { mode: "hung" })); A.state.elec.on = true; A.state.elec.mode = "auto"; A.__elecRes = null;
+  const R = A.elecResult(true); eq(R.loadLinks.map((l) => l.salitaM).sort(), [4, 4], "dal distro a terra, ognuno dei due sale di 4 m");
+  reset();
+});
+t("Altezza appesi D4 · progetti vecchi: il file non cambia (nessun campo nuovo, nessuna altezza scritta), il round-trip riapre le stesse lunghezze", () => {
+  const { a, tr } = d4Elec({}); a.mount = { mode: "hung" }; eq(a.mount.h, undefined, "il faro del progetto vecchio non ha nessuna altezza scritta"); A.save(); const prima = A.docToJSON(); const R = A.elecResult(true);
+  const l = R.loadLinks.find((x) => x.load.it.id === a.id); const len0 = l.lenM;
+  A.cabSalitaM(a, null); A.cabQuotaCm(a); A.save(); eq(A.docToJSON(), prima, "calcolare le salite non scrive niente nel progetto");
+  ok(!/salita|cabQuota/.test(prima) && !/"h":400/.test(prima), "nel documento non c'è nessun campo di salita né l'altezza di serie");
+  const items0 = JSON.stringify(A.state.items); A.loadDoc(JSON.parse(prima)); A.__elecRes = null;
+  const a2 = A.state.items.find((x) => x.id === a.id), l2 = A.elecResult(true).loadLinks.find((x) => x.load.it.id === a2.id);
+  eq([l2.lenM, l2.salitaM], [len0, 4], "riaperto: stessa lunghezza, stessa salita"); A.save(); eq(JSON.stringify(A.state.items), items0, "riaperto: gli elementi sono gli stessi, senza campi in più (la normalizzazione del file è un'altra cosa)");
+  reset();
+});
+t("Altezza appesi D4 · gli altri cavi non cambiano: audio, ritorni e multicore restano senza salita (la regola è solo DMX e corrente)", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  const quanti = (re) => (src.match(re) || []).length;
+  eq(quanti(/cabSalitaM\(/g) >= 4, true, "usata dalle quattro famiglie (tratta DMX, carichi, uplink, feed)");
+  const audio = src.slice(src.indexOf("function cabAllineaLunghezze"), src.indexOf("function elecAllineaLunghezze"));
+  ok(!/cabSalitaM/.test(audio), "cabAllineaLunghezze (audio, ritorni, multicore) non la usa");
+});
+t("Altezza appesi D4 · le note dei fogli dicono che la lunghezza comprende la salita agli apparecchi appesi (DMX e corrente, italiano e inglese)", () => {
+  lnReset(); d4Fari({ d: 390 }); let doc = docFintoPL(); A.schedaDmxPdf(doc); let tx = doc.testi.map((x) => x.t).join(" ");
+  ok(/percorso disegnato × 1,10 \+ 0,6 m di scorta per cavo, più la salita agli apparecchi appesi/.test(tx) && /altezza dichiarata o 4 m di serie/.test(tx), "IT: " + tx.slice(tx.indexOf("Lunghezza =")).slice(0, 260));
+  A.state.docLang = "en"; try { doc = docFintoPL(); A.schedaDmxPdf(doc); tx = doc.testi.map((x) => x.t).join(" ");
+    ok(/drawn path × 1\.10 \+ 0\.6 m slack per cable, plus the rise to hung fixtures/.test(tx) && /declared height or 4 m by default/.test(tx), "EN: " + tx.slice(tx.indexOf("Length =")).slice(0, 260));
+  } finally { delete A.state.docLang; }
+  lnReset();
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/più la salita agli apparecchi appesi \(altezza dichiarata o 4 m di serie\)/.test(src.slice(src.indexOf("STIMA PRELIMINARE"), src.indexOf("STIMA PRELIMINARE") + 2200)), "nel foglio elettrico c'è la stessa frase");
+  ok(/DOC_EN\["[^"]*salita agli apparecchi appesi[^"]*"\]="/.test(src), "e la traduzione inglese del foglio elettrico");
+});
+
+/* ═══ O1 · test più stretti sulle 3 mutazioni vive della rilettura delle correzioni #243 (28/11/2026) ═══ */
+function docFintoFont() {   /* come docFintoPL, ma la larghezza del testo dipende dal corpo: 1,6 mm a carattere a 9,5 pt (misurare col corpo sbagliato si vede) */
+  const d = docFintoPL(); let fs = 9.5; const testo0 = d.text;
+  d.setFontSize = (n) => { fs = n; return d; }; d.getTextWidth = (s) => String(s).length * 1.6 * fs / 9.5;
+  d.text = (tx, x, y, o) => { const n0 = d.testi.length; testo0(tx, x, y, o); d.testi.slice(n0).forEach((r) => { r.fs = fs; }); return d; };
+  return d;
+}
+t("Linee DMX · O1: la colonna «A» si misura col corpo giusto (9,5 pt): con lunghezze lunghe (oltre 100 m, ft-in, EN) il nome non tocca mai la lunghezza", () => {
+  const nomeLungo = "Robe Robin MegaPointe Spot Wash Beam Extra Lungo Fantasia";
+  const prova = (etichetta, lingua, unita) => {
+    lnReset(); const r = lnScena(6, { ch: 4, passo: 9000, linee: false }); r.fari.forEach((f, i) => { f.label = nomeLungo + " " + i; }); A.dmxLineeAccendi(true);
+    if (lingua) A.state.docLang = lingua; if (unita) A.state.docUnits = unita;   /* DOPO la scena: lnReset azzera lo stato */
+    const L0 = A.dmxLinee().linee[0]; ok(L0.tratte.slice(1).every((x) => x.lenM > 90), etichetta + ": tratte lunghissime (" + L0.tratte.map((x) => x.lenM.toFixed(0)).join(", ") + " m)");
+    const doc = docFintoFont(); A.schedaDmxPdf(doc);
+    const lung = doc.testi.filter((x) => x.a === "right" && x.x > 150 && x.x < 170 && /\d/.test(x.t));
+    ok(lung.length === 6, etichetta + ": 6 lunghezze (" + lung.length + ")");
+    for (const l of lung) {
+      const nome = doc.testi.find((x) => x.p === l.p && x.y === l.y && x.x === 87); ok(nome, etichetta + ": nome sulla stessa riga");
+      const fine = nome.x + doc.getTextWidth.call(null, nome.t) * nome.fs / doc.testi[0].fs;
+      const w = (r) => String(r.t).length * 1.6 * r.fs / 9.5, inizio = l.x - w(l);
+      ok(nome.x + w(nome) < inizio - 2, etichetta + ": «" + nome.t.slice(0, 20) + "…» finisce a " + (nome.x + w(nome)).toFixed(1) + " mm, la lunghezza «" + l.t + "» comincia a " + inizio.toFixed(1));
+    }
+  };
+  try { prova("italiano"); prova("inglese", "en"); prova("inglese ft-in", "en", "ft"); } finally { delete A.state.docLang; delete A.state.docUnits; }
+  lnReset();
+});
+t("Linee DMX · O1: la riga dopo la nota del terminatore sta sotto la nota (almeno 6 mm), non sopra; due linee una dopo l'altra", () => {
+  lnReset(); const r = lnScena(3, { ch: 512, linee: false }); A.dmxLineeAccendi(true);   /* 512 canali a testa: un universo per apparecchio = tre linee */
+  const D = A.dmxLinee(); ok(D.linee.length >= 3, "tre linee (" + D.linee.length + ")");
+  const doc = docFintoPL(); A.schedaDmxPdf(doc);
+  const note = doc.testi.filter((x) => x.t === "terminatore 120 ohm"), teste = doc.testi.filter((x) => /^Linea U\d/.test(x.t));
+  eq(note.length, D.linee.length, "una nota per linea");
+  note.slice(0, -1).forEach((n, i) => { const dopo = teste.find((h) => h.p === n.p && h.y > n.y); ok(dopo, "dopo la nota " + (i + 1) + " c'è l'intestazione della linea successiva"); ok(dopo.y - n.y >= 6, "intestazione a " + (dopo.y - n.y).toFixed(1) + " mm sotto la nota (almeno 6)"); });
+  lnReset();
+});
+t("Linee DMX · O1: lo splitter lontano dalla console: ogni ramo parte dal SUO apparecchio più vicino allo splitter, non da quello più vicino alla console", () => {
+  lnReset(); const r = lnScena(40, { ch: 1, passo: 25, linee: false }); const sp = add("dmxsplit", 1500, 100); sp.dmxOut = 2; A.dmxLineeAccendi(true);
+  const D = A.dmxLinee(); eq(D.linee.map((l) => l.n), [20, 20], "due rami da 20");
+  D.linee.forEach((L, i) => {
+    const dist = (it) => Math.abs(it.x - sp.x) + Math.abs(it.y - sp.y); const migliore = L.righe.map((x) => x.it).sort((a, b) => dist(a) - dist(b))[0];
+    eq([L.tratte[0].da.id, L.tratte[0].a.id], [sp.id, migliore.id], "ramo " + (i + 1) + ": parte dallo splitter e va al faro del ramo più vicino a lui");
+    const alDesk = L.righe.map((x) => x.it).sort((a, b) => (Math.abs(a.x - r.desk.x) + Math.abs(a.y - r.desk.y)) - (Math.abs(b.x - r.desk.x) + Math.abs(b.y - r.desk.y)))[0];
+    if (i === 1) ok(alDesk.id !== migliore.id, "(la scena distingue davvero i due criteri: il più vicino alla console è un altro)");
+  });
+  lnReset();
+});
+t("Linee DMX · O2: intestazione del ramo con splitter dal nome lunghissimo: si accorcia il nome, «uscita N» resta (IT ed EN)", () => {
+  const prova = (etichetta, uscita, lingua) => {
+    lnReset(); const r = lnScena(40, { ch: 1, passo: 25, linee: false }); const sp = add("dmxsplit", 100, 400); sp.dmxOut = 2; sp.label = "SplitterDMXConUnNomeLunghissimoSenzaSpaziCheNonFinisceMai01234567890"; A.dmxLineeAccendi(true);
+    if (lingua) A.state.docLang = lingua;
+    const doc = docFintoPL(); A.schedaDmxPdf(doc);
+    const teste = doc.testi.filter((x) => /^(Ramo|Branch) U1·\d/.test(x.t)); eq(teste.length, 2, etichetta + ": due rami");
+    teste.forEach((h, i) => { ok(h.t.endsWith(", " + uscita + " " + (i + 1)), etichetta + ": finisce con «, " + uscita + " " + (i + 1) + "» — " + h.t); ok(/…, /.test(h.t), etichetta + ": il nome è accorciato con «…»"); ok(h.t.length * 1.6 <= 210 - 15 - 15 + 0.01, etichetta + ": sta nella riga (" + h.t.length * 1.6 + " mm)"); });
+  };
+  try { prova("italiano", "uscita"); prova("inglese", "output", "en"); } finally { delete A.state.docLang; }
+  /* un nome normale non si tocca */
+  lnReset(); lnScena(40, { ch: 1, passo: 25, linee: false }); const s2 = add("dmxsplit", 100, 400); s2.dmxOut = 2; s2.label = "Splitter palco"; A.dmxLineeAccendi(true);
+  const d2 = docFintoPL(); A.schedaDmxPdf(d2); ok(d2.testi.some((x) => /da Splitter palco, uscita 1$/.test(x.t)), "nome normale: intero e con l'uscita");
+  lnReset();
+});
 await Promise.all(attese);   /* i test asincroni registrati dopo il primo «await» (Versioni L4) si aspettano prima del riepilogo */
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
