@@ -44446,12 +44446,13 @@ function d4Fari(...mod) {   /* console in (100,700); per ogni modifica un PAR su
     const f = add("parluci", x, y); A.mountSet(f, Object.assign({ mode: m.mode || "hung" }, m.h != null ? { h: m.h } : {})); A.dmxImposta(f, { ch: 4 }); out.fari.push(f); out.truss.push(tr); });
   A.dmxAccendi(true); A.dmxLineeAccendi(true); return out;
 }
-t("Altezza appesi D4 · l'altezza di un apparecchio: a terra e su stativo niente; appeso = trim dell'americana, poi quella scritta sul faro, poi 4 m di serie", () => {
+t("Altezza appesi D4 · l'altezza di un apparecchio: a terra niente, su stativo solo l'altezza scritta; appeso = trim dell'americana, poi quella scritta sul faro, poi 4 m di serie", () => {
   lnReset();
   const desk = add("consolaluci", 100, 700), tr = add("truss", 600, 80, { w: 400 }), f = add("parluci", 3000, 3000);   /* il faro nasce lontano: a terra */
   eq(A.cabQuotaCm(null), 0, "niente = 0"); eq(A.cabQuotaCm(desk), 0, "una console non si appende");
   eq(A.cabQuotaCm(f), 0, "a terra (di serie): 0");
-  A.mountSet(f, { mode: "stand", h: 250 }); eq(A.cabQuotaCm(f), 0, "su stativo: il cavo non sale (resta com'è, vedi i dubbi)");
+  A.mountSet(f, { mode: "stand", h: 250 }); eq(A.cabQuotaCm(f), 250, "su stativo con l'altezza scritta: conta come un appeso (stativo, decisione della regia 28/11)");
+  A.mountSet(f, { mode: "stand", h: null }); eq(A.cabQuotaCm(f), 0, "su stativo senza altezza scritta: nessuna salita (il 2,5 m di serie del pannello non entra)");
   A.mountSet(f, { mode: "hung", h: null }); eq(A.cabQuotaCm(f), 400, "appeso, senza altezza né struttura: 4 m di serie");
   A.mountSet(f, { h: 550 }); eq(A.cabQuotaCm(f), 550, "appeso senza struttura: l'altezza scritta sul faro");
   f.x = 600; f.y = 80; eq(A.cabQuotaCm(f), 550, "sotto una americana senza trim: ancora l'altezza del faro");
@@ -44550,7 +44551,7 @@ t("Altezza appesi D4 · corrente: dimmer a terra → ognuno dei PAR appesi sale;
   ok(R.feeds.every((f) => Math.abs(f.lenM - (f.pathM * 1.1 + 0.6)) < 1e-9), "e la lunghezza è quella di sempre");
   reset();
 });
-t("Altezza appesi D4 · due PAR appesi alla stessa americana alimentati dalla stessa ciabatta appesa: solo pianta; ciabatta a terra: ognuno sale", () => {
+t("Altezza appesi D4 · due PAR appesi alla stessa americana alimentati dal distro a terra: ognuno sale di 4 m (le ciabatte non si appendono, isMountable è falso)", () => {
   reset(); const tr = add("truss", 520, 300, { w: 400 }); const a = add("parluci", 420, 300), b = add("parluci", 620, 300), q = add("distro32", 100, 300);
   [a, b].forEach((f) => A.mountSet(f, { mode: "hung" })); A.state.elec.on = true; A.state.elec.mode = "auto"; A.__elecRes = null;
   const R = A.elecResult(true); eq(R.loadLinks.map((l) => l.salitaM).sort(), [4, 4], "dal distro a terra, ognuno dei due sale di 4 m");
@@ -44575,18 +44576,101 @@ t("Altezza appesi D4 · gli altri cavi non cambiano: audio, ritorni e multicore 
 });
 t("Altezza appesi D4 · le note dei fogli dicono che la lunghezza comprende la salita agli apparecchi appesi (DMX e corrente, italiano e inglese)", () => {
   lnReset(); d4Fari({ d: 390 }); let doc = docFintoPL(); A.schedaDmxPdf(doc); let tx = doc.testi.map((x) => x.t).join(" ");
-  ok(/percorso disegnato × 1,10 \+ 0,6 m di scorta per cavo, più la salita agli apparecchi appesi/.test(tx) && /altezza dichiarata o 4 m di serie/.test(tx), "IT: " + tx.slice(tx.indexOf("Lunghezza =")).slice(0, 260));
+  ok(/percorso disegnato × 1,10 \+ 0,6 m di scorta per cavo, più la salita agli apparecchi appesi o su stativo/.test(tx) && /appesi senza altezza: 4 m di serie/.test(tx), "IT: " + tx.slice(tx.indexOf("Lunghezza =")).slice(0, 260));
   A.state.docLang = "en"; try { doc = docFintoPL(); A.schedaDmxPdf(doc); tx = doc.testi.map((x) => x.t).join(" ");
-    ok(/drawn path × 1\.10 \+ 0\.6 m slack per cable, plus the rise to hung fixtures/.test(tx) && /declared height or 4 m by default/.test(tx), "EN: " + tx.slice(tx.indexOf("Length =")).slice(0, 260));
+    ok(/drawn path × 1\.10 \+ 0\.6 m slack per cable, plus the rise to hung or stand-mounted fixtures/.test(tx) && /hung without one: 4 m by default/.test(tx), "EN: " + tx.slice(tx.indexOf("Length =")).slice(0, 260));
   } finally { delete A.state.docLang; }
   lnReset();
   /* corrente: le lunghezze dei cavi stanno nella colonna «m» del blocco «Caduta di tensione» (foglio Alimentazioni e Piano elettrico) */
   d4Elec({}); const R = A.elecResult(true), doc2 = docFintoPL(); A.elecDropBloccoPdf(doc2, R, 16, () => 30, () => {});
   let t2 = doc2.testi.map((x) => x.t).join(" "); ok(/Calcolo:/.test(t2), "il blocco della caduta di tensione c'è");
-  ok(/m = lunghezza del cavo: percorso disegnato × 1,10 \+ 0,6 m di scorta, più la salita agli apparecchi appesi \(altezza dichiarata o 4 m di serie\)/.test(t2), "IT: " + t2.slice(t2.indexOf("giallo")).slice(0, 220));
+  ok(/m = lunghezza del cavo: percorso disegnato × 1,10 \+ 0,6 m di scorta, più la salita agli apparecchi appesi o su stativo \(altezza dichiarata; appesi senza altezza: 4 m di serie\)/.test(t2), "IT: " + t2.slice(t2.indexOf("giallo")).slice(0, 220));
   A.state.docLang = "en"; try { const d3 = docFintoPL(); A.elecDropBloccoPdf(d3, R, 16, () => 30, () => {}); t2 = d3.testi.map((x) => x.t).join(" ");
-    ok(/m = cable length: drawn path × 1\.10 \+ 0\.6 m slack, plus the rise to hung fixtures \(declared height or 4 m by default\)/.test(t2), "EN: " + t2.slice(t2.indexOf("yellow")).slice(0, 220)); } finally { delete A.state.docLang; }
+    ok(/m = cable length: drawn path × 1\.10 \+ 0\.6 m slack, plus the rise to hung or stand-mounted fixtures \(declared height; hung without one: 4 m by default\)/.test(t2) && !/in metres/.test(t2), "EN: " + t2.slice(t2.indexOf("yellow")).slice(0, 220)); } finally { delete A.state.docLang; }
   reset(); lnReset();
+});
+
+/* ═══ D4 · correzioni della rilettura Opus del 28/11 (D1 stessa barra, D2 ordine per gruppi, stativo, D4 testo ft) ═══ */
+function d4Appeso(x, y, o = {}) { const f = add("parluci", x, y); A.mountSet(f, Object.assign({ mode: "hung" }, o.h != null ? { h: o.h } : {})); A.dmxImposta(f, { ch: 4 }); return f; }
+t("Altezza appesi D4 · D1: appesi senza struttura, stessa altezza e stessa fila (|Δy| ≤ 50 cm) = la stessa barra → niente discesa e risalita; file o altezze diverse → giù e su", () => {
+  lnReset(); const desk = add("consolaluci", 100, 700);
+  const a = d4Appeso(3000, 200), b = d4Appeso(3300, 230), c = d4Appeso(3600, 250), d = d4Appeso(3900, 251), e = d4Appeso(3600, 500), g = d4Appeso(3600, 200, { h: 500 });
+  eq(A.cabSalitaM(a, b), 0, "stessa fila (Δy 30), 4 m e 4 m: stessa barra");
+  eq(A.cabSalitaM(a, c), 0, "Δy esattamente 50: ancora la stessa fila");
+  eq(A.cabSalitaM(a, d), 8, "Δy 51: un'altra fila → discesa + risalita");
+  eq(A.cabSalitaM(a, e), 8, "un'altra fila a 3 m: discesa + risalita");
+  eq(A.cabSalitaM(a, g), 9, "stessa fila ma altezze diverse (4 m e 5 m): non è la stessa barra → 9 m");
+  eq(A.cabSalitaM(desk, a), 4, "dalla console (a terra): sale comunque");
+  const tr = add("truss", 3000, 200, { w: 200 }); eq(hasSup(a), true, "a ora sta su una truss"); eq(A.cabSalitaM(a, b), 8, "uno su struttura e l'altro senza: giù e su (non si sa che sia la stessa barra)");
+  tr.x = 9000; A.state.items = A.state.items.filter((x) => x !== tr); eq(A.cabSalitaM(a, b), 0, "tolta la truss: di nuovo la stessa barra");
+  lnReset();
+  function hasSup(f) { return !!A.hangSupportOf(f); }
+});
+t("Altezza appesi D4 · D1: una fila di 10 PAR appesi senza struttura = una sola salita, dalla console; il resto solo pianta; due file a 3 m = una discesa + risalita fra le due", () => {
+  lnReset(); const desk = add("consolaluci", 100, 700); const p = [];
+  for (let i = 0; i < 10; i++) p.push(d4Appeso(300 + i * 80, 200 + (i % 2) * 30));
+  A.dmxAccendi(true); A.dmxLineeAccendi(true);
+  let L = A.dmxLinee().linee[0]; eq(L.tratte.length, 10, "10 tratte");
+  eq(L.tratte.map((t) => t.salitaM), [4, 0, 0, 0, 0, 0, 0, 0, 0, 0], "una sola salita (4 m dalla console); i fari della stessa fila corrono in pianta");
+  ok(L.lenM < 60, "la linea resta corta: " + L.lenM.toFixed(1) + " m (con discesa + risalita a ogni tratta sarebbe oltre 90)");
+  const q = [];
+  for (let i = 0; i < 5; i++) q.push(d4Appeso(300 + i * 80, 500 + (i % 2) * 30)); A.__elecRes = null;
+  L = A.dmxLinee().linee[0]; eq(L.tratte.length, 15, "15 tratte");
+  eq(L.tratte.filter((t) => t.salitaM >= 8).length, 1, "due file a 3 m: un solo passaggio fra le due (8 m), non uno per faro");
+  eq(L.tratte.reduce((s, t) => s + t.salitaM, 0), 12, "salita totale = 4 (console) + 8 (da una fila all'altra)");
+  lnReset();
+});
+t("Altezza appesi D4 · D1: la salita sta fuori dal 10 % e il test non scrive niente nel progetto (stessa barra, 4 m di serie)", () => {
+  lnReset(); const a = d4Appeso(3000, 200), b = d4Appeso(3500, 220); A.save(); const prima = A.docToJSON();
+  A.cabSalitaM(a, b); A.dmxGruppiChiavi([{ it: a }, { it: b }]); A.save(); eq(A.docToJSON(), prima, "nessun campo scritto"); lnReset();
+});
+t("Altezza appesi D4 · D2: la catena DMX percorre un gruppo alla volta (struttura · fila senza struttura · terra): due americane a 1 m con fari alternati → un solo passaggio fra le due", () => {
+  const gruppo = (it) => { const s = A.hangSupportOf(it); return s ? "S" + s.id : "F"; };
+  const corse = (L) => L.righe.map((r) => gruppo(r.it)).filter((g, i, v) => i === 0 || g !== v[i - 1]).length;
+  lnReset(); const desk = add("consolaluci", 100, 700); const t1 = add("truss", 500, 300, { w: 800 }), t2 = add("truss", 500, 400, { w: 800 });
+  const f = []; [[200, 300], [300, 400], [400, 300], [500, 400], [600, 300], [700, 400]].forEach(([x, y]) => f.push(d4Appeso(x, y)));
+  A.dmxAccendi(true); A.dmxLineeAccendi(true);
+  let L = A.dmxLinee().linee[0]; eq(L.righe.length, 6);
+  eq(corse(L), 2, "due americane = due corse (prima una, poi l'altra), non un'alternanza");
+  eq(L.tratte.map((t) => t.salitaM).filter((v) => v >= 8).length, 1, "un solo passaggio fra le due americane (discesa + risalita 8 m)");
+  eq(L.tratte.reduce((s, t) => s + t.salitaM, 0), 12, "salita totale = 4 (console) + 8");
+  /* a terra in mezzo: i fari a terra si percorrono tutti insieme, non fra un'americana e l'altra */
+  const g1 = add("parluci", 250, 350), g2 = add("parluci", 450, 350), g3 = add("parluci", 650, 350); [g1, g2, g3].forEach((g) => A.dmxImposta(g, { ch: 4 })); A.__elecRes = null;
+  L = A.dmxLinee().linee[0]; eq(L.righe.length, 9);
+  const gs = L.righe.map((r) => gruppo(r.it)); const distinti = new Set(gs).size;
+  eq(corse(L), distinti, "ogni gruppo (2 americane + terra) è percorso in una sola corsa: " + gs.join(" "));
+  lnReset();
+});
+t("Altezza appesi D4 · D2: senza altezze (tutto a terra) l'ordine è quello di sempre (vicino più vicino, a parità la patch)", () => {
+  lnReset(); const desk = add("consolaluci", 100, 700); const p = [add("parluci", 600, 300), add("parluci", 200, 600), add("parluci", 400, 450)]; p.forEach((f) => A.dmxImposta(f, { ch: 4 }));
+  A.dmxAccendi(true); A.dmxLineeAccendi(true);
+  eq(A.dmxLinee().linee[0].righe.map((r) => r.it.id), [p[1].id, p[2].id, p[0].id], "dalla console: 200,600 → 400,450 → 600,300"); lnReset();
+});
+t("Altezza appesi D4 · stativo: un faro su stativo con l'altezza scritta conta come un appeso (dal pavimento sale); senza altezza niente; due stativi = giù e su; DMX e corrente", () => {
+  lnReset(); const desk = add("consolaluci", 100, 700), q = add("distro32", 100, 600);
+  const s1 = add("parluci", 600, 400), s2 = add("parluci", 800, 400), s3 = add("parluci", 1000, 400), h1 = d4Appeso(3000, 100);
+  A.mountSet(s1, { mode: "stand", h: 250 }); A.mountSet(s2, { mode: "stand", h: 300 }); A.mountSet(s3, { mode: "stand" });
+  eq(A.cabSalitaM(desk, s1), 2.5, "console → faro su stativo a 2,5 m: sale di 2,5 m");
+  eq(A.cabSalitaM(s1, s2), 5.5, "due stativi (2,5 + 3 m): giù e su = 5,5 m");
+  eq(A.cabSalitaM(s1, h1), 6.5, "stativo + appeso senza struttura (2,5 + 4): 6,5 m");
+  eq(A.cabSalitaM(desk, s3), 0, "stativo senza altezza scritta: nessuna salita");
+  eq(A.cabSalitaM(q, s1), 2.5, "distro a terra → stativo: 2,5 m");
+  [s1, s2, s3, h1].forEach((f) => A.dmxImposta(f, { ch: 4 })); A.dmxAccendi(true); A.dmxLineeAccendi(true);
+  const L = A.dmxLinee().linee[0], T = L.tratte.find((t) => t.a.id === s1.id) || L.tratte[0];
+  ok(L.tratte.some((t) => Math.abs(t.salitaM - 2.5) < 1e-9 || t.salitaM >= 2.5), "una tratta della catena porta la salita dello stativo");
+  ok(Math.abs(T.lenM - (T.pathM * 1.1 + 0.6 + T.salitaM)) < 1e-9, "la lunghezza comprende la salita (il 10 % solo sulla pianta)");
+  A.state.elec.on = true; A.state.elec.mode = "auto"; A.__elecRes = null; const R = A.elecResult(true);
+  const l = R.loadLinks.find((x) => x.load.it && x.load.it.id === s1.id); if (l) eq(l.salitaM, 2.5, "corrente: dal distro a terra al faro su stativo sale di 2,5 m");
+  lnReset();
+});
+t("Altezza appesi D4 · EN in piedi: la nota dice «m = cable length in metres» (la colonna resta in metri) e non mescola le unità; in metri resta «m = cable length»", () => {
+  d4Elec({}); const R = A.elecResult(true); A.state.docLang = "en";
+  try {
+    let d = docFintoPL(); A.elecDropBloccoPdf(d, R, 16, () => 30, () => {}); let t2 = d.testi.map((x) => x.t).join(" ");
+    ok(/m = cable length:/.test(t2) && !/in metres/.test(t2), "metri: «m = cable length:» — " + t2.slice(t2.indexOf("m = cable")).slice(0, 60));
+    A.state.docUnits = "ft"; d = docFintoPL(); A.elecDropBloccoPdf(d, R, 16, () => 30, () => {}); t2 = d.testi.map((x) => x.t).join(" ");
+    ok(/m = cable length in metres: drawn path/.test(t2), "ft-in: la colonna è in metri e la nota lo dice — " + t2.slice(t2.indexOf("m = cable")).slice(0, 80));
+  } finally { delete A.state.docLang; delete A.state.docUnits; reset(); }
 });
 
 /* ═══ O1 · test più stretti sulle 3 mutazioni vive della rilettura delle correzioni #243 (28/11/2026) ═══ */
