@@ -44059,7 +44059,7 @@ t("Linee DMX · universo pieno: 33 apparecchi da 16 canali fanno due universi e 
   const D = A.dmxLinee(); eq(D.linee.map((l) => [l.nome, l.n]), [["U1", 32], ["U2", 1]]);
   eq(A.dmxPatch().universi.map((u) => [u.u, u.canali]), [[1, 512], [2, 16]], "il primo universo è esattamente pieno (512)");
   eq(lnVoci("dmx-linea").length, 0, "nessuna linea oltre 32");
-  eq(D.linee[1].tratte[0].da.id, D.linee[1].tratte[0].da.id); eq(D.linee[1].tratte[0].da.type, "consolaluci", "ogni universo parte dalla console");
+  eq(D.linee[1].tratte[0].da.type, "consolaluci", "ogni universo parte dalla console"); eq(D.linee[1].tratte[0].a.id, D.linee[1].righe[0].it.id, "e arriva al primo apparecchio della sua linea");
   lnReset();
 });
 t("Linee DMX · terminatore: lo accende il gesto, va solo sull'ultimo, «Sistema» lo mette e lo toglie dove non va", () => {
@@ -44097,7 +44097,7 @@ t("Linee DMX · splitter: i rami sono quanti servono per stare sotto 32; i rami 
   eq(lnVoci("dmx-term-ramo").length, 1); lnVoci("dmx-term-ramo")[0].azioni[0].run();
   eq(A.dmxLinee().linee.every((l) => l.term), true, "«Sistema» termina i due rami");
   sp.dmxOut = 1; v = lnVoci("dmx-linea"); eq(v.length, 1, "con una sola uscita i 40 apparecchi non ci stanno: un solo ramo da 40");
-  ok(/Ramo U1: 40 apparecchi/.test(v[0].msg) && /ha 1 uscite/.test(v[0].perche), v[0].msg + " | " + v[0].perche);
+  ok(/Ramo U1: 40 apparecchi/.test(v[0].msg) && /ha 1 uscita per 1 ingresso e/.test(v[0].perche) && !/undefined/.test(v[0].perche), v[0].msg + " | " + v[0].perche);
   lnReset();
 });
 t("Linee DMX · splitter a più ingressi: prende gli universi in ordine, uno per ingresso; gli altri vanno dritti dalla console", () => {
@@ -44219,8 +44219,114 @@ t("Linee DMX · 120 apparecchi: la costruzione resta veloce e deterministica", (
   ok(ms < 800, "120 apparecchi in " + ms + " ms");
   const sig = (D) => JSON.stringify(D.linee.map((l) => [l.nome, l.righe.map((r) => r.it.id), l.tratte.map((t) => t.lenM.toFixed(3))]));
   eq(sig(A.dmxLinee()), sig(D), "stesso progetto, stessa catena");
-  const ordine = D.linee[0].righe.map((r) => r.code); A.state.items.reverse(); A.state.items.reverse();
-  const D2 = A.dmxLinee(); eq(D2.linee[0].righe.map((r) => r.code), ordine, "e non dipende da chi ha fatto qualcosa dopo");
+  const ordine = D.linee[0].righe.map((r) => r.it.id); A.state.items.reverse();   /* davvero: l'ordine dell'elenco cambia (rilettura 243, D6) */
+  const D2 = A.dmxLinee(); eq(D2.linee[0].righe.map((r) => r.it.id), ordine, "la catena non dipende dall'ordine in cui gli elementi stanno nell'elenco");
+  lnReset();
+});
+
+/* ═══ Correzioni della rilettura Opus della #243 (28/11/2026): D2 foglio, D3 testi, D5 console in rack, D6 mutazioni vive, D7 rami ═══ */
+t("Linee DMX · D2: nel foglio «Cavi DMX» il nome dell'apparecchio non arriva mai sulla lunghezza (nomi lunghissimi, terminatore, EN, ft-in)", () => {
+  const nomeLungo = "Robe Robin MegaPointe Spot Wash Beam Extra Lungo Fantasia";
+  const prova = (etichetta) => {
+    const r = lnFoglio({ n: 6 }); r.fari.forEach((f, i) => { f.label = nomeLungo + " " + i; });
+    const doc = docFintoPL(); A.schedaDmxPdf(doc);
+    const lung = doc.testi.filter((x) => x.a === "right" && x.x > 150 && x.x < 170 && /\d/.test(x.t));
+    ok(lung.length === 6, etichetta + ": 6 lunghezze (" + lung.length + ")");
+    for (const l of lung) {
+      const nome = doc.testi.find((x) => x.p === l.p && x.y === l.y && x.x === 87);
+      ok(nome, etichetta + ": nome sulla stessa riga della lunghezza");
+      const fine = nome.x + doc.getTextWidth(nome.t), inizioLung = l.x - doc.getTextWidth(l.t);
+      ok(fine < inizioLung - 2, etichetta + ": «" + nome.t + "» finisce a " + fine.toFixed(1) + " mm, la lunghezza «" + l.t + "» comincia a " + inizioLung.toFixed(1));
+      ok(!/terminatore|terminator/.test(nome.t), etichetta + ": la nota non sta nella riga del nome");
+    }
+    const note = doc.testi.filter((x) => /^(terminatore 120 ohm|120 ohm terminator)$/.test(x.t));
+    eq(note.length, 1, etichetta + ": una sola nota del terminatore, su una riga sua");
+    ok(doc.testi.every((x) => x.a === "right" ? x.x <= 195 : (x.x <= 194 && x.x >= 15.9)), etichetta + ": dentro i margini");
+    ok(doc.testi.every((x) => x.y <= 272.01), etichetta + ": niente sotto il fondo");
+    lnReset();
+  };
+  prova("italiano");
+  A.state.docLang = "en"; try { prova("inglese"); A.state.docUnits = "ft"; prova("inglese ft-in"); } finally { delete A.state.docLang; delete A.state.docUnits; }
+});
+t("Linee DMX · D2: la nota del terminatore non sporge dal fondo pagina (ultima tratta sul bordo → pagina nuova con l'intestazione)", () => {
+  lnScena(60, { ch: 4, passo: 25 });
+  const doc = docFintoPL(); A.schedaDmxPdf(doc);
+  ok(doc.testi.every((x) => x.y <= 272.01), "max " + Math.max(...doc.testi.map((x) => x.y)));
+  const n = doc.testi.find((x) => x.t === "terminatore 120 ohm"), ult = doc.testi.filter((x) => /^\d+$/.test(x.t) && x.x < 20).pop();
+  ok(n && n.p === ult.p && n.y > ult.y, "la nota è sulla stessa pagina dell'ultima tratta");
+  lnReset();
+});
+t("Linee DMX · D3: lo splitter appena preso dal catalogo (senza dmxIn) dice «1 uscita per 1 ingresso», mai «undefined»; plurale giusto", () => {
+  const r = lnScena(33, { ch: 1, linee: false }); const sp = add("dmxsplit", 100, 400); sp.dmxOut = 1; delete sp.dmxIn; A.dmxLineeAccendi(true);
+  let v = lnVoci("dmx-linea"); eq(v.length, 1); ok(/Lo splitter «[^»]*» ha 1 uscita per 1 ingresso e ogni uscita regge 32/.test(v[0].perche) && !/undefined/.test(v[0].perche), v[0].perche);
+  lnReset(); lnScena(70, { ch: 1, linee: false }); const s2 = add("dmxsplit", 100, 400); s2.dmxOut = 2; A.dmxLineeAccendi(true);
+  v = lnVoci("dmx-linea"); ok(v.length >= 1 && /ha 2 uscite per 1 ingresso/.test(v[0].perche), (v[0] || {}).perche);
+  s2.dmxIn = 2; v = lnVoci("dmx-linea"); ok(!v.length || /ingress/.test(v[0].perche), "più ingressi: plurale");
+  lnReset();
+});
+t("Linee DMX · D5: una console che c'è ma sta in un rack non è «non c'è»; non fa da origine; una console fuori dal rack vince", () => {
+  const r = lnScena(3); r.desk.rackId = "rack-prova";
+  const D = A.dmxLinee(); eq([D.senzaConsole, D.consoleInRack, D.linee.length], [true, true, 0], "solo in rack: niente linee, ma lo sa");
+  let v = lnVoci("dmx-console"); eq(v.length, 1); ok(/dentro un rack/.test(v[0].msg) && !/e non c'è/.test(v[0].msg), v[0].msg);
+  ok(/fuori dal rack/.test(v[0].perche), v[0].perche);
+  const fuori = add("consolaluci", 100, 760);
+  const D2 = A.dmxLinee(); eq([D2.senzaConsole, D2.linee.length, D2.linee[0].tratte[0].da.id], [false, 1, fuori.id], "con una console fuori dal rack le linee partono da quella, non da quella nel rack");
+  A.state.items = A.state.items.filter((x) => x !== r.desk && x !== fuori);
+  eq([A.dmxLinee().senzaConsole, A.dmxLinee().consoleInRack], [true, false], "nessuna console: «non c'è»"); ok(/e non c'è/.test(lnVoci("dmx-console")[0].msg));
+  lnReset();
+});
+t("Linee DMX · D6a: la catena segue il DISEGNO (il più vicino), non l'ordine degli indirizzi della patch", () => {
+  const r = lnScena(5, { linee: false }); r.desk.x = 1000; A.dmxLineeAccendi(true);   /* console a DESTRA: il più vicino è l'ultimo della patch (che va da sinistra a destra) */
+  const ordPatch = A.dmxPatch().righe.map((x) => x.it.id);
+  ok(ordPatch.length === 5 && ordPatch.join() !== r.fari.slice().reverse().map((f) => f.id).join(), "premessa: la patch NON è in ordine di vicinanza alla console");
+  eq(A.dmxLinee().linee[0].righe.map((x) => x.it.id), r.fari.slice().reverse().map((f) => f.id), "la catena va dal più vicino alla console, qualunque sia l'ordine della patch");
+  eq(A.dmxLinee().linee[0].righe.map((x) => x.it.id), A.dmxLinee().linee[0].tratte.map((t) => t.a.id), "e le tratte la seguono");
+  lnReset();
+});
+t("Linee DMX · D6b: con lo splitter la lunghezza di un ramo = tronco + somma delle sue tratte, e i tronchi contano nei cavi DMX (D6g)", () => {
+  const r = lnFoglio({ n: 40, ch: 1, splitter: true }); const D = A.dmxLinee(), tr = D.tronchi[0].lenM;
+  ok(tr > 0.6, "il tronco ha una lunghezza: " + tr);
+  for (const L of D.linee) ok(Math.abs(L.lenM - (tr + L.tratte.reduce((s2, x) => s2 + x.lenM, 0))) < 1e-9, L.nome + ": " + L.lenM + " = tronco " + tr + " + tratte");
+  eq(A.caviFamiglie().find((f) => f.k === "dmx").n, 1 + 40, "cavi DMX nella legenda: 1 tronco + 40 tratte");
+  eq(A.dmxNumCavi(), 41); lnReset();
+});
+t("Linee DMX · D6c-d: `cavo` si salva solo con le linee accese; spegnendo le linee il cavo torna di serie", () => {
+  lnScena(3, { linee: false }); A.state.dmx.cavo = "xlr"; A.save();
+  const SD = (d) => d.variants[0].state; A.loadDoc(JSON.parse(A.docToJSON())); A.save(); const doc = JSON.parse(A.docToJSON());
+  eq(SD(doc).dmx, { on: true }, "cavo dichiarato ma linee spente: alla lettura non resta");
+  A.dmxLineeAccendi(true); A.state.dmx.cavo = "xlr"; A.dmxLineeAccendi(false); eq(A.state.dmx, { on: true }, "spente: via `linee` e via `cavo`");
+  A.dmxLineeAccendi(true); eq(A.dmxCavoXlr(), false, "riaccese: il cavo è quello di serie, non quello di prima");
+  lnReset();
+});
+t("Linee DMX · D6f: il segno del terminatore sta sull'ULTIMO apparecchio, non sul primo", () => {
+  const o = lnCuScena(); A.caviUnitiImposta(true);
+  const m = A.caviDmxMarkup(); const segni = [...m.matchAll(/<path class="dmx-term" d="M ([\d.-]+) ([\d.-]+) L ([\d.-]+) ([\d.-]+)"\/>/g)];
+  eq(segni.length, 1, "un segno");
+  const [x1, y1, x2, y2] = segni[0].slice(1).map(Number), cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+  const dist = (f) => Math.hypot(cx - f.x, cy - f.y);
+  ok(dist(o.p2) < 1.5 && dist(o.p1) > 20, "il segno è sull'ultimo PAR (a " + dist(o.p2).toFixed(1) + " cm), non sul primo (a " + dist(o.p1).toFixed(1) + " cm)");
+  A.caviUnitiImposta(false); lnReset();
+});
+t("Linee DMX · D7: ogni ramo dello splitter parte dal SUO apparecchio più vicino, non da dove finiva il ramo prima", () => {
+  lnReset(); add("consolaluci", 100, 700); const sp = add("dmxsplit", 100, 400); sp.dmxOut = 4;
+  const g1 = [], g2 = [];
+  for (let i = 0; i < 20; i++) for (const [y, g] of [[400, g1], [480, g2]]) { const f = add("parluci", 200 + i * 60, y); A.mountSet(f, { mode: "hung" }); A.dmxImposta(f, { ch: 1 }); g.push(f); }
+  A.dmxAccendi(true); A.dmxLineeAccendi(true);
+  const D = A.dmxLinee(); eq(D.linee.map((l) => [l.nome, l.n]), [["U1·1", 20], ["U1·2", 20]]);
+  eq(D.linee[0].righe.map((x) => x.it.id), g1.map((f) => f.id), "ramo 1 = la fila vicina, dal più vicino");
+  eq(D.linee[1].righe.map((x) => x.it.id).sort(), g2.map((f) => f.id).sort(), "ramo 2 = la fila lontana");
+  eq(D.linee[1].tratte[0].da.id, sp.id); eq(D.linee[1].tratte[0].a.id, g2[0].id, "la prima tratta del ramo 2 va al PAR più vicino allo splitter (non a quello dove la catena è arrivata: sarebbe l'ultimo)");
+  ok(D.linee[1].tratte[0].lenM < 3, "ed è corta: " + D.linee[1].tratte[0].lenM.toFixed(1) + " m");
+  eq(D.linee[1].righe.map((x) => x.it.x), g2.map((f) => f.x), "e il ramo prosegue in ordine crescente di distanza");
+  eq(D.linee[1].ultimo.it.id, g2[19].id, "l'ultimo è il più lontano: lì va il terminatore");
+  lnReset();
+});
+t("Linee DMX · D8: le frasi del terminatore a metà linea e del 33° apparecchio", () => {
+  const r = lnScena(4); A.dmxImposta(r.fari[1], { t: true });
+  const v = lnVoci("dmx-term-mezzo"); eq(v.length, 1); eq(v[0].perche, "Il terminatore va solo sull'ultimo apparecchio: in mezzo alla catena carica la linea e chi sta dopo può sfarfallare o restare senza segnale.");
+  ok(!/toglie il segnale/.test(v[0].perche));
+  lnReset(); lnScena(33, { ch: 1 }); const w = lnVoci("dmx-linea");
+  ok(/Oltre il 32° il segnale diventa instabile \(32 carichi: alcuni apparecchi ne valgono mezzo o un quarto, lo dice il manuale\)\./.test(w[0].perche), w[0].perche);
   lnReset();
 });
 
@@ -44244,7 +44350,9 @@ t("Linee DMX · foglio «Cavi DMX»: riepilogo, una sezione per linea con tratta
   const r1 = riga(1), r6 = riga(6);
   eq([r1[1], r1[2]], ["Console luci", "T1.1 · PAR blu"], "prima tratta: dalla console al primo PAR (col nome dell'utente)");
   ok(/^\d+,\d m$/.test(r1[3]) && /^\d+ m$/.test(r1[4]), "lunghezza e taglio: " + r1.join("|"));
-  ok(/terminatore 120 ohm$/.test(r6[2]), "il terminatore sta sull'ultima tratta: " + r6.join("|"));
+  ok(!/terminatore/.test(r6[2]) && r6.length === 5, "rilettura 243 (D2): il nome dell'ultima tratta resta intero, senza la nota: " + r6.join("|"));
+  { const n6 = doc.testi.find((x) => x.t === "terminatore 120 ohm"), r6y = doc.testi.find((x) => x.t === "6" && x.x < 20);
+    ok(n6 && n6.p === r6y.p && n6.y > r6y.y && n6.y - r6y.y < 6 && n6.x === 87, "il terminatore sta su una riga sua, sotto l'ultima tratta, nella colonna «A»"); }
   ok(!/[Ω≤≥→“”’]/.test(tutto), "solo caratteri del font standard del PDF");
   ok(doc.testi.every((r) => r.x >= 15.9 && r.y <= 272.01 && r.y >= 15), "nessun testo oltre i margini (15 mm) né sotto il fondo (272)");
   ok(doc.testi.filter((r) => r.a !== "right").every((r) => r.x <= 194), "niente parte oltre il margine destro");

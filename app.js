@@ -8253,6 +8253,8 @@ function dmxCavoXlr(){ return dmxLineeAttive() && state.dmx.cavo==="xlr"; }
 function dmxOrdXY(a, b){ return ((a.x||0)-(b.x||0)) || ((a.y||0)-(b.y||0)) || (String(a.id)<String(b.id) ? -1 : (String(a.id)>String(b.id) ? 1 : 0)); }
 /* la console da cui partono le linee: la prima console luci fuori da un rack (la stessa di caviDmxTratto) */
 function dmxConsole(){ var L=(state.items||[]).filter(function(x){ return LIGHT_DESKS[x.type] && !x.rackId; }); return L.length ? L[0] : null; }
+/* console luci che ci sono ma stanno solo dentro un rack: le linee non partono da lì (le voci lo dicono, non dicono «non c'è») */
+function dmxConsoleInRack(){ return (state.items||[]).some(function(x){ return LIGHT_DESKS[x.type] && x.rackId; }); }
 function dmxSplitterList(){ return (state.items||[]).filter(function(x){ return x.type==="dmxsplit"; }).sort(dmxOrdXY); }
 /* catena a vicino più vicino da `da` (distanza Manhattan, come i cavi): a parità vince chi viene prima nella patch */
 function dmxOrdina(da, righe){
@@ -8281,7 +8283,7 @@ function dmxLinee(){
   P.righe.forEach(function(r){ if(r.u==null || r.ch==null) return; if(!per[r.u]){ per[r.u]=[]; us.push(r.u); } per[r.u].push(r); });
   if(!us.length) return out;
   us.sort(function(a, b){ return a-b; });
-  var desk=dmxConsole(); if(!desk){ out.senzaConsole=true; return out; }
+  var desk=dmxConsole(); if(!desk){ out.senzaConsole=true; out.consoleInRack=dmxConsoleInRack(); return out; }
   var OBS=obstacleRects(), idx=0, mappa={};
   dmxSplitterList().forEach(function(sp){   /* gli ingressi dello splitter prendono gli universi in ordine */
     var nIn=Math.max(1, Math.min(4, Math.round(sp.dmxIn||1))), nOut=Math.max(1, Math.min(16, Math.round(sp.dmxOut||8)));
@@ -8298,6 +8300,7 @@ function dmxLinee(){
     var b=m ? Math.min(m.k, Math.max(1, Math.ceil(righe.length/DMX_LINEA_MAX))) : 1, dim=Math.ceil(catena.length/b);
     for(var i=0;i<b;i++){
       var seg=catena.slice(i*dim, (i+1)*dim); if(!seg.length) continue;
+      if(b>1) seg=dmxOrdina(origine, seg);   /* ogni ramo parte dal SUO apparecchio più vicino allo splitter, non da dove finiva il ramo prima */
       var ramo=b>1 ? i+1 : null, L={key:"u"+u+(ramo ? "b"+ramo : ""), nome:"U"+u+(ramo ? "·"+ramo : ""), u:u, ramo:ramo, sp:m ? m.sp : null, tronco:tronco, righe:seg, tratte:[], n:seg.length};
       var prev=origine; seg.forEach(function(r){ L.tratte.push(dmxTratta(prev, r.it, OBS)); prev=r.it; });
       L.lenM=(tronco ? tronco.lenM : 0)+L.tratte.reduce(function(s, t){ return s+t.lenM; }, 0);
@@ -8340,13 +8343,14 @@ function cosaMancaDmxLinee(){
   function ultimi(L){ return L.map(function(x){ return x.ultimo.it; }); }
   function chi(L){ return (L.sp ? "ramo " : "linea ")+L.nome; }
   if(D.senzaConsole)
-    voce("linee:console", "dmx-console", "giallo", "Le linee DMX partono dalla console luci, e non c'è.",
-      "Aggiungila dal catalogo (Console luci): da lì si disegna il cavo di ogni universo fino all'ultimo apparecchio.", []);
+    voce("linee:console", "dmx-console", "giallo", D.consoleInRack ? "La console luci è dentro un rack: le linee DMX partono da una console fuori dal rack." : "Le linee DMX partono dalla console luci, e non c'è.",
+      D.consoleInRack ? "Mettine una fuori dal rack (o tira fuori questa): da lì si disegna il cavo di ogni universo fino all'ultimo apparecchio."
+                      : "Aggiungila dal catalogo (Console luci): da lì si disegna il cavo di ogni universo fino all'ultimo apparecchio.", []);
   var troppe=D.linee.filter(function(L){ return L.n>DMX_LINEA_MAX; });
   troppe.slice(0, DMX_MANCA_MAX).forEach(function(L){
     voce("oltre:"+L.key, "dmx-linea", "giallo", chi(L).charAt(0).toUpperCase()+chi(L).slice(1)+": "+L.n+" apparecchi. Una linea DMX ne regge "+DMX_LINEA_MAX+".",
-      L.sp ? "Lo splitter «"+dmxNome(L.sp)+"» ha "+(D.splitter.filter(function(s){ return s.it===L.sp; })[0] || {uscite:0}).uscite+" uscite per "+L.sp.dmxIn+" ingress"+(L.sp.dmxIn>1 ? "i" : "o")+" e ogni uscita regge "+DMX_LINEA_MAX+" apparecchi. Aggiungi uno splitter o sposta degli apparecchi su un altro universo."
-           : "Oltre il "+DMX_LINEA_MAX+"° il segnale diventa instabile. Aggiungi uno splitter (ogni sua uscita è una linea nuova) oppure sposta degli apparecchi su un altro universo.",
+      L.sp ? (function(nU, nI){ return "Lo splitter «"+dmxNome(L.sp)+"» ha "+nU+(nU===1 ? " uscita" : " uscite")+" per "+nI+(nI===1 ? " ingresso" : " ingressi")+" e ogni uscita regge "+DMX_LINEA_MAX+" apparecchi. Aggiungi uno splitter o sposta degli apparecchi su un altro universo."; })((D.splitter.filter(function(s){ return s.it===L.sp; })[0] || {uscite:0}).uscite, L.sp.dmxIn||1)
+           : "Oltre il "+DMX_LINEA_MAX+"° il segnale diventa instabile (32 carichi: alcuni apparecchi ne valgono mezzo o un quarto, lo dice il manuale). Aggiungi uno splitter (ogni sua uscita è una linea nuova) oppure sposta degli apparecchi su un altro universo.",
       [mostra(L.righe.map(function(r){ return r.it; }))]); });
   if(troppe.length>DMX_MANCA_MAX)
     voce("oltre:altre", "dmx-linea", "giallo", "Altre "+(troppe.length-DMX_MANCA_MAX)+" linee DMX hanno più di "+DMX_LINEA_MAX+" apparecchi.", "Le trovi nel foglio «Cavi DMX». Serve uno splitter o un altro universo.",
@@ -8364,7 +8368,7 @@ function cosaMancaDmxLinee(){
       [sistema(termTutti, "Terminatori messi sull'ultimo apparecchio di ogni ramo."), mostra(ultimi(senzaR))]);
   if(mezzo.length)
     voce("term:mezzo", "dmx-term-mezzo", "giallo", mezzo.length===1 ? "Terminatore a metà della linea "+mezzo[0].nome+" ("+mezzo[0].termMezzo.map(function(r){ return r.code; }).join(", ")+")." : "Terminatori a metà linea su "+mezzo.length+" linee DMX ("+nomi(mezzo)+").",
-      "Il terminatore va solo sull'ultimo apparecchio: a metà linea toglie il segnale a chi sta dopo.",
+      "Il terminatore va solo sull'ultimo apparecchio: in mezzo alla catena carica la linea e chi sta dopo può sfarfallare o restare senza segnale.",
       [sistema(termTutti, "Terminatori a metà linea tolti."), mostra(mezzo.reduce(function(a, L){ return a.concat(L.termMezzo.map(function(r){ return r.it; })); }, []))]);
   var lunghe=D.linee.filter(function(L){ return L.lenM>DMX_LINEA_GIALLO_M; });
   lunghe.slice(0, DMX_MANCA_MAX).forEach(function(L){ var rosso=L.lenM>DMX_LINEA_ROSSO_M, m=Math.round(L.lenM);
@@ -8485,13 +8489,17 @@ function schedaDmxPdf(doc){
   var cN=M, cDa=M+8, cA=M+71, cL=M+147, cT=R;
   var codice={}, desk=dmxConsole();
   D.linee.forEach(function(Lx){ Lx.righe.forEach(function(r){ codice[r.it.id]=r.code; }); });
-  function nm(it, w){ var t=(codice[it.id] ? codice[it.id]+" · " : "")+docTesto(dmxNome(it)); return doc.splitTextToSize(t, w)[0]; }
+  function nm(it, w){ var t=(codice[it.id] ? codice[it.id]+" · " : "")+docTesto(dmxNome(it)), r=doc.splitTextToSize(t, w)[0]; while(r.length>1 && doc.getTextWidth(r)>w) r=r.slice(0, -1); return r; }   /* una parola sola più larga della colonna si taglia, non esce */
   function lung(m){ return docLen(m*100, docNum(m, 1)+" m"); }
   var oltre=cabOltreTxt(); if(en) oltre=oltre.replace("oltre","over");
   function taglio(t){ var c=cabCutTxt(t); return c || oltre; }
   var tutte=D.tronchi.slice(); D.linee.forEach(function(Lx){ tutte=tutte.concat(Lx.tratte); });
   var nApp=D.linee.reduce(function(a, Lx){ return a+Lx.n; }, 0), totM=tutte.reduce(function(a, t){ return a+t.lenM; }, 0);
   var nTerm=D.linee.filter(function(Lx){ return !Lx.termInterna; }).length;
+  /* larghezza della colonna «A»: dalla sua partenza fino a 3 mm prima della lunghezza più lunga (misurata, non stimata): il nome non finisce mai sopra «LUNGHEZZA» */
+  doc.setFont("helvetica","normal"); doc.setFontSize(9.5);
+  var maxLW=0; tutte.forEach(function(t){ maxLW=Math.max(maxLW, doc.getTextWidth(lung(t.lenM))); });
+  var wA=Math.max(30, cL-maxLW-3-cA);
   doc.addPage("a4","portrait");
   pdfTestata(doc, COL, "STAGE PLOT — "+L("Cavi DMX","DMX cables"), docTesto(dataDocumento()), M, 210);
   y=PDF_Y0;
@@ -8509,11 +8517,13 @@ function schedaDmxPdf(doc){
     doc.text("N.", cN, y); doc.text(L("DA","FROM")+(segue ? " ("+L("segue","cont.")+")" : ""), cDa, y); doc.text(L("A","TO"), cA, y); doc.text(L("LUNGHEZZA","LENGTH"), cL, y, {align:"right"}); doc.text(L("TAGLIO","CUT"), cT, y, {align:"right"});
     doc.setDrawColor(COL); doc.setLineWidth(0.4); doc.line(M, y+1.6, R, y+1.6); y+=6; };
   function tratta(n, t, nota, segui){
-    if(y>FONDO){ nuova(); COLONNE(true); }
+    if(y+(nota ? 4.6 : 0)>FONDO){ nuova(); COLONNE(true); }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#111827");
     doc.text(String(n), cN, y); doc.text(t.da===desk ? doc.splitTextToSize(docTesto(dmxNome(t.da)), 60)[0] : nm(t.da, 60), cDa, y);
-    doc.text(nm(t.a, nota ? 50 : 72)+(nota ? " · "+nota : ""), cA, y);
-    doc.text(lung(t.lenM), cL, y, {align:"right"}); doc.setFont("helvetica","bold"); doc.text(taglio(t), cT, y, {align:"right"}); y+=5.2; }
+    doc.text(nm(t.a, wA), cA, y);
+    doc.text(lung(t.lenM), cL, y, {align:"right"}); doc.setFont("helvetica","bold"); doc.text(taglio(t), cT, y, {align:"right"}); y+=5.2;
+    if(nota){   /* il terminatore sta su una riga sua, sotto il nome: il nome non si accorcia e niente si sovrappone */
+      doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor("#db2777"); doc.text(nota, cA, y-0.6); y+=4.6; } }
   if(D.tronchi.length){
     if(y+14>FONDO) nuova();
     doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor("#9d174d"); doc.text(L("Dalla console agli splitter","From the console to the splitters"), M, y); y+=5.5;
